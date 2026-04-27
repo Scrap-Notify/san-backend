@@ -1,0 +1,18 @@
+services:
+  backend:
+    build: .
+    container_name: san-backend
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - AI_SERVER_URL=http://host.docker.internal:8001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped

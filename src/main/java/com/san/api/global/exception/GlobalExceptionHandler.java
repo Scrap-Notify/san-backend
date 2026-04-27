@@ -1,5 +1,6 @@
 package com.san.api.global.exception;
 
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -41,11 +42,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
         FieldError fieldError = e.getBindingResult().getFieldErrors().stream().findFirst().orElse(null);
         String message = fieldError == null
-                ? ErrorCode.INVALID_INPUT.getMessage()
+                ? CommonErrorCode.INVALID_INPUT_VALUE.getMessage()
                 : fieldError.getField() + ": " + fieldError.getDefaultMessage();
 
-        return ResponseEntity.status(ErrorCode.INVALID_INPUT.getStatus())
-                .body(ApiResponse.error(ErrorCode.INVALID_INPUT, message));
+        return ResponseEntity.status(CommonErrorCode.INVALID_INPUT_VALUE.getStatus())
+                .body(ApiResponse.error(CommonErrorCode.INVALID_INPUT_VALUE, message));
     }
 
     /**
@@ -58,7 +59,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
         log.error("Unhandled exception", e);
-        return ResponseEntity.status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
-                .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
+        return ResponseEntity.status(CommonErrorCode.INTERNAL_SERVER_ERROR.getStatus())
+                .body(ApiResponse.error(CommonErrorCode.INTERNAL_SERVER_ERROR,
+                        CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
     }
 }

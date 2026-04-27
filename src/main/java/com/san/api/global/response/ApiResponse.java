@@ -50,6 +50,6 @@ public record ApiResponse<T>(
      * @return ok=false, error/message 포함 응답
      */
     public static <T> ApiResponse<T> error(ErrorCode errorCode, String message) {
-        return new ApiResponse<>(false, null, errorCode.name(), message, Instant.now());
+        return new ApiResponse<>(false, null, errorCode.getCode(), message, Instant.now());
     }
 }

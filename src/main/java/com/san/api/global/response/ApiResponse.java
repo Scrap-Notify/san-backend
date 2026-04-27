@@ -1,7 +1,7 @@
 package com.san.api.global.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.san.api.global.exception.ErrorCode;
+import com.san.api.global.exception.errorcode.ErrorCode;
 
 import java.time.Instant;
 

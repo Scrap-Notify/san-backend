@@ -1,5 +1,6 @@
 package com.san.api.global.exception;
 
+import com.san.api.global.exception.errorcode.ErrorCode;
 import lombok.Getter;
 
 /**

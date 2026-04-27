@@ -1,6 +1,5 @@
 package com.san.api.global.exception.errorcode;
 
-import com.san.api.global.exception.ErrorCode;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;

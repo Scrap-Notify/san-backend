@@ -1,4 +1,4 @@
-package com.san.api.global.exception;
+package com.san.api.global.exception.errorcode;
 
 import org.springframework.http.HttpStatus;
 

@@ -1,6 +1,7 @@
 package com.san.api.global.exception;
 
 import com.san.api.global.exception.errorcode.CommonErrorCode;
+import com.san.api.global.exception.errorcode.ErrorCode;
 import com.san.api.global.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

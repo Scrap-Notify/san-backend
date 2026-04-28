@@ -14,7 +14,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.List;
 
-/** JWT 토큰 생성, 파싱, 검증. */
+/** JWT 토큰 생성, 파싱, 검증. subject는 userId(UUID 문자열). */
 @Component
 public class JwtProvider {
 
@@ -31,21 +31,28 @@ public class JwtProvider {
         this.refreshExpiration = refreshExpiration;
     }
 
-    public String generateAccessToken(Long userId) {
+    public String generateAccessToken(String userId) {
         return buildToken(userId, accessExpiration);
     }
 
-    public String generateRefreshToken(Long userId) {
+    public String generateRefreshToken(String userId) {
         return buildToken(userId, refreshExpiration);
     }
 
+    /** 토큰에서 Authentication 객체 추출. principal은 userId(String). */
     public Authentication getAuthentication(String token) {
-        Long userId = getUserId(token);
+        String userId = getUserId(token);
         return new UsernamePasswordAuthenticationToken(userId, null, List.of());
     }
 
-    public Long getUserId(String token) {
-        return Long.parseLong(getClaims(token).getSubject());
+    public String getUserId(String token) {
+        return getClaims(token).getSubject();
+    }
+
+    /** 토큰 남은 유효시간(ms). 블랙리스트 TTL 계산에 사용. */
+    public long getRemainingExpiration(String token) {
+        Date expiration = getClaims(token).getExpiration();
+        return Math.max(0, expiration.getTime() - System.currentTimeMillis());
     }
 
     public boolean validateToken(String token) {
@@ -57,10 +64,10 @@ public class JwtProvider {
         }
     }
 
-    private String buildToken(Long userId, long expiration) {
+    private String buildToken(String userId, long expiration) {
         Date now = new Date();
         return Jwts.builder()
-                .subject(String.valueOf(userId))
+                .subject(userId)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiration))
                 .signWith(secretKey)

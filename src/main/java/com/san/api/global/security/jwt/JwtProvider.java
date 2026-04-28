@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 /** JWT 토큰 생성, 파싱, 검증. subject는 userId(UUID 문자열). */
 @Component
@@ -68,6 +69,7 @@ public class JwtProvider {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId)
+                .id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiration))
                 .signWith(secretKey)

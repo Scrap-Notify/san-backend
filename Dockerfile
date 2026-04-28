@@ -6,7 +6,7 @@ WORKDIR /app
 # gradle 파일들을 /app으로 복사, 권한 설정
 COPY gradlew settings.gradle build.gradle ./
 COPY gradle ./gradle
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
+RUN sed -i 's/\r//' gradlew && chmod +x gradlew && ./gradlew dependencies --no-daemon
 
 # 소스 파일 복사 및 빌드
 COPY src ./src

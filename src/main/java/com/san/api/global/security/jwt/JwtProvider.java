@@ -19,6 +19,10 @@ import java.util.UUID;
 @Component
 public class JwtProvider {
 
+    private static final String TOKEN_TYPE_CLAIM = "typ";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     private final SecretKey secretKey;
     private final long accessExpiration;
     private final long refreshExpiration;
@@ -33,11 +37,11 @@ public class JwtProvider {
     }
 
     public String generateAccessToken(String userId) {
-        return buildToken(userId, accessExpiration);
+        return buildToken(userId, accessExpiration, ACCESS_TOKEN_TYPE);
     }
 
     public String generateRefreshToken(String userId) {
-        return buildToken(userId, refreshExpiration);
+        return buildToken(userId, refreshExpiration, REFRESH_TOKEN_TYPE);
     }
 
     /** 토큰에서 Authentication 객체 추출. principal은 userId(String). */
@@ -56,6 +60,14 @@ public class JwtProvider {
         return Math.max(0, expiration.getTime() - System.currentTimeMillis());
     }
 
+    public boolean isAccessToken(String token) {
+        return ACCESS_TOKEN_TYPE.equals(getTokenType(token));
+    }
+
+    public boolean isRefreshToken(String token) {
+        return REFRESH_TOKEN_TYPE.equals(getTokenType(token));
+    }
+
     public boolean validateToken(String token) {
         try {
             getClaims(token);
@@ -65,11 +77,16 @@ public class JwtProvider {
         }
     }
 
-    private String buildToken(String userId, long expiration) {
+    private String getTokenType(String token) {
+        return getClaims(token).get(TOKEN_TYPE_CLAIM, String.class);
+    }
+
+    private String buildToken(String userId, long expiration, String tokenType) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId)
                 .id(UUID.randomUUID().toString())
+                .claim(TOKEN_TYPE_CLAIM, tokenType)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiration))
                 .signWith(secretKey)

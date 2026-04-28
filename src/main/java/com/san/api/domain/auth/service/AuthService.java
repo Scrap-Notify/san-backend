@@ -119,7 +119,7 @@ public class AuthService {
     public TokenResponse reissue(ReissueRequest request) {
         String refreshToken = request.refreshToken();
 
-        if (!jwtProvider.validateToken(refreshToken)) {
+        if (!jwtProvider.validateToken(refreshToken) || !jwtProvider.isRefreshToken(refreshToken)) {
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
@@ -146,7 +146,7 @@ public class AuthService {
     // ──────────────────────────── 로그아웃 ────────────────────────────────────
 
     public void logout(String accessToken) {
-        if (!jwtProvider.validateToken(accessToken)) {
+        if (!jwtProvider.validateToken(accessToken) || !jwtProvider.isAccessToken(accessToken)) {
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 

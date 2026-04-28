@@ -29,7 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
 
-        if (token != null && jwtProvider.validateToken(token)) {
+        if (token != null && jwtProvider.validateToken(token) && jwtProvider.isAccessToken(token)) {
             // 블랙리스트(로그아웃) 체크
             String isBlacklisted = redisTemplate.opsForValue().get("blacklist:" + token);
             if (isBlacklisted == null) {

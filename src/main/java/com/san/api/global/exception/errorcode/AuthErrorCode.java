@@ -22,6 +22,8 @@ public enum AuthErrorCode implements ErrorCode {
     TOKEN_BLACKLISTED(HttpStatus.UNAUTHORIZED, "A006", "이미 로그아웃된 토큰입니다."),
     INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "A007", "유효하지 않은 액세스 토큰입니다."),
     GITHUB_OAUTH_FAILED(HttpStatus.UNAUTHORIZED, "A008", "GitHub OAuth 인증에 실패했습니다."),
+    GITHUB_ACCOUNT_NOT_LINKED(HttpStatus.BAD_REQUEST, "A009", "GitHub 계정이 연결되어 있지 않습니다."),
+    GITHUB_REPOSITORY_NOT_FOUND(HttpStatus.NOT_FOUND, "A010", "GitHub 저장소를 찾을 수 없습니다."),
     ;
 
     private final HttpStatus status;

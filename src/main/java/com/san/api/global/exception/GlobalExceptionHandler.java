@@ -4,6 +4,7 @@ import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.ErrorCode;
 import com.san.api.global.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -48,6 +49,19 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(CommonErrorCode.INVALID_INPUT_VALUE.getStatus())
                 .body(ApiResponse.error(CommonErrorCode.INVALID_INPUT_VALUE, message));
+    }
+
+    /**
+     * JSON 형식 오류, 누락된 요청 본문 등 읽을 수 없는 요청 처리.
+     *
+     * @param e 발생한 예외
+     * @return 400 응답
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMessageNotReadableException(HttpMessageNotReadableException e) {
+        return ResponseEntity.status(CommonErrorCode.INVALID_INPUT_VALUE.getStatus())
+                .body(ApiResponse.error(CommonErrorCode.INVALID_INPUT_VALUE,
+                        CommonErrorCode.INVALID_INPUT_VALUE.getMessage()));
     }
 
     /**

@@ -4,8 +4,10 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.github.dto.GithubAccessTokenResponse;
+import com.san.api.global.external.github.dto.GithubRepository;
 import com.san.api.global.external.github.dto.GithubUserProfile;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -14,6 +16,8 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.util.List;
 
 /**
  * GitHub OAuth와 사용자 API 통신을 담당하는 클라이언트입니다.
@@ -98,6 +102,24 @@ public class GithubApiClient {
                 throw new BusinessException(AuthErrorCode.GITHUB_OAUTH_FAILED);
             }
             return profile;
+        } catch (RestClientException e) {
+            throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
+        }
+    }
+
+    /**
+     * GitHub access token으로 사용자가 접근 가능한 저장소 목록을 조회합니다.
+     */
+    public List<GithubRepository> findRepositories(String accessToken) {
+        try {
+            List<GithubRepository> repositories = restClient.get()
+                    .uri("https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator&sort=updated&per_page=100")
+                    .headers(headers -> setGithubHeaders(headers, accessToken))
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {
+                    });
+
+            return repositories == null ? List.of() : repositories;
         } catch (RestClientException e) {
             throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
         }

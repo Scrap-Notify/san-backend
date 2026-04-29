@@ -1,17 +1,24 @@
 package com.san.api.domain.auth.controller;
 
 import com.san.api.domain.auth.dto.request.GithubLoginRequest;
+import com.san.api.domain.auth.dto.request.GithubRepositoryConnectRequest;
 import com.san.api.domain.auth.dto.request.GithubTokenExchangeRequest;
+import com.san.api.domain.auth.dto.response.GithubRepositoryResponse;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.service.GithubAuthService;
+import com.san.api.domain.auth.service.GithubRepositoryService;
 import com.san.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
+
+import java.util.List;
+import java.util.UUID;
 
 @Tag(name = "GitHub Auth", description = "GitHub OAuth API")
 @RestController
@@ -20,6 +27,7 @@ import org.springframework.web.servlet.view.RedirectView;
 public class GithubAuthController {
 
     private final GithubAuthService githubAuthService;
+    private final GithubRepositoryService githubRepositoryService;
 
     /**
      * GitHub OAuth authorize 페이지로 리다이렉트합니다.
@@ -69,5 +77,54 @@ public class GithubAuthController {
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<TokenResponse> login(@Valid @RequestBody GithubLoginRequest request) {
         return ApiResponse.success(githubAuthService.login(request));
+    }
+
+    /**
+     * 로그인 사용자가 접근 가능한 GitHub 저장소 목록을 조회합니다.
+     */
+    @Operation(summary = "GitHub 레포 목록 조회")
+    @GetMapping("/repositories")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<List<GithubRepositoryResponse>> repositories(Authentication authentication) {
+        return ApiResponse.success(githubRepositoryService.findRepositories(currentUserId(authentication)));
+    }
+
+    /**
+     * 사용자가 선택한 GitHub 저장소를 서비스 계정에 연결합니다.
+     */
+    @Operation(summary = "GitHub 레포 연결")
+    @PostMapping("/repositories/connect")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<GithubRepositoryResponse> connectRepository(
+            Authentication authentication,
+            @Valid @RequestBody GithubRepositoryConnectRequest request) {
+        return ApiResponse.success(githubRepositoryService.connectRepository(currentUserId(authentication), request));
+    }
+
+    /**
+     * 서비스에 연결된 GitHub 저장소 목록을 조회합니다.
+     */
+    @Operation(summary = "연결된 GitHub 레포 조회")
+    @GetMapping("/repositories/connected")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<List<GithubRepositoryResponse>> connectedRepositories(Authentication authentication) {
+        return ApiResponse.success(githubRepositoryService.findConnectedRepositories(currentUserId(authentication)));
+    }
+
+    /**
+     * 서비스에 연결된 GitHub 저장소를 해제합니다.
+     */
+    @Operation(summary = "GitHub 레포 연결 해제")
+    @DeleteMapping("/repositories/{repositoryId}")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Void> disconnectRepository(
+            Authentication authentication,
+            @PathVariable Long repositoryId) {
+        githubRepositoryService.disconnectRepository(currentUserId(authentication), repositoryId);
+        return ApiResponse.success();
+    }
+
+    private UUID currentUserId(Authentication authentication) {
+        return UUID.fromString((String) authentication.getPrincipal());
     }
 }

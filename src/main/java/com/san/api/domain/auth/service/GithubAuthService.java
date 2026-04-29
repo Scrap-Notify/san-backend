@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.request.GithubLoginRequest;
 import com.san.api.domain.auth.dto.request.GithubTokenExchangeRequest;
 import com.san.api.domain.auth.dto.response.TokenResponse;
+import com.san.api.domain.github.entity.GithubAccount;
+import com.san.api.domain.github.repository.GithubAccountRepository;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
@@ -14,6 +16,7 @@ import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
 import com.san.api.global.external.github.dto.GithubAccessTokenResponse;
 import com.san.api.global.external.github.dto.GithubUserProfile;
+import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,9 +38,11 @@ public class GithubAuthService {
 
     private final GithubApiClient githubApiClient;
     private final UserRepository userRepository;
+    private final GithubAccountRepository githubAccountRepository;
     private final AuthService authService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final AesGcmStringEncryptor encryptor;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${oauth.github.success-redirect-uri}")
@@ -117,6 +122,7 @@ public class GithubAuthService {
         User user = userRepository.findByProviderAndProviderId(AuthProvider.GITHUB, githubUserId)
                 .orElseGet(() -> createGithubUser(githubUserId));
 
+        saveGithubAccount(user, profile, tokenResponse.accessToken());
         validateLoginAvailable(user);
         return authService.issueTokenPair(user.getUserId().toString());
     }
@@ -129,6 +135,19 @@ public class GithubAuthService {
                 .build();
 
         return userRepository.save(user);
+    }
+
+    private void saveGithubAccount(User user, GithubUserProfile profile, String accessToken) {
+        String encryptedToken = encryptor.encrypt(accessToken);
+        String githubUserId = profile.id().toString();
+
+        githubAccountRepository.findByGithubUserId(githubUserId)
+                .ifPresentOrElse(
+                        account -> account.updateToken(profile.login(), encryptedToken),
+                        () -> githubAccountRepository.save(
+                                new GithubAccount(user, githubUserId, profile.login(), encryptedToken)
+                        )
+                );
     }
 
     private void validateState(String state) {

@@ -63,10 +63,21 @@ jobs:
             # .env 복사
             cp /var/www/san/.env.be .env
 
-            # Docker 배포 (빌드는 도커 내부에서 수행됨)
+            # Docker 배포
             docker compose down || true
             docker compose up -d --build
 
-            # 헬스체크
-            sleep 30
-            docker compose exec -T backend curl -f http://localhost:8080/actuator/health || exit 1
+            # 헬스체크 (최대 60초 대기)
+            echo "Waiting for backend to start..."
+            for i in {1..12}; do
+              if docker compose exec -T backend curl -f http://localhost:8080/actuator/health; then
+                echo "Backend is UP!"
+                exit 0
+              fi
+              echo "Waiting... ($i/12)"
+              sleep 5
+            done
+            
+            echo "Health check failed:"
+            docker compose logs backend
+            exit 1

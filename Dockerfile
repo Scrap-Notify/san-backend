@@ -22,7 +22,7 @@ RUN apk add --no-cache curl
 WORKDIR /app
 
 # 생성된 파일을 /app에 복사
-COPY --from=build /app/build/libs/*.jar app.jar
+COPY --from=build /app/build/libs/app.jar app.jar
 
 # 포트 노출 및 실행
 EXPOSE 8080

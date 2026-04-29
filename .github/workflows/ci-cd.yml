@@ -60,7 +60,7 @@ jobs:
             git pull origin main
 
             # .env 복사
-            cp /var/net/san/.env .env
+            cp /var/www/san/.env.be .env
 
             # Gradle 빌드 후 Docker 배포
             ./gradlew build -x test

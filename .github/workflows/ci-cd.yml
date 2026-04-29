@@ -57,16 +57,16 @@ jobs:
               git clone "$REPO_URL" "$DEPLOY_DIR"
             fi
             cd "$DEPLOY_DIR"
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
             # .env 복사
             cp /var/www/san/.env.be .env
 
-            # Gradle 빌드 후 Docker 배포
-            ./gradlew build -x test
+            # Docker 배포 (빌드는 도커 내부에서 수행됨)
             docker compose down || true
             docker compose up -d --build
 
             # 헬스체크
             sleep 30
-            docker compose exec backend curl -f http://localhost:8080/health || exit 1
+            docker compose exec -T backend curl -f http://localhost:8080/actuator/health || exit 1

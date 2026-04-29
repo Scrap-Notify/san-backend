@@ -21,6 +21,7 @@ public enum AuthErrorCode implements ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A005", "유효하지 않은 리프레시 토큰입니다."),
     TOKEN_BLACKLISTED(HttpStatus.UNAUTHORIZED, "A006", "이미 로그아웃된 토큰입니다."),
     INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "A007", "유효하지 않은 액세스 토큰입니다."),
+    GITHUB_OAUTH_FAILED(HttpStatus.UNAUTHORIZED, "A008", "GitHub OAuth 인증에 실패했습니다."),
     ;
 
     private final HttpStatus status;

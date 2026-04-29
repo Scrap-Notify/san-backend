@@ -14,6 +14,12 @@ public final class AuthRedisKeyPrefix {
     /** 사용자별 로그인 실패 횟수 저장 key prefix. */
     public static final String LOGIN_FAIL = "fail:";
 
+    /** GitHub OAuth state CSRF token key prefix. */
+    public static final String GITHUB_OAUTH_STATE = "github:oauth:state:";
+
+    /** One-time login ticket key prefix for OAuth redirect completion. */
+    public static final String GITHUB_LOGIN_TICKET = "github:login:ticket:";
+
     private AuthRedisKeyPrefix() {
     }
 }

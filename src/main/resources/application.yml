@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: san-api
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/san
+    username: san
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiration: 1800000    # 30분
+  refresh-expiration: 604800000 # 7일
+
+auth:
+  login:
+    max-fail-count: ${AUTH_LOGIN_MAX_FAIL_COUNT:5}
+    fail-window-seconds: ${AUTH_LOGIN_FAIL_WINDOW_SECONDS:300}
+    lock-duration-seconds: ${AUTH_LOGIN_LOCK_DURATION_SECONDS:900}

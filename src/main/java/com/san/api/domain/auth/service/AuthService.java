@@ -42,12 +42,7 @@ public class AuthService {
     private final PasswordEncoder    passwordEncoder;
     private final JwtProvider        jwtProvider;
     private final StringRedisTemplate redisTemplate;
-
-    @Value("${jwt.access-expiration}")
-    private long accessExpiration;
-
-    @Value("${jwt.refresh-expiration}")
-    private long refreshExpiration;
+    private final TokenIssueService tokenIssueService;
 
     @Value("${auth.login.max-fail-count}")
     private int maxFailCount;
@@ -108,7 +103,7 @@ public class AuthService {
 
         resetFailCount(user.getUsername());
 
-        return issueTokenPair(user.getUserId().toString());
+        return tokenIssueService.issueTokenPair(user.getUserId().toString());
     }
 
     // ──────────────────────────── Access Token 재발급 (Rotation) ──────────────
@@ -134,7 +129,7 @@ public class AuthService {
 
         // 기존 토큰 삭제 후 새 토큰 발급 (Rotation)
         redisTemplate.delete(redisKey);
-        TokenResponse tokens = issueTokenPair(userId);
+        TokenResponse tokens = tokenIssueService.issueTokenPair(userId);
 
         log.info("[Auth] 토큰 재발급 - userId={}", userId);
         return tokens;
@@ -185,19 +180,6 @@ public class AuthService {
     }
 
     // ──────────────────────────── 내부 헬퍼 ───────────────────────────────────
-
-    private TokenResponse issueTokenPair(String userId) {
-        String accessToken  = jwtProvider.generateAccessToken(userId);
-        String refreshToken = jwtProvider.generateRefreshToken(userId);
-
-        redisTemplate.opsForValue().set(
-                AuthRedisKeyPrefix.REFRESH + userId,
-                refreshToken,
-                Duration.ofMillis(refreshExpiration)
-        );
-
-        return TokenResponse.of(accessToken, refreshToken, accessExpiration / 1000);
-    }
 
     private void handleLoginFailure(User user) {
         String failKey = AuthRedisKeyPrefix.LOGIN_FAIL + user.getUsername();

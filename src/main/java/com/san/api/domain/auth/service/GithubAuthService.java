@@ -39,7 +39,7 @@ public class GithubAuthService {
     private final GithubApiClient githubApiClient;
     private final UserRepository userRepository;
     private final GithubAccountRepository githubAccountRepository;
-    private final AuthService authService;
+    private final TokenIssueService tokenIssueService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final AesGcmStringEncryptor encryptor;
@@ -124,7 +124,7 @@ public class GithubAuthService {
 
         saveGithubAccount(user, profile, tokenResponse.accessToken());
         validateLoginAvailable(user);
-        return authService.issueTokenPair(user.getUserId().toString());
+        return tokenIssueService.issueTokenPair(user.getUserId().toString());
     }
 
     private User createGithubUser(String githubUserId) {

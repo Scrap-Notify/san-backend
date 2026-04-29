@@ -12,6 +12,7 @@ import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.security.jwt.JwtProvider;
+import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -56,10 +57,6 @@ public class AuthService {
 
     @Value("${auth.login.lock-duration-seconds}")
     private long lockDurationSeconds;
-
-    static final String REFRESH_KEY_PREFIX   = "refresh:";
-    static final String BLACKLIST_KEY_PREFIX = "blacklist:";
-    private static final String FAIL_KEY_PREFIX = "fail:";
 
     // ──────────────────────────── 아이디 중복 확인 ────────────────────────────
 
@@ -124,7 +121,7 @@ public class AuthService {
         }
 
         String userId    = jwtProvider.getUserId(refreshToken);
-        String redisKey  = REFRESH_KEY_PREFIX + userId;
+        String redisKey  = AuthRedisKeyPrefix.REFRESH + userId;
         String stored    = redisTemplate.opsForValue().get(redisKey);
 
         // Redis에 없거나 값이 다르면 → 탈취 감지 or 만료
@@ -147,19 +144,19 @@ public class AuthService {
 
     public void logout(String accessToken) {
         if (!jwtProvider.validateToken(accessToken) || !jwtProvider.isAccessToken(accessToken)) {
-            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+            throw new BusinessException(AuthErrorCode.INVALID_ACCESS_TOKEN);
         }
 
         String userId = jwtProvider.getUserId(accessToken);
 
         // Refresh Token 삭제
-        redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+        redisTemplate.delete(AuthRedisKeyPrefix.REFRESH + userId);
 
         // Access Token 블랙리스트 등록 (남은 유효시간만큼 TTL)
         long remainingMs = jwtProvider.getRemainingExpiration(accessToken);
         if (remainingMs > 0) {
             redisTemplate.opsForValue().set(
-                    BLACKLIST_KEY_PREFIX + accessToken,
+                    AuthRedisKeyPrefix.BLACKLIST + accessToken,
                     "1",
                     Duration.ofMillis(remainingMs)
             );
@@ -182,7 +179,7 @@ public class AuthService {
         user.withdraw();
 
         // 세션 완전 정리
-        redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+        redisTemplate.delete(AuthRedisKeyPrefix.REFRESH + userId);
 
         log.info("[Auth] 회원탈퇴 - userId={}", userId);
     }
@@ -194,7 +191,7 @@ public class AuthService {
         String refreshToken = jwtProvider.generateRefreshToken(userId);
 
         redisTemplate.opsForValue().set(
-                REFRESH_KEY_PREFIX + userId,
+                AuthRedisKeyPrefix.REFRESH + userId,
                 refreshToken,
                 Duration.ofMillis(refreshExpiration)
         );
@@ -203,7 +200,7 @@ public class AuthService {
     }
 
     private void handleLoginFailure(User user) {
-        String failKey = FAIL_KEY_PREFIX + user.getUsername();
+        String failKey = AuthRedisKeyPrefix.LOGIN_FAIL + user.getUsername();
         Long count = redisTemplate.opsForValue().increment(failKey);
 
         if (count != null && count == 1) {
@@ -221,6 +218,6 @@ public class AuthService {
     }
 
     private void resetFailCount(String username) {
-        redisTemplate.delete(FAIL_KEY_PREFIX + username);
+        redisTemplate.delete(AuthRedisKeyPrefix.LOGIN_FAIL + username);
     }
 }

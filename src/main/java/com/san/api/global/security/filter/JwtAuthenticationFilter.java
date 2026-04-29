@@ -1,6 +1,8 @@
 package com.san.api.global.security.filter;
 
 import com.san.api.global.security.jwt.JwtProvider;
+import com.san.api.global.security.redis.AuthRedisKeyPrefix;
+import com.san.api.global.security.token.BearerTokenResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null && jwtProvider.validateToken(token) && jwtProvider.isAccessToken(token)) {
             // 블랙리스트(로그아웃) 체크
-            String isBlacklisted = redisTemplate.opsForValue().get("blacklist:" + token);
+            String isBlacklisted = redisTemplate.opsForValue().get(AuthRedisKeyPrefix.BLACKLIST + token);
             if (isBlacklisted == null) {
                 Authentication auth = jwtProvider.getAuthentication(token);
                 SecurityContextHolder.getContext().setAuthentication(auth);

@@ -8,6 +8,7 @@ import com.san.api.domain.auth.dto.response.SignupResponse;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.service.AuthService;
 import com.san.api.global.response.ApiResponse;
+import com.san.api.global.security.token.BearerTokenResolver;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +19,6 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -65,7 +65,7 @@ public class AuthController {
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<Void> logout(HttpServletRequest request) {
-        String accessToken = resolveToken(request);
+        String accessToken = BearerTokenResolver.resolve(request);
         authService.logout(accessToken);
         return ApiResponse.success();
     }
@@ -80,11 +80,4 @@ public class AuthController {
         return ApiResponse.success();
     }
 
-    private String resolveToken(HttpServletRequest request) {
-        String bearer = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
-            return bearer.substring(7);
-        }
-        return null;
-    }
 }

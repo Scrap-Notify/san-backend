@@ -7,9 +7,12 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum SourceType {
-    LINK("링크"),
-    TEXT("텍스트"),
-    IMAGE("이미지");
+    // 링크
+    LINK,
 
-    private final String description;
+    // 텍스트
+    TEXT,
+
+    // 이미지
+    IMAGE
 }

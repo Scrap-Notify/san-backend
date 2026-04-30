@@ -1,4 +1,4 @@
-package com.san.api.domain.auth.dto.response;
+package com.san.api.domain.github.dto.response;
 
 import com.san.api.domain.github.entity.GithubRepositoryConnection;
 import com.san.api.global.external.github.dto.GithubRepository;

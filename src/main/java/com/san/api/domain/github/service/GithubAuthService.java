@@ -1,10 +1,11 @@
-package com.san.api.domain.auth.service;
+package com.san.api.domain.github.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.san.api.domain.auth.dto.request.GithubLoginRequest;
-import com.san.api.domain.auth.dto.request.GithubTokenExchangeRequest;
 import com.san.api.domain.auth.dto.response.TokenResponse;
+import com.san.api.domain.auth.service.TokenIssueService;
+import com.san.api.domain.github.dto.request.GithubLoginRequest;
+import com.san.api.domain.github.dto.request.GithubTokenExchangeRequest;
 import com.san.api.domain.github.entity.GithubAccount;
 import com.san.api.domain.github.repository.GithubAccountRepository;
 import com.san.api.domain.user.entity.AuthProvider;

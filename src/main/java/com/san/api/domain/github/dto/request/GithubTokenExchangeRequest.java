@@ -1,4 +1,4 @@
-package com.san.api.domain.auth.dto.request;
+package com.san.api.domain.github.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 

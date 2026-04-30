@@ -20,7 +20,8 @@ import java.util.UUID;
 @Table(
         name = "users",
         indexes = {
-                @Index(name = "idx_users_username", columnList = "username")
+                @Index(name = "idx_users_username", columnList = "username"),
+                @Index(name = "idx_users_provider_provider_id", columnList = "provider, provider_id")
         }
 )
 @Getter
@@ -42,6 +43,9 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 10)
     private AuthProvider provider;
 
+    @Column(name = "provider_id")
+    private String providerId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private UserStatus status;
@@ -51,11 +55,12 @@ public class User extends BaseEntity {
     private LocalDateTime lockedUntil;
 
     @Builder
-    private User(String username, String passwordHash, AuthProvider provider) {
+    private User(String username, String passwordHash, AuthProvider provider, String providerId) {
         this.userId = UUID.randomUUID();
         this.username = username;
         this.passwordHash = passwordHash;
         this.provider = provider;
+        this.providerId = providerId;
         this.status = UserStatus.ACTIVE;
     }
 

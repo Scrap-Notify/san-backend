@@ -34,3 +34,13 @@ auth:
     max-fail-count: ${AUTH_LOGIN_MAX_FAIL_COUNT:5}
     fail-window-seconds: ${AUTH_LOGIN_FAIL_WINDOW_SECONDS:300}
     lock-duration-seconds: ${AUTH_LOGIN_LOCK_DURATION_SECONDS:900}
+
+oauth:
+  github:
+    client-id: ${GITHUB_CLIENT_ID}
+    client-secret: ${GITHUB_CLIENT_SECRET}
+    redirect-uri: ${GITHUB_REDIRECT_URI}
+    scope: ${GITHUB_SCOPE:read:user,repo}
+    success-redirect-uri: ${GITHUB_SUCCESS_REDIRECT_URI}
+    failure-redirect-uri: ${GITHUB_FAILURE_REDIRECT_URI}
+    token-encryption-secret: ${GITHUB_TOKEN_ENCRYPTION_SECRET}

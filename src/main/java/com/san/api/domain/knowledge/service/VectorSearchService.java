@@ -13,10 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * pgvector 기반 유사도 검색 서비스.
@@ -108,9 +106,11 @@ public class VectorSearchService {
 
     // float[] → "[0.1, 0.2, ...]" 형식 변환 (pgvector CAST용)
     private String toVectorString(float[] vector) {
-        String values = Arrays.stream(vector)
-                .mapToObj(Float::toString)
-                .collect(Collectors.joining(","));
-        return "[" + values + "]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < vector.length; i++) {
+            sb.append(vector[i]);
+            if (i < vector.length - 1) sb.append(",");
+        }
+        return sb.append("]").toString();
     }
 }

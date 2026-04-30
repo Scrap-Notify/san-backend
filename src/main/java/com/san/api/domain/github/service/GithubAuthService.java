@@ -17,7 +17,6 @@ import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
 import com.san.api.global.external.github.dto.GithubAccessTokenResponse;
 import com.san.api.global.external.github.dto.GithubUserProfile;
-import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +28,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Optional;
+import java.util.UUID;
 
 /** GitHub OAuth 로그인, callback 처리, 서비스 JWT 발급을 담당하는 서비스. */
 @Service
@@ -42,9 +43,9 @@ public class GithubAuthService {
     private final UserRepository userRepository;
     private final GithubAccountRepository githubAccountRepository;
     private final TokenIssueService tokenIssueService;
+    private final GithubLinkService githubLinkService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-    private final AesGcmStringEncryptor encryptor;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${oauth.github.success-redirect-uri}")
@@ -72,6 +73,15 @@ public class GithubAuthService {
     @Transactional
     public String handleCallback(String code, String state) {
         try {
+            Optional<UUID> linkUserId = githubLinkService.consumeLinkUserId(state);
+            if (linkUserId.isPresent()) {
+                githubLinkService.linkGithubAccount(linkUserId.get(), code);
+                return UriComponentsBuilder.fromUriString(successRedirectUri)
+                        .queryParam("githubLinked", true)
+                        .build()
+                        .toUriString();
+            }
+
             validateState(state);
             TokenResponse tokens = loginWithCode(code);
             String ticket = saveLoginTicket(tokens);
@@ -121,35 +131,23 @@ public class GithubAuthService {
         GithubUserProfile profile = githubApiClient.findUserProfile(tokenResponse.accessToken());
         String githubUserId = profile.id().toString();
 
-        User user = userRepository.findByProviderAndProviderId(AuthProvider.GITHUB, githubUserId)
-                .orElseGet(() -> createGithubUser(githubUserId));
+        User user = githubAccountRepository.findByGithubUserId(githubUserId)
+                .map(GithubAccount::getUser)
+                .orElseGet(() -> userRepository.findByProviderAndProviderId(AuthProvider.GITHUB, githubUserId)
+                        .orElseGet(() -> createGithubUser(githubUserId)));
 
-        saveGithubAccount(user, profile, tokenResponse.accessToken());
+        githubLinkService.saveGithubAccount(user, profile, tokenResponse.accessToken());
         validateLoginAvailable(user);
         return tokenIssueService.issueTokenPair(user.getUserId().toString());
     }
 
     private User createGithubUser(String githubUserId) {
         User user = User.builder()
-                .username("gh_" + githubUserId)
                 .provider(AuthProvider.GITHUB)
                 .providerId(githubUserId)
                 .build();
 
         return userRepository.save(user);
-    }
-
-    private void saveGithubAccount(User user, GithubUserProfile profile, String accessToken) {
-        String encryptedToken = encryptor.encrypt(accessToken);
-        String githubUserId = profile.id().toString();
-
-        githubAccountRepository.findByGithubUserId(githubUserId)
-                .ifPresentOrElse(
-                        account -> account.updateToken(profile.login(), encryptedToken),
-                        () -> githubAccountRepository.save(
-                                new GithubAccount(user, githubUserId, profile.login(), encryptedToken)
-                        )
-                );
     }
 
     private void validateState(String state) {

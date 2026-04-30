@@ -17,6 +17,9 @@ public final class AuthRedisKeyPrefix {
     /** GitHub OAuth state CSRF token key prefix. */
     public static final String GITHUB_OAUTH_STATE = "github:oauth:state:";
 
+    /** GitHub account linking state key prefix. */
+    public static final String GITHUB_LINK_STATE = "github:link:state:";
+
     /** One-time login ticket key prefix for OAuth redirect completion. */
     public static final String GITHUB_LOGIN_TICKET = "github:login:ticket:";
 

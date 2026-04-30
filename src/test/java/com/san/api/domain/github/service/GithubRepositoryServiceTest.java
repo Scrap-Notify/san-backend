@@ -1,7 +1,7 @@
-package com.san.api.domain.auth.service;
+package com.san.api.domain.github.service;
 
-import com.san.api.domain.auth.dto.request.GithubRepositoryConnectRequest;
-import com.san.api.domain.auth.dto.response.GithubRepositoryResponse;
+import com.san.api.domain.github.dto.request.GithubRepositoryConnectRequest;
+import com.san.api.domain.github.dto.response.GithubRepositoryResponse;
 import com.san.api.domain.github.entity.GithubAccount;
 import com.san.api.domain.github.entity.GithubRepositoryConnection;
 import com.san.api.domain.github.repository.GithubAccountRepository;
@@ -65,7 +65,6 @@ class GithubRepositoryServiceTest {
                 encryptor
         );
         user = User.builder()
-                .username("gh_123")
                 .provider(AuthProvider.GITHUB)
                 .providerId("123")
                 .build();

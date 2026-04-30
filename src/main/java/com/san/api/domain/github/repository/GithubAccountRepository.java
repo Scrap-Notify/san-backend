@@ -12,4 +12,6 @@ public interface GithubAccountRepository extends JpaRepository<GithubAccount, UU
     Optional<GithubAccount> findByUser_UserId(UUID userId);
 
     Optional<GithubAccount> findByGithubUserId(String githubUserId);
+
+    void deleteByUser_UserId(UUID userId);
 }

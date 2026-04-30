@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
 
+/** GitHub access token 암호화와 복호화를 담당하는 AES-GCM 암호화 컴포넌트. */
 @Component
 public class AesGcmStringEncryptor {
 

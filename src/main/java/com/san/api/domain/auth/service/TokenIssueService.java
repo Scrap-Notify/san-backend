@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
+/** access token과 refresh token 발급을 담당하는 서비스. */
 @Service
 @RequiredArgsConstructor
 public class TokenIssueService {

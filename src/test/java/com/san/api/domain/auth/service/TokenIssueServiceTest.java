@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** 서비스 JWT 토큰 발급과 refresh token Redis 저장을 검증하는 테스트. */
 @ExtendWith(MockitoExtension.class)
 class TokenIssueServiceTest {
 

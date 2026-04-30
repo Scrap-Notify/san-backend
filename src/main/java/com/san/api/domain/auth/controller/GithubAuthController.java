@@ -20,6 +20,7 @@ import org.springframework.web.servlet.view.RedirectView;
 import java.util.List;
 import java.util.UUID;
 
+/** GitHub OAuth 로그인과 레포지토리 연동 요청을 처리하는 컨트롤러. */
 @Tag(name = "GitHub Auth", description = "GitHub OAuth 및 저장소 연결 API")
 @RestController
 @RequestMapping("/api/auth/github")

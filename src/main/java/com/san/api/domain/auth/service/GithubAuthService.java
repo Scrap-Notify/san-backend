@@ -29,6 +29,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 
+/** GitHub OAuth 로그인, callback 처리, 서비스 JWT 발급을 담당하는 서비스. */
 @Service
 @RequiredArgsConstructor
 public class GithubAuthService {

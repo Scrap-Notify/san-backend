@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+/** GitHub 레포지토리 목록 조회와 서비스 계정 연결을 담당하는 서비스. */
 @Service
 @RequiredArgsConstructor
 public class GithubRepositoryService {

@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/** GitHub 레포지토리 조회와 연결 서비스 동작을 검증하는 테스트. */
 @ExtendWith(MockitoExtension.class)
 class GithubRepositoryServiceTest {
 

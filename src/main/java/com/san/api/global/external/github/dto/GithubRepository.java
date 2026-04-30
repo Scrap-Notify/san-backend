@@ -2,6 +2,7 @@ package com.san.api.global.external.github.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+/** GitHub API 레포지토리 응답 DTO. */
 public record GithubRepository(
         Long id,
         String name,

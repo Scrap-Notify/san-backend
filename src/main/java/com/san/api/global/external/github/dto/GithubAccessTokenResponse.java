@@ -2,6 +2,7 @@ package com.san.api.global.external.github.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+/** GitHub access token 발급 응답 DTO. */
 public record GithubAccessTokenResponse(
         @JsonProperty("access_token")
         String accessToken,

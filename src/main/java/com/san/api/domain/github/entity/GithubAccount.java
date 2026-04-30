@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
+/** 서비스 사용자와 연결된 GitHub 계정 및 암호화된 access token 엔티티. */
 @Entity
 @Table(name = "github_accounts")
 @Getter

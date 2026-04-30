@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
+/** 사용자가 서비스에 연결한 GitHub 레포지토리 정보를 저장하는 엔티티. */
 @Entity
 @Table(
         name = "github_repository_connections",

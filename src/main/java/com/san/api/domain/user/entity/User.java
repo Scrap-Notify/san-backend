@@ -32,7 +32,7 @@ public class User extends BaseEntity {
     @Column(name = "user_id", columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID userId;
 
-    @Column(nullable = false, unique = true, length = 30)
+    @Column(unique = true, length = 30)
     private String username;
 
     /** 소셜 로그인 계정은 null 허용. */

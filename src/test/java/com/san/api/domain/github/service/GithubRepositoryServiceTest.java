@@ -65,7 +65,6 @@ class GithubRepositoryServiceTest {
                 encryptor
         );
         user = User.builder()
-                .username("gh_123")
                 .provider(AuthProvider.GITHUB)
                 .providerId("123")
                 .build();

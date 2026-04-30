@@ -2,6 +2,7 @@ package com.san.api.domain.github.service;
 
 import com.san.api.domain.github.entity.GithubAccount;
 import com.san.api.domain.github.repository.GithubAccountRepository;
+import com.san.api.domain.github.repository.GithubRepositoryConnectionRepository;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
@@ -28,8 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /** GitHub 계정 연동 state 관리와 계정 연결 저장을 검증하는 테스트. */
 @ExtendWith(MockitoExtension.class)
@@ -43,6 +43,9 @@ class GithubLinkServiceTest {
 
     @Mock
     private GithubAccountRepository githubAccountRepository;
+
+    @Mock
+    private GithubRepositoryConnectionRepository connectionRepository;
 
     @Mock
     private StringRedisTemplate redisTemplate;
@@ -61,6 +64,7 @@ class GithubLinkServiceTest {
                 githubApiClient,
                 userRepository,
                 githubAccountRepository,
+                connectionRepository,
                 redisTemplate,
                 encryptor
         );
@@ -118,5 +122,39 @@ class GithubLinkServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(AuthErrorCode.GITHUB_ACCOUNT_ALREADY_LINKED);
+    }
+
+    @Test
+    void unlinkGithubAccountRejectsGithubLoginUser() {
+        User githubUser = User.builder()
+                .provider(AuthProvider.GITHUB)
+                .providerId("1")
+                .build();
+        UUID userId = githubUser.getUserId();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(githubUser));
+
+        assertThatThrownBy(() -> githubLinkService.unlinkGithubAccount(userId))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(AuthErrorCode.GITHUB_ACCOUNT_UNLINK_NOT_ALLOWED);
+        verify(githubAccountRepository, never()).deleteByUser_UserId(userId);
+    }
+
+    @Test
+    void unlinkGithubAccountDeletesGithubAccountAndConnectedRepositories() {
+        User localUser = User.builder()
+                .username("localuser")
+                .passwordHash("password")
+                .provider(AuthProvider.LOCAL)
+                .build();
+        UUID userId = localUser.getUserId();
+        GithubAccount githubAccount = new GithubAccount(localUser, "1", "octocat", "encrypted-token");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(localUser));
+        when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.of(githubAccount));
+
+        githubLinkService.unlinkGithubAccount(userId);
+
+        verify(connectionRepository).deleteAllByUser_UserId(userId);
+        verify(githubAccountRepository).deleteByUser_UserId(userId);
     }
 }

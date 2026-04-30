@@ -3,6 +3,7 @@ package com.san.api.domain.github.service;
 import com.san.api.domain.github.entity.GithubAccount;
 import com.san.api.domain.github.repository.GithubAccountRepository;
 import com.san.api.domain.github.repository.GithubRepositoryConnectionRepository;
+import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.exception.BusinessException;
@@ -91,9 +92,14 @@ public class GithubLinkService {
 
     @Transactional
     public void unlinkGithubAccount(UUID userId) {
-        if (githubAccountRepository.findByUser_UserId(userId).isEmpty()) {
-            throw new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
+        if (user.getProvider() == AuthProvider.GITHUB) {
+            throw new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_UNLINK_NOT_ALLOWED);
         }
+
+        githubAccountRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED));
 
         connectionRepository.deleteAllByUser_UserId(userId);
         githubAccountRepository.deleteByUser_UserId(userId);

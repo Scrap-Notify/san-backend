@@ -27,6 +27,7 @@ public enum AuthErrorCode implements ErrorCode {
     GITHUB_ACCOUNT_NOT_LINKED(HttpStatus.BAD_REQUEST, "A009", "GitHub 계정이 연결되어 있지 않습니다."),
     GITHUB_REPOSITORY_NOT_FOUND(HttpStatus.NOT_FOUND, "A010", "GitHub 저장소를 찾을 수 없습니다."),
     GITHUB_ACCOUNT_ALREADY_LINKED(HttpStatus.CONFLICT, "A011", "이미 다른 계정에 연결된 GitHub 계정입니다."),
+    GITHUB_ACCOUNT_UNLINK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "A012", "GitHub 로그인 계정은 연동 해제할 수 없습니다."),
     ;
 
     private final HttpStatus status;

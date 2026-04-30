@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Array;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
@@ -22,6 +23,7 @@ import java.util.UUID;
 /** 지식 카드 엔티티 */
 @Entity
 @Table(name = "knowledge_cards")
+@SQLRestriction("is_deleted = false")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class KnowledgeCard extends BaseEntity {

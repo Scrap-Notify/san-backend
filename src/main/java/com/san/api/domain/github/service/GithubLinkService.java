@@ -2,6 +2,7 @@ package com.san.api.domain.github.service;
 
 import com.san.api.domain.github.entity.GithubAccount;
 import com.san.api.domain.github.repository.GithubAccountRepository;
+import com.san.api.domain.github.repository.GithubRepositoryConnectionRepository;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.exception.BusinessException;
@@ -33,6 +34,7 @@ public class GithubLinkService {
     private final GithubApiClient githubApiClient;
     private final UserRepository userRepository;
     private final GithubAccountRepository githubAccountRepository;
+    private final GithubRepositoryConnectionRepository connectionRepository;
     private final StringRedisTemplate redisTemplate;
     private final AesGcmStringEncryptor encryptor;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -85,6 +87,16 @@ public class GithubLinkService {
                                 new GithubAccount(user, githubUserId, profile.login(), encryptedToken)
                         )
                 );
+    }
+
+    @Transactional
+    public void unlinkGithubAccount(UUID userId) {
+        if (githubAccountRepository.findByUser_UserId(userId).isEmpty()) {
+            throw new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED);
+        }
+
+        connectionRepository.deleteAllByUser_UserId(userId);
+        githubAccountRepository.deleteByUser_UserId(userId);
     }
 
     private void updateOwnAccount(GithubAccount account, User user, String githubUsername, String encryptedToken) {

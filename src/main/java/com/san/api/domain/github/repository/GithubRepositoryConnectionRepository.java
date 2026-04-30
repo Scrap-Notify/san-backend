@@ -13,4 +13,6 @@ public interface GithubRepositoryConnectionRepository extends JpaRepository<Gith
     List<GithubRepositoryConnection> findAllByUser_UserId(UUID userId);
 
     Optional<GithubRepositoryConnection> findByUser_UserIdAndGithubRepositoryId(UUID userId, Long githubRepositoryId);
+
+    void deleteAllByUser_UserId(UUID userId);
 }

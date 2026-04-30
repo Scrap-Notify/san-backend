@@ -1,15 +1,13 @@
 package com.san.api.domain.github.controller;
 
 import com.san.api.domain.github.service.GithubLinkService;
+import com.san.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
 import java.util.UUID;
@@ -31,6 +29,17 @@ public class GithubLinkController {
     @ResponseStatus(HttpStatus.FOUND)
     public RedirectView authorize(Authentication authentication) {
         return new RedirectView(githubLinkService.createLinkAuthorizationRedirectUrl(currentUserId(authentication)));
+    }
+
+    @Operation(
+            summary = "GitHub 계정 연동 해제",
+            description = "현재 로그인한 서비스 계정의 GitHub 계정과 연결된 레포지토리 정보를 삭제합니다."
+    )
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Void> unlink(Authentication authentication) {
+        githubLinkService.unlinkGithubAccount(currentUserId(authentication));
+        return ApiResponse.success();
     }
 
     private UUID currentUserId(Authentication authentication) {

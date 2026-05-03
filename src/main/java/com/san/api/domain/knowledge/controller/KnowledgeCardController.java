@@ -1,6 +1,7 @@
 package com.san.api.domain.knowledge.controller;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardResponse;
 import com.san.api.domain.knowledge.service.KnowledgeCardService;
 import com.san.api.global.exception.BusinessException;
@@ -12,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,6 +47,21 @@ public class KnowledgeCardController {
 
         UUID userId = currentUserId(authentication);
         KnowledgeCardResponse response = knowledgeCardService.createCard(userId, request);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 로그인 사용자 기준 지식카드 목록 조회
+     *
+     * @param authentication 인증 정보
+     * @return 지식카드 목록 응답
+     */
+    @Operation(summary = "지식카드 목록 조회", description = "로그인 사용자의 지식카드 목록을 최신순으로 조회")
+    @GetMapping
+    public ApiResponse<KnowledgeCardListResponse> getCards(Authentication authentication) {
+        UUID userId = currentUserId(authentication);
+        KnowledgeCardListResponse response = knowledgeCardService.getCards(userId);
 
         return ApiResponse.success(response);
     }

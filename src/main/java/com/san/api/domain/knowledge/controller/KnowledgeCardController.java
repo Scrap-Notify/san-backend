@@ -1,8 +1,8 @@
 package com.san.api.domain.knowledge.controller;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
-import com.san.api.domain.knowledge.dto.response.KnowledgeCardResponse;
 import com.san.api.domain.knowledge.service.KnowledgeCardService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -32,21 +32,21 @@ public class KnowledgeCardController {
     private final KnowledgeCardService knowledgeCardService;
 
     /**
-     * 저장된 수집 원본 기반 지식카드 생성
+     * 저장된 수집 원본 기반 지식카드 AI 분석 작업 등록
      *
      * @param authentication 인증 정보
-     * @param request 지식카드 생성 요청
-     * @return 생성된 지식카드 응답
+     * @param request 지식카드 AI 분석 요청
+     * @return 등록된 비동기 작업 응답
      */
-    @Operation(summary = "지식카드 생성", description = "저장된 수집 원본을 AI 분석해 지식카드로 생성")
+    @Operation(summary = "지식카드 AI 분석 작업 등록", description = "저장된 수집 원본을 지식카드로 분석하는 비동기 작업을 등록")
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<KnowledgeCardResponse> createCard(
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApiResponse<KnowledgeCardAnalysisJobResponse> createCard(
             Authentication authentication,
             @Valid @RequestBody KnowledgeCardCreateRequest request) {
 
         UUID userId = currentUserId(authentication);
-        KnowledgeCardResponse response = knowledgeCardService.createCard(userId, request);
+        KnowledgeCardAnalysisJobResponse response = knowledgeCardService.createCard(userId, request);
 
         return ApiResponse.success(response);
     }

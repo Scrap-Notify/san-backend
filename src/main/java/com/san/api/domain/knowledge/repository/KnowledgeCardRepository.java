@@ -11,6 +11,9 @@ import java.util.UUID;
 /** 지식 카드 Repository */
 public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UUID> {
 
+    // 수집 원본 기준 지식카드 생성 여부 확인
+    boolean existsByScrap_ScrapId(UUID scrapId);
+
     /**
      * 벡터 유사도 기반 지식 카드 검색.
      * knowledge_cards에 user_id가 없으므로 scraps JOIN으로 권한 필터링.

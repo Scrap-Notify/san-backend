@@ -15,6 +15,7 @@ import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.scrap.repository.ScrapRepository;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
+import com.san.api.global.exception.errorcode.KnowledgeErrorCode;
 import com.san.api.global.external.ai.client.AiAnalysisClient;
 import com.san.api.global.external.ai.dto.request.AiAnalyzeRequest;
 import com.san.api.global.external.ai.dto.response.AiAnalyzeResponse;
@@ -44,14 +45,13 @@ public class KnowledgeCardService {
      * @param request 지식카드 생성 요청
      * @return 생성된 지식카드 응답
      */
-    @Transactionalgit add src/main/java/com/san/api/domain/knowledge/service/KnowledgeCardService.java src/main/java/com/san/api/domain/knowledge/repository/CategoryRepository.java src/main/java/com/san/api/domain/knowledge/repository/TagRepository.java src/main/java/com/san/api/domain/knowledge/dto/response/KnowledgeCardResponse.java
-    git commit -m "feat(knowledge): 지식카드 생성 서비스 구현 (S14P31A309-107)"
-
+    @Transactional
     public KnowledgeCardResponse createCard(UUID userId, KnowledgeCardCreateRequest request) {
         Scrap scrap = scrapRepository.findById(request.scrapId())
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
         validateScrapOwner(scrap, userId);
+        validateNotCreated(request.scrapId());
 
         AiAnalyzeResponse analysis = aiAnalysisClient.analyze(toAnalyzeRequest(scrap));
         Category category = findOrCreateCategory(userId, scrap, analysis.category());
@@ -78,6 +78,17 @@ public class KnowledgeCardService {
     private void validateScrapOwner(Scrap scrap, UUID userId) {
         if (!scrap.getUser().getUserId().equals(userId)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
+        }
+    }
+
+    /**
+     * 동일 원본 기반 지식카드 생성 여부 검증
+     *
+     * @param scrapId 수집 원본 ID
+     */
+    private void validateNotCreated(UUID scrapId) {
+        if (knowledgeCardRepository.existsByScrap_ScrapId(scrapId)) {
+            throw new BusinessException(KnowledgeErrorCode.CARD_ALREADY_EXISTS);
         }
     }
 

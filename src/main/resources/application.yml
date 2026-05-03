@@ -44,3 +44,7 @@ oauth:
     success-redirect-uri: ${GITHUB_SUCCESS_REDIRECT_URI}
     failure-redirect-uri: ${GITHUB_FAILURE_REDIRECT_URI}
     token-encryption-secret: ${GITHUB_TOKEN_ENCRYPTION_SECRET}
+
+ai:
+  server:
+    base-url: ${AI_SERVER_URL:http://localhost:8001}

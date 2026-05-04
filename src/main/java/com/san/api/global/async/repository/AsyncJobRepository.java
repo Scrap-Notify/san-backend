@@ -1,20 +1,19 @@
 package com.san.api.global.async.repository;
 
 import com.san.api.global.async.entity.AsyncJob;
-import com.san.api.global.async.enums.JobStatusEnum;
-import com.san.api.global.async.enums.JobTypeEnum;
+import com.san.api.global.async.entity.JobStatus;
+import com.san.api.global.async.entity.JobType;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.Optional;
 
 public interface AsyncJobRepository extends JpaRepository<AsyncJob, UUID> {
 
-    List<AsyncJob> findByTargetIdAndJobType(UUID targetId, JobTypeEnum jobType);
+    List<AsyncJob> findByTargetIdAndJobType(UUID targetId, JobType jobType);
 
-    List<AsyncJob> findByStatus(JobStatusEnum status);
+    List<AsyncJob> findByStatus(JobStatus status);
 
-    boolean existsByTargetIdAndJobTypeAndStatusIn(UUID targetId, JobTypeEnum jobType, List<JobStatusEnum> statuses);
+    boolean existsByTargetIdAndJobTypeAndStatusIn(UUID targetId, JobType jobType, List<JobStatus> statuses);
 }

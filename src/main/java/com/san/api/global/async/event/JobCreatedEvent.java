@@ -1,10 +1,11 @@
 package com.san.api.global.async.event;
 
-import com.san.api.global.async.enums.JobTypeEnum;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 import java.util.UUID;
+
+import com.san.api.global.async.entity.JobType;
 
 /**
  * 비동기 잡 생성 시 발행되는 이벤트.
@@ -16,6 +17,6 @@ import java.util.UUID;
 public class JobCreatedEvent {
 
     private final UUID jobId;
-    private final JobTypeEnum jobType;
+    private final JobType jobType;
     private final UUID targetId;
 }

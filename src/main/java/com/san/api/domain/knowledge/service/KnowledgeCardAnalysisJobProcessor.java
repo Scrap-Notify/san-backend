@@ -1,6 +1,6 @@
 package com.san.api.domain.knowledge.service;
 
-import com.san.api.global.async.enums.JobTypeEnum;
+import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
 import com.san.api.global.async.executor.AsyncJobProcessor;
 import com.san.api.global.async.service.AsyncJobManager;
@@ -28,7 +28,7 @@ public class KnowledgeCardAnalysisJobProcessor implements AsyncJobProcessor {
     @Async("asyncJobExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(JobCreatedEvent event) {
-        if (event.getJobType() != JobTypeEnum.CARD_ANALYSIS) {
+        if (event.getJobType() != JobType.CARD_ANALYSIS) {
             return;
         }
 

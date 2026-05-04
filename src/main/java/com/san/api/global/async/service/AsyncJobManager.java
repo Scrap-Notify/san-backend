@@ -1,8 +1,8 @@
 package com.san.api.global.async.service;
 
 import com.san.api.global.async.entity.AsyncJob;
-import com.san.api.global.async.enums.JobStatusEnum;
-import com.san.api.global.async.enums.JobTypeEnum;
+import com.san.api.global.async.entity.JobStatus;
+import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
 import com.san.api.global.async.repository.AsyncJobRepository;
 import com.san.api.global.exception.BusinessException;
@@ -24,14 +24,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AsyncJobManager {
 
-    private static final List<JobStatusEnum> ACTIVE_STATUSES =
-            List.of(JobStatusEnum.PENDING, JobStatusEnum.PROCESSING);
+    private static final List<JobStatus> ACTIVE_STATUSES =
+            List.of(JobStatus.PENDING, JobStatus.PROCESSING);
 
     private final AsyncJobRepository asyncJobRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public UUID enqueue(JobTypeEnum jobType, UUID targetId) {
+    public UUID enqueue(JobType jobType, UUID targetId) {
         if (asyncJobRepository.existsByTargetIdAndJobTypeAndStatusIn(targetId, jobType, ACTIVE_STATUSES)) {
             throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "이미 동일한 작업이 진행 중입니다.");
         }
@@ -55,12 +55,12 @@ public class AsyncJobManager {
 
     @Transactional
     public void markProcessing(UUID jobId) {
-        findJob(jobId).updateStatus(JobStatusEnum.PROCESSING);
+        findJob(jobId).updateStatus(JobStatus.PROCESSING);
     }
 
     @Transactional
     public void markCompleted(UUID jobId) {
-        findJob(jobId).updateStatus(JobStatusEnum.COMPLETED);
+        findJob(jobId).updateStatus(JobStatus.COMPLETED);
     }
 
     @Transactional

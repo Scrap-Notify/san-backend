@@ -1,6 +1,6 @@
-package com.san.api.global.async.enums;
+package com.san.api.global.async.entity;
 
-public enum JobTypeEnum {
+public enum JobType {
     /** 스크랩 원문 기반 지식 카드 AI 분석 */
     CARD_ANALYSIS,
     /** 지식 카드들을 바탕으로 TIL 문서 생성 */

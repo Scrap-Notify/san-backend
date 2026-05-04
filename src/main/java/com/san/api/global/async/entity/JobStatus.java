@@ -1,6 +1,6 @@
-package com.san.api.global.async.enums;
+package com.san.api.global.async.entity;
 
-public enum JobStatusEnum {
+public enum JobStatus {
     /** 작업 생성 직후 대기 상태 */
     PENDING,
     /** 비동기 워커가 처리 중인 상태 */

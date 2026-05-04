@@ -1,15 +1,15 @@
 package com.san.api.global.async.dto.response;
 
 import com.san.api.global.async.entity.AsyncJob;
-import com.san.api.global.async.enums.JobStatusEnum;
-import com.san.api.global.async.enums.JobTypeEnum;
+import com.san.api.global.async.entity.JobStatus;
+import com.san.api.global.async.entity.JobType;
 
 import java.util.UUID;
 
 public record AsyncJobStatusResponse(
         UUID jobId,
-        JobTypeEnum jobType,
-        JobStatusEnum status,
+        JobType jobType,
+        JobStatus status,
         String errorMessage
 ) {
     public static AsyncJobStatusResponse from(AsyncJob job) {

@@ -12,8 +12,8 @@ import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.repository.ScrapRepository;
 import com.san.api.global.async.entity.AsyncJob;
-import com.san.api.global.async.enums.JobStatusEnum;
-import com.san.api.global.async.enums.JobTypeEnum;
+import com.san.api.global.async.entity.JobStatus;
+import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -55,7 +55,7 @@ public class KnowledgeCardService {
         validateScrapOwner(scrap, userId);
         validateNotCreated(request.scrapId());
 
-        UUID jobId = asyncJobManager.enqueue(JobTypeEnum.CARD_ANALYSIS, request.scrapId());
+        UUID jobId = asyncJobManager.enqueue(JobType.CARD_ANALYSIS, request.scrapId());
         return new KnowledgeCardAnalysisJobResponse(jobId);
     }
 
@@ -98,14 +98,14 @@ public class KnowledgeCardService {
 
     /** 지식카드 분석 작업 여부 검증 */
     private void validateCardAnalysisJob(AsyncJob job) {
-        if (job.getJobType() != JobTypeEnum.CARD_ANALYSIS) {
+        if (job.getJobType() != JobType.CARD_ANALYSIS) {
             throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 
     /** 완료된 작업 여부 검증 */
     private void validateCompletedJob(AsyncJob job) {
-        if (job.getStatus() != JobStatusEnum.COMPLETED) {
+        if (job.getStatus() != JobStatus.COMPLETED) {
             throw new BusinessException(CommonErrorCode.BAD_REQUEST, "완료되지 않은 지식카드 분석 작업입니다.");
         }
     }

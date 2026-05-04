@@ -1,7 +1,5 @@
 package com.san.api.global.async.entity;
 
-import com.san.api.global.async.enums.JobStatusEnum;
-import com.san.api.global.async.enums.JobTypeEnum;
 import com.san.api.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -24,11 +22,11 @@ public class AsyncJob extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "job_type", nullable = false, length = 50)
-    private JobTypeEnum jobType;
+    private JobType jobType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private JobStatusEnum status;
+    private JobStatus status;
 
     @Column(name = "target_id", nullable = false, columnDefinition = "uuid")
     private UUID targetId;
@@ -37,10 +35,10 @@ public class AsyncJob extends BaseEntity {
     private String errorMessage;
 
     @Builder
-    public AsyncJob(JobTypeEnum jobType, UUID targetId) {
+    public AsyncJob(JobType jobType, UUID targetId) {
         this.jobType = jobType;
         this.targetId = targetId;
-        this.status = JobStatusEnum.PENDING;
+        this.status = JobStatus.PENDING;
     }
 
     /**
@@ -48,7 +46,7 @@ public class AsyncJob extends BaseEntity {
      *
      * @param status 변경할 상태 (PROCESSING, COMPLETED 등)
      */
-    public void updateStatus(JobStatusEnum status) {
+    public void updateStatus(JobStatus status) {
         this.status = status;
     }
 
@@ -58,7 +56,7 @@ public class AsyncJob extends BaseEntity {
      * @param errorMessage 실패 원인 메시지
      */
     public void fail(String errorMessage) {
-        this.status = JobStatusEnum.FAILED;
+        this.status = JobStatus.FAILED;
         this.errorMessage = errorMessage;
     }
 }

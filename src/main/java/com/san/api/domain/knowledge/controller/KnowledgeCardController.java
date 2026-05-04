@@ -60,7 +60,7 @@ public class KnowledgeCardController {
      * @param jobId 분석 작업 ID
      * @return 지식카드 AI 분석 작업 결과
      */
-    @Operation(summary = "지식카드 AI 분석 작업 결과 조회", description = "작업 ID로 지식카드 AI 분석 상태와 생성된 지식카드를 조회")
+    @Operation(summary = "지식카드 AI 분석 작업 결과 조회", description = "작업 ID로 지식카드 AI 분석 상태, 생성된 지식카드, 관련 카드 3개를 조회")
     @GetMapping("/jobs/{jobId}/result")
     public ApiResponse<KnowledgeCardAnalysisResultResponse> getAnalysisResult(
             Authentication authentication,

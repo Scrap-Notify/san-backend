@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,6 +59,37 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     );
 
     /**
+     * 벡터 유사도 기반 지식 카드 검색 (태그·날짜 필터 포함).
+     * tag, fromDate, toDate는 null 전달 시 필터 미적용.
+     */
+    @Query(value = """
+            SELECT kc.card_id, kc.scrap_id, kc.category_id, kc.title, kc.summary,
+                   kc.embedding, kc.created_at, kc.updated_at, kc.is_deleted
+            FROM knowledge_cards kc
+            JOIN scraps s ON kc.scrap_id = s.scrap_id
+            WHERE s.user_id = :userId
+              AND kc.is_deleted = false
+              AND kc.embedding IS NOT NULL
+              AND (:tag IS NULL OR EXISTS (
+                  SELECT 1 FROM card_tags ct JOIN tags t ON ct.tag_id = t.tag_id
+                  WHERE ct.card_id = kc.card_id AND t.tag_name = :tag
+              ))
+              AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
+              AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
+            ORDER BY kc.embedding <=> CAST(:queryVector AS vector)
+            LIMIT :limit OFFSET :offset
+            """, nativeQuery = true)
+    List<KnowledgeCard> searchByVectorWithFilters(
+            @Param("queryVector") String queryVector,
+            @Param("userId") UUID userId,
+            @Param("tag") String tag,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("limit") int limit,
+            @Param("offset") int offset
+    );
+    
+    /**
      * 벡터 유사도 기반 지식 카드 검색 (특정 카드 제외).
      * TIL 기반 리콜에서 원본 카드를 제외할 때 사용.
      * excludeIds는 반드시 1개 이상이어야 함 (빈 리스트 전달 시 SQL 오류).
@@ -81,4 +113,29 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
             @Param("limit") int limit,
             @Param("offset") int offset
     );
+
+    /**
+     * 태그·날짜 필터 조건에 맞는 전체 카드 수 조회 (페이지네이션 totalCount용).
+     */
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM knowledge_cards kc
+            JOIN scraps s ON kc.scrap_id = s.scrap_id
+            WHERE s.user_id = :userId
+              AND kc.is_deleted = false
+              AND kc.embedding IS NOT NULL
+              AND (:tag IS NULL OR EXISTS (
+                  SELECT 1 FROM card_tags ct JOIN tags t ON ct.tag_id = t.tag_id
+                  WHERE ct.card_id = kc.card_id AND t.tag_name = :tag
+              ))
+              AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
+              AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
+            """, nativeQuery = true)
+    long countByVectorFilters(
+            @Param("userId") UUID userId,
+            @Param("tag") String tag,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate
+    );
+
 }

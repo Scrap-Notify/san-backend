@@ -1,6 +1,7 @@
 package com.san.api.domain.knowledge.service;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardResponse;
 import com.san.api.domain.knowledge.entity.CardTag;
 import com.san.api.domain.knowledge.entity.Category;
@@ -24,7 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /** 지식카드 Service */
 @Service
@@ -67,6 +70,32 @@ public class KnowledgeCardService {
         List<CardTag> cardTags = saveTags(card, analysis.tags());
 
         return KnowledgeCardResponse.from(card, cardTags);
+    }
+
+    /**
+     * 로그인 사용자 기준 지식카드 목록 조회
+     *
+     * @param userId 로그인 사용자 ID
+     * @return 지식카드 목록 응답
+     */
+    @Transactional(readOnly = true)
+    public KnowledgeCardListResponse getCards(UUID userId) {
+        List<KnowledgeCard> cards = knowledgeCardRepository.findByScrap_User_UserIdOrderByCreatedAtDesc(userId);
+        if (cards.isEmpty()) {
+            return new KnowledgeCardListResponse(List.of());
+        }
+
+        Map<UUID, List<CardTag>> cardTagsByCardId = cardTagRepository.findAllByKnowledgeCardInWithTag(cards).stream()
+                .collect(Collectors.groupingBy(cardTag -> cardTag.getKnowledgeCard().getCardId()));
+
+        List<KnowledgeCardResponse> responses = cards.stream()
+                .map(card -> KnowledgeCardResponse.from(
+                        card,
+                        cardTagsByCardId.getOrDefault(card.getCardId(), List.of())
+                ))
+                .toList();
+
+        return new KnowledgeCardListResponse(responses);
     }
 
     /**

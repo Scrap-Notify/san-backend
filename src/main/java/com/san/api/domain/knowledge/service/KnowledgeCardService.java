@@ -2,6 +2,7 @@ package com.san.api.domain.knowledge.service;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisResultResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardResponse;
 import com.san.api.domain.knowledge.entity.CardTag;
@@ -10,6 +11,7 @@ import com.san.api.domain.knowledge.repository.CardTagRepository;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.repository.ScrapRepository;
+import com.san.api.global.async.entity.AsyncJob;
 import com.san.api.global.async.enums.JobTypeEnum;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
@@ -77,6 +79,51 @@ public class KnowledgeCardService {
                 .toList();
 
         return new KnowledgeCardListResponse(responses);
+    }
+
+    /**
+     * 지식카드 AI 분석 작업 결과 조회
+     *
+     * @param userId 로그인 사용자 ID
+     * @param jobId 분석 작업 ID
+     * @return 지식카드 AI 분석 작업 결과 응답
+     */
+    @Transactional(readOnly = true)
+    public KnowledgeCardAnalysisResultResponse getAnalysisResult(UUID userId, UUID jobId) {
+        AsyncJob job = asyncJobManager.getJob(jobId);
+        validateCardAnalysisJob(job);
+
+        Scrap scrap = scrapRepository.findById(job.getTargetId())
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
+        validateScrapOwner(scrap, userId);
+
+        KnowledgeCardResponse card = switch (job.getStatus()) {
+            case COMPLETED -> getCreatedCardResponse(job.getTargetId());
+            case PENDING, PROCESSING, FAILED -> null;
+        };
+
+        return new KnowledgeCardAnalysisResultResponse(
+                job.getJobId(),
+                job.getStatus(),
+                card,
+                job.getErrorMessage()
+        );
+    }
+
+    /** 지식카드 분석 작업 여부 검증 */
+    private void validateCardAnalysisJob(AsyncJob job) {
+        if (job.getJobType() != JobTypeEnum.CARD_ANALYSIS) {
+            throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
+        }
+    }
+
+    /** 수집 원본 기준 생성된 지식카드 응답 조회 */
+    private KnowledgeCardResponse getCreatedCardResponse(UUID scrapId) {
+        KnowledgeCard card = knowledgeCardRepository.findByScrapIdWithCategory(scrapId)
+                .orElseThrow(() -> new BusinessException(KnowledgeErrorCode.CARD_NOT_FOUND));
+        List<CardTag> cardTags = cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card));
+
+        return KnowledgeCardResponse.from(card, cardTags);
     }
 
     /**

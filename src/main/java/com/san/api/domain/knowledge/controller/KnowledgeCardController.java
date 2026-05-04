@@ -2,6 +2,7 @@ package com.san.api.domain.knowledge.controller;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisResultResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.service.KnowledgeCardService;
 import com.san.api.global.exception.BusinessException;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,6 +49,25 @@ public class KnowledgeCardController {
 
         UUID userId = currentUserId(authentication);
         KnowledgeCardAnalysisJobResponse response = knowledgeCardService.createCard(userId, request);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 지식카드 AI 분석 작업 결과 조회
+     *
+     * @param authentication 인증 정보
+     * @param jobId 분석 작업 ID
+     * @return 지식카드 AI 분석 작업 결과
+     */
+    @Operation(summary = "지식카드 AI 분석 작업 결과 조회", description = "작업 ID로 지식카드 AI 분석 상태와 생성된 지식카드를 조회")
+    @GetMapping("/jobs/{jobId}/result")
+    public ApiResponse<KnowledgeCardAnalysisResultResponse> getAnalysisResult(
+            Authentication authentication,
+            @PathVariable UUID jobId) {
+
+        UUID userId = currentUserId(authentication);
+        KnowledgeCardAnalysisResultResponse response = knowledgeCardService.getAnalysisResult(userId, jobId);
 
         return ApiResponse.success(response);
     }

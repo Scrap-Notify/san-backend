@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /** 지식 카드 Repository */
@@ -13,6 +14,15 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
 
     // 수집 원본 기준 지식카드 생성 여부 확인
     boolean existsByScrap_ScrapId(UUID scrapId);
+
+    // 수집 원본 기준 생성된 지식카드와 카테고리 조회
+    @Query("""
+            SELECT kc
+            FROM KnowledgeCard kc
+            JOIN FETCH kc.category
+            WHERE kc.scrap.scrapId = :scrapId
+            """)
+    Optional<KnowledgeCard> findByScrapIdWithCategory(@Param("scrapId") UUID scrapId);
 
     // 로그인 사용자 기준 지식카드 목록 조회
     @Query("""

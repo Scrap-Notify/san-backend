@@ -2,8 +2,8 @@ package com.san.api.domain.knowledge.controller;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
-import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisResultResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardSimilarCardsResponse;
 import com.san.api.domain.knowledge.service.KnowledgeCardService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -54,20 +54,20 @@ public class KnowledgeCardController {
     }
 
     /**
-     * 지식카드 AI 분석 작업 결과 조회
+     * 완료된 지식카드 AI 분석 작업 유사 카드 조회
      *
      * @param authentication 인증 정보
      * @param jobId 분석 작업 ID
-     * @return 지식카드 AI 분석 작업 결과
+     * @return 완료된 지식카드 AI 분석 작업 유사 카드 응답
      */
-    @Operation(summary = "지식카드 AI 분석 작업 결과 조회", description = "작업 ID로 지식카드 AI 분석 상태, 생성된 지식카드, 관련 카드 3개를 조회")
-    @GetMapping("/jobs/{jobId}/result")
-    public ApiResponse<KnowledgeCardAnalysisResultResponse> getAnalysisResult(
+    @Operation(summary = "지식카드 분석 작업 유사 카드 조회", description = "공통 비동기 상태 조회 API에서 COMPLETED 확인 후 입력 데이터와 유사도 높은 카드 3개를 조회")
+    @GetMapping("/jobs/{jobId}/similar-cards")
+    public ApiResponse<KnowledgeCardSimilarCardsResponse> getSimilarCards(
             Authentication authentication,
             @PathVariable UUID jobId) {
 
         UUID userId = currentUserId(authentication);
-        KnowledgeCardAnalysisResultResponse response = knowledgeCardService.getAnalysisResult(userId, jobId);
+        KnowledgeCardSimilarCardsResponse response = knowledgeCardService.getSimilarCards(userId, jobId);
 
         return ApiResponse.success(response);
     }

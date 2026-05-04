@@ -50,6 +50,25 @@ public class AsyncJobManager {
 
     @Transactional(readOnly = true)
     public AsyncJob getJob(UUID jobId) {
+        return findJob(jobId);
+    }
+
+    @Transactional
+    public void markProcessing(UUID jobId) {
+        findJob(jobId).updateStatus(JobStatusEnum.PROCESSING);
+    }
+
+    @Transactional
+    public void markCompleted(UUID jobId) {
+        findJob(jobId).updateStatus(JobStatusEnum.COMPLETED);
+    }
+
+    @Transactional
+    public void markFailed(UUID jobId, String errorMessage) {
+        findJob(jobId).fail(errorMessage);
+    }
+
+    private AsyncJob findJob(UUID jobId) {
         return asyncJobRepository.findById(jobId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND, "작업을 찾을 수 없습니다."));
     }

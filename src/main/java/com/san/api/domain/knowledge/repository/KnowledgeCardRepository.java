@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +36,24 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
             ORDER BY kc.createdAt DESC
             """)
     List<KnowledgeCard> findByScrap_User_UserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
+
+    /**
+     * TIL 생성에 사용할 특정 날짜의 지식카드 원본 조회
+     */
+    @Query("""
+            SELECT kc
+            FROM KnowledgeCard kc
+            JOIN FETCH kc.scrap s
+            WHERE s.user.userId = :userId
+              AND kc.createdAt >= :startAt
+              AND kc.createdAt < :endAt
+            ORDER BY kc.createdAt ASC
+            """)
+    List<KnowledgeCard> findTilSourceCards(
+            @Param("userId") UUID userId,
+            @Param("startAt") LocalDateTime startAt,
+            @Param("endAt") LocalDateTime endAt
+    );
 
     /**
      * 벡터 유사도 기반 지식 카드 검색.

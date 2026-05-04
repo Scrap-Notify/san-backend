@@ -2,7 +2,7 @@ package com.san.api.domain.knowledge.service;
 
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
-import com.san.api.global.async.executor.AsyncJobProcessor;
+import com.san.api.global.async.processor.AsyncJobProcessor;
 import com.san.api.global.async.service.AsyncJobManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;

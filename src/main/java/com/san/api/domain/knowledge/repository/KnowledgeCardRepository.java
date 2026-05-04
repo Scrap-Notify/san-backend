@@ -15,7 +15,15 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     boolean existsByScrap_ScrapId(UUID scrapId);
 
     // 로그인 사용자 기준 지식카드 목록 조회
-    List<KnowledgeCard> findByScrap_User_UserIdOrderByCreatedAtDesc(UUID userId);
+    @Query("""
+            SELECT kc
+            FROM KnowledgeCard kc
+            JOIN kc.scrap s
+            JOIN FETCH kc.category
+            WHERE s.user.userId = :userId
+            ORDER BY kc.createdAt DESC
+            """)
+    List<KnowledgeCard> findByScrap_User_UserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
 
     /**
      * 벡터 유사도 기반 지식 카드 검색.

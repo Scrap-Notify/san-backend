@@ -38,16 +38,16 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     List<KnowledgeCard> findByScrap_User_UserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
 
     /**
-     * TIL 생성에 사용할 특정 날짜의 지식카드 원본 조회
+     * TIL 생성에 사용할 특정 날짜에 수집된 지식카드 원본 조회
      */
     @Query("""
             SELECT kc
             FROM KnowledgeCard kc
             JOIN FETCH kc.scrap s
             WHERE s.user.userId = :userId
-              AND kc.createdAt >= :startAt
-              AND kc.createdAt < :endAt
-            ORDER BY kc.createdAt ASC
+              AND s.createdAt >= :startAt
+              AND s.createdAt < :endAt
+            ORDER BY s.createdAt ASC
             """)
     List<KnowledgeCard> findTilSourceCards(
             @Param("userId") UUID userId,

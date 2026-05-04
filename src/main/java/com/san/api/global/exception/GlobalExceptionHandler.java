@@ -6,8 +6,8 @@ import com.san.api.global.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -36,12 +36,13 @@ public class GlobalExceptionHandler {
 
     /**
      * @Valid 검증 실패 처리. 첫 번째 필드 오류만 반환합니다.
+     * BindException(@ModelAttribute)과 그 하위인 MethodArgumentNotValidException(@RequestBody)을 모두 처리합니다.
      *
      * @param e 발생한 예외
      * @return 400 응답
      */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBindException(BindException e) {
         FieldError fieldError = e.getBindingResult().getFieldErrors().stream().findFirst().orElse(null);
         String message = fieldError == null
                 ? CommonErrorCode.INVALID_INPUT_VALUE.getMessage()

@@ -12,7 +12,7 @@ import java.util.concurrent.Executor;
  *
  * @Async("asyncJobExecutor") 어노테이션을 사용하는 비동기 작업이 실행되려면 반드시 필요.
  */
-@EnableAsync
+@EnableAsync(proxyTargetClass = true)
 @Configuration
 public class AsyncConfig {
 

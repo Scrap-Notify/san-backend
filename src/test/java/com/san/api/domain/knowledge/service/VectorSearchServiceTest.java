@@ -1,5 +1,6 @@
 package com.san.api.domain.knowledge.service;
 
+import com.san.api.domain.knowledge.dto.response.SearchResponse;
 import com.san.api.domain.knowledge.entity.Category;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
@@ -59,6 +60,58 @@ class VectorSearchServiceTest {
         otherUserId = UUID.randomUUID();
         user = buildUser(userId);
         otherUser = buildUser(otherUserId);
+    }
+
+    // ───────────────────────────────────────────────
+    // search
+    // ───────────────────────────────────────────────
+
+    @Test
+    void search_필터없음_결과반환() {
+        KnowledgeCard card = buildCard(UUID.randomUUID(), user, new float[]{0.1f, 0.2f});
+        when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f, 0.2f});
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(10), eq(0)))
+                .thenReturn(List.of(card));
+        when(knowledgeCardRepository.countByVectorFilters(eq(userId), isNull(), isNull(), isNull()))
+                .thenReturn(1L);
+
+        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, 0, 10);
+
+        assertThat(response.keyword()).isEqualTo("AOP");
+        assertThat(response.totalCount()).isEqualTo(1L);
+        assertThat(response.hasNext()).isFalse();
+        assertThat(response.results()).hasSize(1);
+    }
+
+    @Test
+    void search_태그필터_적용() {
+        KnowledgeCard card = buildCard(UUID.randomUUID(), user, new float[]{0.1f, 0.2f});
+        when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f, 0.2f});
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), eq("Spring"), isNull(), isNull(), eq(10), eq(0)))
+                .thenReturn(List.of(card));
+        when(knowledgeCardRepository.countByVectorFilters(eq(userId), eq("Spring"), isNull(), isNull()))
+                .thenReturn(1L);
+
+        SearchResponse response = vectorSearchService.search("AOP", userId, "Spring", null, null, 0, 10);
+
+        assertThat(response.results()).hasSize(1);
+    }
+
+    @Test
+    void search_hasNext_페이지계산() {
+        List<KnowledgeCard> cards = List.of(
+                buildCard(UUID.randomUUID(), user, new float[]{0.1f}),
+                buildCard(UUID.randomUUID(), user, new float[]{0.2f})
+        );
+        when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f});
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(2), eq(0)))
+                .thenReturn(cards);
+        when(knowledgeCardRepository.countByVectorFilters(eq(userId), isNull(), isNull(), isNull()))
+                .thenReturn(5L);
+
+        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, 0, 2);
+
+        assertThat(response.hasNext()).isTrue();
     }
 
     // ───────────────────────────────────────────────

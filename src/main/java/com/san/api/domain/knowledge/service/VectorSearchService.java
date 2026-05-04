@@ -1,5 +1,6 @@
 package com.san.api.domain.knowledge.service;
 
+import com.san.api.domain.knowledge.dto.response.SearchResponse;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.repository.ScrapRepository;
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,17 +35,29 @@ public class VectorSearchService {
     /**
      * 자연어 검색어 기반 지식 카드 유사도 검색.
      * 검색어를 AI 서버에서 벡터로 변환한 뒤 pgvector로 검색한다.
+     * tag, fromDate, toDate는 null 전달 시 필터 미적용.
      *
-     * @param keyword 사용자 검색어
-     * @param userId  요청자 ID (권한 필터)
-     * @param limit   최대 반환 개수
-     * @param offset  페이지 오프셋
+     * @param keyword  사용자 검색어
+     * @param userId   요청자 ID (권한 필터)
+     * @param tag      태그명 필터 (null = 미적용)
+     * @param fromDate 시작일 필터 (null = 미적용)
+     * @param toDate   종료일 필터 (null = 미적용)
+     * @param page     페이지 번호 (0-based)
+     * @param size     페이지 크기
+     * @return 검색 결과 및 페이지 정보 (totalCount, hasNext 포함)
      */
-    public List<KnowledgeCard> search(String keyword, UUID userId, int limit, int offset) {
-        // TODO: AiEmbeddingClient 구현체 연동 후 동작 검증 필요
+    public SearchResponse search(String keyword, UUID userId, String tag,
+                                 LocalDate fromDate, LocalDate toDate, int page, int size) {
+        // TODO: AI 서버 실행 환경에서 E2E 동작 검증 필요
         float[] vector = aiEmbeddingClient.embed(keyword);
         String queryVector = toVectorString(vector);
-        return knowledgeCardRepository.searchByVector(queryVector, userId, limit, offset);
+
+        int offset = page * size;
+        List<KnowledgeCard> cards = knowledgeCardRepository.searchByVectorWithFilters(
+                queryVector, userId, tag, fromDate, toDate, size, offset);
+        long totalCount = knowledgeCardRepository.countByVectorFilters(userId, tag, fromDate, toDate);
+
+        return SearchResponse.of(keyword, page, size, totalCount, cards);
     }
 
     /**

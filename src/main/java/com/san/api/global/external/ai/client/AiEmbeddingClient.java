@@ -2,8 +2,7 @@ package com.san.api.global.external.ai.client;
 
 /**
  * AI 서버 임베딩 변환 클라이언트 인터페이스.
- *
- * <p>TODO: AI 파트 연동 시 구현체 작성 필요 (FastAPI POST /embed 호출, 장애 시 BusinessException 발생)</p>
+ * 구현체: {@link AiEmbeddingClientImpl}
  */
 public interface AiEmbeddingClient {
 

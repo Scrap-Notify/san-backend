@@ -1,4 +1,4 @@
-package com.san.api.global.audit.enums;
+package com.san.api.global.audit.entity;
 
 /**
  * 감사 로그에 기록할 세부 이벤트 타입.

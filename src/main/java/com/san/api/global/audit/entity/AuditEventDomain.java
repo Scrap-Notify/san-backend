@@ -1,4 +1,4 @@
-package com.san.api.global.audit.enums;
+package com.san.api.global.audit.entity;
 
 /**
  * 감사 로그 이벤트가 발생한 업무 도메인.

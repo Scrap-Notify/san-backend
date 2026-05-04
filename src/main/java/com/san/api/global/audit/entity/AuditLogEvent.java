@@ -1,9 +1,6 @@
 package com.san.api.global.audit.entity;
 
 import com.san.api.domain.user.entity.User;
-import com.san.api.global.audit.enums.AuditEventDomain;
-import com.san.api.global.audit.enums.AuditEventType;
-import com.san.api.global.audit.enums.AuditOutcome;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

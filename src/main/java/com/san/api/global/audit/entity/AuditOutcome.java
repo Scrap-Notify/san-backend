@@ -1,4 +1,4 @@
-package com.san.api.global.audit.enums;
+package com.san.api.global.audit.entity;
 
 /**
  * 감사 이벤트 처리 결과.

@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,7 +23,12 @@ import java.util.UUID;
 
 /** 지식 카드 엔티티 */
 @Entity
-@Table(name = "knowledge_cards")
+@Table(
+        name = "knowledge_cards",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_knowledge_cards_scrap_id", columnNames = "scrap_id")
+        }
+)
 @SQLRestriction("is_deleted = false")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

@@ -18,6 +18,7 @@ import com.san.api.global.external.ai.client.AiAnalysisClient;
 import com.san.api.global.external.ai.dto.request.AiAnalyzeRequest;
 import com.san.api.global.external.ai.dto.response.AiAnalyzeResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,15 +52,23 @@ public class KnowledgeCardAnalysisService {
         AiAnalyzeResponse analysis = aiAnalysisClient.analyze(toAnalyzeRequest(scrap));
         Category category = findOrCreateCategory(scrap, analysis.category());
 
-        KnowledgeCard card = knowledgeCardRepository.save(KnowledgeCard.builder()
-                .scrap(scrap)
-                .category(category)
-                .title(analysis.title().trim())
-                .summary(analysis.summary().trim())
-                .embedding(analysis.embedding())
-                .build());
+        KnowledgeCard card = saveCard(scrap, category, analysis);
 
         saveTags(card, analysis.tags());
+    }
+
+    private KnowledgeCard saveCard(Scrap scrap, Category category, AiAnalyzeResponse analysis) {
+        try {
+            return knowledgeCardRepository.saveAndFlush(KnowledgeCard.builder()
+                    .scrap(scrap)
+                    .category(category)
+                    .title(analysis.title().trim())
+                    .summary(analysis.summary().trim())
+                    .embedding(analysis.embedding())
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(KnowledgeErrorCode.CARD_ALREADY_EXISTS);
+        }
     }
 
     /**

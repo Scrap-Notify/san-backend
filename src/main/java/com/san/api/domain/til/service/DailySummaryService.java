@@ -8,8 +8,12 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.TilErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -22,6 +26,7 @@ public class DailySummaryService {
 
     private final DailySummaryRepository dailySummaryRepository;
     private final UserRepository userRepository;
+    private final PlatformTransactionManager transactionManager;
 
     /**
      * 사용자와 대상 날짜 기준 매일의 요약 조회 또는 생성
@@ -37,8 +42,11 @@ public class DailySummaryService {
             return summary.get();
         }
 
-        DailySummary newSummary = createSummary(userId, targetDate);
-        return dailySummaryRepository.save(newSummary);
+        try {
+            return createSummaryInNewTransaction(userId, targetDate);
+        } catch (DataIntegrityViolationException e) {
+            return getSummaryByUserAndTargetDate(userId, targetDate);
+        }
     }
 
     /**
@@ -80,5 +88,31 @@ public class DailySummaryService {
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
         return DailySummary.create(user, targetDate);
+    }
+
+    /**
+     * 새 트랜잭션에서 매일의 요약 엔티티 생성 및 저장
+     *
+     * @param userId 사용자 ID
+     * @param targetDate 요약 대상 날짜
+     * @return 저장된 매일의 요약
+     */
+    private DailySummary createSummaryInNewTransaction(UUID userId, LocalDate targetDate) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        return transactionTemplate.execute(status -> dailySummaryRepository.saveAndFlush(createSummary(userId, targetDate)));
+    }
+
+    /**
+     * 사용자와 대상 날짜 기준 매일의 요약 조회
+     *
+     * @param userId 사용자 ID
+     * @param targetDate 요약 대상 날짜
+     * @return 조회된 매일의 요약
+     */
+    private DailySummary getSummaryByUserAndTargetDate(UUID userId, LocalDate targetDate) {
+        return dailySummaryRepository.findByUser_UserIdAndTargetDate(userId, targetDate)
+                .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
     }
 }

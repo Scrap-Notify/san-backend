@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -24,7 +25,15 @@ import java.util.UUID;
 
 /** 매일의 요약 엔티티 */
 @Entity
-@Table(name = "daily_summaries")
+@Table(
+        name = "daily_summaries",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_daily_summaries_user_target_date",
+                        columnNames = {"user_id", "target_date"}
+                )
+        }
+)
 @SQLRestriction("is_deleted = false")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

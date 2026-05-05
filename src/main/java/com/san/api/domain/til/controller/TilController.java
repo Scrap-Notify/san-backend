@@ -2,6 +2,7 @@ package com.san.api.domain.til.controller;
 
 import com.san.api.domain.til.dto.request.TilGenerateRequest;
 import com.san.api.domain.til.dto.response.TilGenerationJobResponse;
+import com.san.api.domain.til.dto.response.TilResponse;
 import com.san.api.domain.til.service.TilService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -12,12 +13,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /** TIL API Controller */
@@ -45,6 +49,25 @@ public class TilController {
 
         UUID userId = currentUserId(authentication);
         TilGenerationJobResponse response = tilService.requestGeneration(userId, request);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 날짜 기준 TIL 조회
+     *
+     * @param authentication 인증 정보
+     * @param date 조회 대상 날짜
+     * @return 날짜 기준 TIL 조회 응답
+     */
+    @Operation(summary = "날짜 기준 TIL 조회", description = "프론트 달력에서 선택한 날짜의 TIL을 조회")
+    @GetMapping
+    public ApiResponse<TilResponse> getTil(
+            Authentication authentication,
+            @RequestParam LocalDate date) {
+
+        UUID userId = currentUserId(authentication);
+        TilResponse response = tilService.getTil(userId, date);
 
         return ApiResponse.success(response);
     }

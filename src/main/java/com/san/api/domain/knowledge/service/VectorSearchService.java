@@ -27,6 +27,9 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class VectorSearchService {
 
+    // pgvector <=> 코사인 거리 기준. 0.3 미만 = 유사도 0.7 초과
+    private static final double RECALL_THRESHOLD = 0.3;
+
     private final KnowledgeCardRepository knowledgeCardRepository;
     private final ScrapRepository scrapRepository;
     private final DailySummaryRepository dailySummaryRepository;
@@ -92,12 +95,12 @@ public class VectorSearchService {
     /**
      * TIL 기반 리콜 카드 추천.
      * TIL의 임베딩을 기준으로 유사 카드를 검색하며, 해당 TIL 생성에 사용된 원본 카드는 제외한다.
+     * RECALL_THRESHOLD 미만의 코사인 거리를 가진 카드를 전체 반환한다.
      *
      * @param summaryId TIL ID
      * @param userId    요청자 ID (권한 필터)
-     * @param limit     최대 반환 개수
      */
-    public List<KnowledgeCard> findRelatedByTil(UUID summaryId, UUID userId, int limit) {
+    public List<KnowledgeCard> findRelatedByTil(UUID summaryId, UUID userId) {
         DailySummary summary = dailySummaryRepository.findById(summaryId)
                 .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
 
@@ -112,10 +115,8 @@ public class VectorSearchService {
         String queryVector = toVectorString(summary.getEmbedding());
         List<UUID> excludeIds = scrapRepository.findCardIdsByUserAndDate(userId, summary.getTargetDate());
 
-        if (excludeIds.isEmpty()) {
-            return knowledgeCardRepository.searchByVector(queryVector, userId, limit, 0);
-        }
-        return knowledgeCardRepository.searchByVectorExcluding(queryVector, userId, excludeIds, limit, 0);
+        return knowledgeCardRepository.searchByVectorExcludingWithThreshold(
+                queryVector, userId, excludeIds, RECALL_THRESHOLD);
     }
 
     // float[] → "[0.1, 0.2, ...]" 형식 변환 (pgvector CAST용)

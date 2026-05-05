@@ -62,6 +62,18 @@ public class DailySummaryService {
     }
 
     /**
+     * 쓰기 잠금을 적용한 매일의 요약 단건 조회
+     *
+     * @param summaryId 매일의 요약 ID
+     * @return 쓰기 잠금이 적용된 매일의 요약
+     */
+    @Transactional
+    public DailySummary getSummaryForUpdate(UUID summaryId) {
+        return dailySummaryRepository.findBySummaryIdWithUserForUpdate(summaryId)
+                .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
+    }
+
+    /**
      * AI TIL 생성 결과 저장
      *
      * @param summaryId 매일의 요약 ID

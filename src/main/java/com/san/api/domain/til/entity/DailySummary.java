@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -24,7 +25,15 @@ import java.util.UUID;
 
 /** 매일의 요약 엔티티 */
 @Entity
-@Table(name = "daily_summaries")
+@Table(
+        name = "daily_summaries",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_daily_summaries_user_target_date",
+                        columnNames = {"user_id", "target_date"}
+                )
+        }
+)
 @SQLRestriction("is_deleted = false")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -52,6 +61,15 @@ public class DailySummary extends BaseEntity {
     @Column(name = "pushed_at")
     private LocalDateTime pushedAt;
 
+    /**
+     * 매일의 요약 생성
+     *
+     * @param user 요약 소유 사용자
+     * @param targetDate 요약 대상 날짜
+     * @param content 생성된 TIL 마크다운 내용
+     * @param embedding 생성된 TIL 임베딩
+     * @param pushedAt GitHub 업로드 완료 시각
+     */
     @Builder
     public DailySummary(
             User user,
@@ -66,5 +84,30 @@ public class DailySummary extends BaseEntity {
         this.content = content;
         this.embedding = embedding;
         this.pushedAt = pushedAt;
+    }
+
+    /**
+     * TIL 생성을 위한 빈 매일의 요약 생성
+     *
+     * @param user 요약 소유 사용자
+     * @param targetDate 요약 대상 날짜
+     * @return 새 매일의 요약 엔티티
+     */
+    public static DailySummary create(User user, LocalDate targetDate) {
+        return DailySummary.builder()
+                .user(user)
+                .targetDate(targetDate)
+                .build();
+    }
+
+    /**
+     * AI TIL 생성 결과 갱신
+     *
+     * @param content 생성된 TIL 마크다운 내용
+     * @param embedding 생성된 TIL 임베딩
+     */
+    public void updateGeneratedResult(String content, float[] embedding) {
+        this.content = content;
+        this.embedding = embedding;
     }
 }

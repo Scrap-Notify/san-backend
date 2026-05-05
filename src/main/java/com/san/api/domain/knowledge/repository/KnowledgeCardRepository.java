@@ -109,8 +109,8 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     );
     
     /**
-     * 벡터 유사도 기반 지식 카드 검색 (특정 카드 제외).
-     * TIL 기반 리콜에서 원본 카드를 제외할 때 사용.
+     * 벡터 유사도 기반 지식 카드 검색 (특정 카드 제외 + 유사도 threshold 필터).
+     * TIL 기반 리콜에서 원본 카드를 제외하고 threshold 이상인 카드 전체를 반환.
      * excludeIds는 반드시 1개 이상이어야 함 (빈 리스트 전달 시 SQL 오류).
      */
     @Query(value = """
@@ -122,15 +122,14 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
               AND kc.is_deleted = false
               AND kc.embedding IS NOT NULL
               AND kc.card_id NOT IN (:excludeIds)
+              AND kc.embedding <=> CAST(:queryVector AS vector) < :threshold
             ORDER BY kc.embedding <=> CAST(:queryVector AS vector)
-            LIMIT :limit OFFSET :offset
             """, nativeQuery = true)
-    List<KnowledgeCard> searchByVectorExcluding(
+    List<KnowledgeCard> searchByVectorExcludingWithThreshold(
             @Param("queryVector") String queryVector,
             @Param("userId") UUID userId,
             @Param("excludeIds") List<UUID> excludeIds,
-            @Param("limit") int limit,
-            @Param("offset") int offset
+            @Param("threshold") double threshold
     );
 
     /**

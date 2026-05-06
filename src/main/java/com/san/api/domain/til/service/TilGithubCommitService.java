@@ -47,20 +47,17 @@ public class TilGithubCommitService {
      *
      * @param userId 요청 사용자 ID
      * @param summaryId 커밋할 TIL ID
-     * @param githubRepositoryId 커밋 대상 GitHub 저장소 ID
      * @return 등록된 커밋 요청과 비동기 작업 ID
      */
     @Transactional
-    public RequestResult requestCommit(UUID userId, UUID summaryId, Long githubRepositoryId) {
+    public RequestResult requestCommit(UUID userId, UUID summaryId) {
         DailySummary summary = dailySummaryService.getSummary(summaryId);
         validateSummaryOwner(summary, userId);
         validateGeneratedTil(summary);
 
         GithubAccount githubAccount = githubAccountRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED));
-        GithubRepositoryConnection repositoryConnection = githubRepositoryConnectionRepository
-                .findByUser_UserIdAndGithubRepositoryId(userId, githubRepositoryId)
-                .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_REPOSITORY_NOT_FOUND));
+        GithubRepositoryConnection repositoryConnection = findSingleRepositoryConnection(userId);
 
         String branch = repositoryConnection.getDefaultBranch();
         String contentHash = filePolicy.createContentHash(summary.getContent());
@@ -125,6 +122,17 @@ public class TilGithubCommitService {
         if (duplicated) {
             throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "동일한 TIL 내용이 이미 GitHub 커밋 요청 또는 완료 상태입니다.");
         }
+    }
+
+    private GithubRepositoryConnection findSingleRepositoryConnection(UUID userId) {
+        List<GithubRepositoryConnection> connections = githubRepositoryConnectionRepository.findAllByUser_UserId(userId);
+        if (connections.isEmpty()) {
+            throw new BusinessException(AuthErrorCode.GITHUB_REPOSITORY_NOT_FOUND);
+        }
+        if (connections.size() > 1) {
+            throw new BusinessException(CommonErrorCode.BAD_REQUEST, "GitHub 커밋 대상 저장소를 하나만 연결해주세요.");
+        }
+        return connections.get(0);
     }
 
     private boolean isBlank(String value) {

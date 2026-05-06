@@ -81,7 +81,7 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
             markCommitCompleted(targetId, response.commit().sha(), response.commit().htmlUrl(), LocalDateTime.now());
             asyncJobManager.markCompleted(jobId);
         } catch (Exception e) {
-            String errorMessage = resolveErrorMessage(e);
+            String errorMessage = resolveErrorMessage(e, "TIL GitHub 커밋 작업 처리 중 오류가 발생했습니다.");
             markCommitFailedIfExists(targetId, errorMessage);
             asyncJobManager.markFailed(jobId, errorMessage);
         }
@@ -140,15 +140,6 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
 
     private String encodeContent(String content) {
         return Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private String resolveErrorMessage(Exception exception) {
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            return "TIL GitHub 커밋 작업 처리 중 오류가 발생했습니다.";
-        }
-
-        return message;
     }
 
     private TransactionTemplate transactionTemplate() {

@@ -62,22 +62,7 @@ public class TilGenerationJobProcessor implements AsyncJobProcessor {
             );
             asyncJobManager.markCompleted(jobId);
         } catch (Exception e) {
-            asyncJobManager.markFailed(jobId, resolveErrorMessage(e));
+            asyncJobManager.markFailed(jobId, resolveErrorMessage(e, "TIL 생성 작업 처리 중 오류가 발생했습니다."));
         }
-    }
-
-    /**
-     * 실패 메시지 정리
-     *
-     * @param exception 발생 예외
-     * @return 저장할 실패 메시지
-     */
-    private String resolveErrorMessage(Exception exception) {
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            return "TIL 생성 작업 처리 중 오류가 발생했습니다.";
-        }
-
-        return message;
     }
 }

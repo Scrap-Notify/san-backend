@@ -37,7 +37,7 @@ public class TilGithubFilePolicy {
      * @return 날짜별 디렉터리 경로
      */
     public String createDirectoryPath(LocalDate targetDate) {
-        return "TIL/%04d/%02d/%02d".formatted(
+        return "%04d/%02d/%02d".formatted(
                 targetDate.getYear(),
                 targetDate.getMonthValue(),
                 targetDate.getDayOfMonth()

@@ -118,7 +118,7 @@ class TilGithubCommitServiceTest {
                 "main",
                 LocalDate.of(2026, 5, 6),
                 "Spring Security"
-        )).thenReturn("TIL/2026/05/06/spring-security.md");
+        )).thenReturn("2026/05/06/spring-security.md");
         when(filePolicy.createCommitMessage("Spring Security")).thenReturn("docs: add TIL - Spring Security");
         when(tilGithubCommitRepository.save(any(TilGithubCommit.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(asyncJobManager.enqueue(eq(JobType.TIL_GITHUB_COMMIT), any(UUID.class))).thenReturn(jobId);
@@ -132,7 +132,7 @@ class TilGithubCommitServiceTest {
         ArgumentCaptor<TilGithubCommit> captor = ArgumentCaptor.forClass(TilGithubCommit.class);
         verify(tilGithubCommitRepository).save(captor.capture());
         TilGithubCommit saved = captor.getValue();
-        assertThat(saved.getFilePath()).isEqualTo("TIL/2026/05/06/spring-security.md");
+        assertThat(saved.getFilePath()).isEqualTo("2026/05/06/spring-security.md");
         assertThat(saved.getContentHash()).isEqualTo("content-hash");
     }
 

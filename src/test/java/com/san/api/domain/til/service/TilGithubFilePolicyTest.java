@@ -20,7 +20,7 @@ class TilGithubFilePolicyTest {
                 "Spring Security Filter Chain"
         );
 
-        assertThat(filePath).isEqualTo("TIL/2026/05/06/spring-security-filter-chain.md");
+        assertThat(filePath).isEqualTo("2026/05/06/spring-security-filter-chain.md");
     }
 
     @Test

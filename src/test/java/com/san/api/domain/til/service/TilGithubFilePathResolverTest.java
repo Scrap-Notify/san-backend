@@ -25,7 +25,7 @@ class TilGithubFilePathResolverTest {
                 "token",
                 "san",
                 "til",
-                "TIL/2026/05/06/spring-security.md",
+                "2026/05/06/spring-security.md",
                 "main"
         )).thenReturn(false);
 
@@ -37,7 +37,7 @@ class TilGithubFilePathResolverTest {
                 "Spring Security"
         );
 
-        assertThat(filePath).isEqualTo("TIL/2026/05/06/spring-security.md");
+        assertThat(filePath).isEqualTo("2026/05/06/spring-security.md");
     }
 
     @Test
@@ -47,14 +47,14 @@ class TilGithubFilePathResolverTest {
                 "token",
                 "san",
                 "til",
-                "TIL/2026/05/06/spring-security.md",
+                "2026/05/06/spring-security.md",
                 "main"
         )).thenReturn(true);
         when(githubApiClient.existsContent(
                 "token",
                 "san",
                 "til",
-                "TIL/2026/05/06/spring-security-1.md",
+                "2026/05/06/spring-security-1.md",
                 "main"
         )).thenReturn(false);
 
@@ -66,7 +66,7 @@ class TilGithubFilePathResolverTest {
                 "Spring Security"
         );
 
-        assertThat(filePath).isEqualTo("TIL/2026/05/06/spring-security-1.md");
+        assertThat(filePath).isEqualTo("2026/05/06/spring-security-1.md");
     }
 
     @Test
@@ -76,7 +76,7 @@ class TilGithubFilePathResolverTest {
                 "token",
                 "san",
                 "til",
-                "TIL/2026/05/07/spring-security.md",
+                "2026/05/07/spring-security.md",
                 "main"
         )).thenReturn(false);
 
@@ -88,7 +88,7 @@ class TilGithubFilePathResolverTest {
                 "Spring Security"
         );
 
-        assertThat(filePath).isEqualTo("TIL/2026/05/07/spring-security.md");
+        assertThat(filePath).isEqualTo("2026/05/07/spring-security.md");
     }
 
     @Test

@@ -17,15 +17,7 @@ import java.util.UUID;
 
 /** 매일의 요약 엔티티 */
 @Entity
-@Table(
-        name = "daily_summaries",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_daily_summaries_user_target_date",
-                        columnNames = {"user_id", "target_date"}
-                )
-        }
-)
+@Table(name = "daily_summaries")
 @SQLRestriction("is_deleted = false")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

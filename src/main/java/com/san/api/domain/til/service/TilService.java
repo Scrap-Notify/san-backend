@@ -13,8 +13,6 @@ import com.san.api.domain.til.entity.DailySummary;
 import com.san.api.domain.til.repository.DailySummaryRepository;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
-import com.san.api.global.exception.BusinessException;
-import com.san.api.global.exception.errorcode.TilErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +43,7 @@ public class TilService {
      */
     @Transactional
     public TilGenerationJobResponse requestGeneration(UUID userId, TilGenerateRequest request) {
-        DailySummary summary = dailySummaryService.getOrCreateSummary(userId, request.targetDate());
+        DailySummary summary = dailySummaryService.createSummary(userId, request.targetDate());
         DailySummary lockedSummary = dailySummaryService.getSummaryForUpdate(summary.getSummaryId());
         UUID jobId = asyncJobManager.enqueue(JobType.TIL_GENERATION, lockedSummary.getSummaryId());
 
@@ -64,11 +62,11 @@ public class TilService {
      * @return 날짜 기준 TIL 조회 응답
      */
     @Transactional(readOnly = true)
-    public TilResponse getTil(UUID userId, LocalDate targetDate) {
-        DailySummary summary = dailySummaryRepository.findByUser_UserIdAndTargetDate(userId, targetDate)
-                .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
-
-        return TilResponse.from(summary);
+    public List<TilResponse> getTil(UUID userId, LocalDate targetDate) {
+        return dailySummaryRepository.findAllByUser_UserIdAndTargetDateOrderByCreatedAtDesc(userId, targetDate)
+                .stream()
+                .map(TilResponse::from)
+                .toList();
     }
 
     /**

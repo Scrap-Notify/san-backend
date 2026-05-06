@@ -3,18 +3,18 @@ package com.san.api.global.external.github.client;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
-import com.san.api.global.external.github.dto.GithubAccessTokenResponse;
-import com.san.api.global.external.github.dto.GithubRepository;
-import com.san.api.global.external.github.dto.GithubUserProfile;
+import com.san.api.global.external.github.dto.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
@@ -120,6 +120,73 @@ public class GithubApiClient {
                     });
 
             return repositories == null ? List.of() : repositories;
+        } catch (RestClientException e) {
+            throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
+        }
+    }
+
+    /**
+     * GitHub 저장소의 특정 경로에 파일이 존재하는지 확인합니다.
+     */
+    public boolean existsContent(String accessToken, String owner, String repo, String path, String branch) {
+        try {
+            GithubContentResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .scheme("https")
+                            .host("api.github.com")
+                            .pathSegment("repos", owner, repo, "contents")
+                            .path("/" + path)
+                            .queryParam("ref", branch)
+                            .build())
+                    .headers(headers -> setGithubHeaders(headers, accessToken))
+                    .retrieve()
+                    .body(GithubContentResponse.class);
+
+            return response != null;
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                return false;
+            }
+            throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
+        } catch (RestClientException e) {
+            throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
+        }
+    }
+
+    /**
+     * GitHub 저장소에 새 파일을 생성하고 해당 변경을 커밋합니다.
+     */
+    public GithubCreateContentResponse createContent(
+            String accessToken,
+            String owner,
+            String repo,
+            String path,
+            String branch,
+            String message,
+            String base64Content
+    ) {
+        GithubCreateContentRequest request = new GithubCreateContentRequest(message, base64Content, branch);
+
+        try {
+            GithubCreateContentResponse response = restClient.put()
+                    .uri(uriBuilder -> uriBuilder
+                            .scheme("https")
+                            .host("api.github.com")
+                            .pathSegment("repos", owner, repo, "contents")
+                            .path("/" + path)
+                            .build())
+                    .headers(headers -> setGithubHeaders(headers, accessToken))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(GithubCreateContentResponse.class);
+
+            if (response == null || response.commit() == null || response.commit().sha() == null) {
+                throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
+            }
+            return response;
+        } catch (BusinessException e) {
+            throw e;
         } catch (RestClientException e) {
             throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
         }

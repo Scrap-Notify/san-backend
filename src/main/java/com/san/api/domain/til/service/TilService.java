@@ -41,7 +41,6 @@ public class TilService {
      * @param request TIL 생성 작업 등록 요청
      * @return 등록된 TIL 생성 작업 응답
      */
-    @Transactional
     public TilGenerationJobResponse requestGeneration(UUID userId, TilGenerateRequest request) {
         DailySummary summary = dailySummaryService.createSummary(userId, request.targetDate());
         DailySummary lockedSummary = dailySummaryService.getSummaryForUpdate(summary.getSummaryId());

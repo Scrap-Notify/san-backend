@@ -16,7 +16,6 @@ import com.san.api.global.exception.errorcode.TilErrorCode;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,7 +47,6 @@ public class TilGithubCommitService {
      * @param summaryId 커밋할 TIL ID
      * @return 등록된 커밋 요청과 비동기 작업 ID
      */
-    @Transactional
     public RequestResult requestCommit(UUID userId, UUID summaryId) {
         DailySummary summary = dailySummaryService.getSummary(summaryId);
         validateSummaryOwner(summary, userId);

@@ -26,7 +26,6 @@ public class TilGithubFilePolicy {
      * @return GitHub 저장소에 생성할 TIL 파일 경로
      */
     public String createFilePath(LocalDate targetDate, String title) {
-        // TODO: 같은 날짜 디렉터리에 같은 제목 slug가 있으면 -1, -2 suffix를 붙여 빈 경로를 선택합니다.
         return createDirectoryPath(targetDate) + "/" + createSlug(title) + ".md";
     }
 

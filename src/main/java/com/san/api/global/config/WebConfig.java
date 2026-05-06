@@ -15,7 +15,17 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
+        addApiCorsMapping(registry, "/auth/**");
+        addApiCorsMapping(registry, "/async-jobs/**");
+        addApiCorsMapping(registry, "/cards/**");
+        addApiCorsMapping(registry, "/github/**");
+        addApiCorsMapping(registry, "/scraps/**");
+        addApiCorsMapping(registry, "/search/**");
+        addApiCorsMapping(registry, "/til/**");
+    }
+
+    private void addApiCorsMapping(CorsRegistry registry, String pathPattern) {
+        registry.addMapping(pathPattern)
                 .allowedOriginPatterns("*")
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")

@@ -55,6 +55,18 @@ public class GithubAuthService {
     private String failureRedirectUri;
 
     /**
+     * 기본 GitHub OAuth 실패 redirect URL을 생성합니다.
+     *
+     * @return 기본 GitHub OAuth 실패 redirect URL
+     */
+    public String createFailureRedirectUrl() {
+        return UriComponentsBuilder.fromUriString(failureRedirectUri)
+                .queryParam("error", AuthErrorCode.GITHUB_OAUTH_FAILED.getCode())
+                .build()
+                .toUriString();
+    }
+
+    /**
      * GitHub OAuth authorize URL을 생성합니다.
      *
      * state는 Redis에 짧게 저장해 callback 요청이 백엔드가 시작한 OAuth 흐름인지 검증합니다.
@@ -90,11 +102,21 @@ public class GithubAuthService {
                     .build()
                     .toUriString();
         } catch (BusinessException e) {
-            return UriComponentsBuilder.fromUriString(failureRedirectUri)
-                    .queryParam("error", e.getErrorCode().getCode())
-                    .build()
-                    .toUriString();
+            return createFailureRedirectUrl(e.getErrorCode().getCode());
         }
+    }
+
+    /**
+     * 지정된 에러 코드를 포함한 GitHub OAuth 실패 redirect URL을 생성합니다.
+     *
+     * @param errorCode 프론트엔드에 전달할 에러 코드
+     * @return GitHub OAuth 실패 redirect URL
+     */
+    private String createFailureRedirectUrl(String errorCode) {
+        return UriComponentsBuilder.fromUriString(failureRedirectUri)
+                .queryParam("error", errorCode)
+                .build()
+                .toUriString();
     }
 
     /**

@@ -9,7 +9,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
@@ -18,6 +20,7 @@ import org.springframework.web.servlet.view.RedirectView;
 @RestController
 @RequestMapping("/auth/github")
 @RequiredArgsConstructor
+@Slf4j
 public class GithubAuthController {
 
     private final GithubAuthService githubAuthService;
@@ -39,9 +42,17 @@ public class GithubAuthController {
     @GetMapping("/callback")
     @ResponseStatus(HttpStatus.FOUND)
     public RedirectView callback(
-            @RequestParam String code,
-            @RequestParam String state) {
-        return new RedirectView(githubAuthService.handleCallback(code, state));
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error) {
+        if (StringUtils.hasText(error) || !StringUtils.hasText(code) || !StringUtils.hasText(state)) {
+            String redirectUrl = githubAuthService.createFailureRedirectUrl();
+            log.info("[GitHub OAuth] callback failed before token exchange. error={}, redirectUrl={}", error, redirectUrl);
+            return new RedirectView(redirectUrl);
+        }
+        String redirectUrl = githubAuthService.handleCallback(code, state);
+        log.info("[GitHub OAuth] callback redirectUrl={}", redirectUrl);
+        return new RedirectView(redirectUrl);
     }
 
     @Operation(

@@ -65,9 +65,9 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
     @Override
     public void process(UUID jobId, UUID targetId) {
         asyncJobManager.markProcessing(jobId);
-        markCommitProcessing(targetId);
 
         try {
+            markCommitProcessing(targetId);
             CommitPayload payload = loadPayload(targetId);
             GithubCreateContentResponse response = githubApiClient.createContent(
                     payload.accessToken(),
@@ -82,7 +82,7 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
             asyncJobManager.markCompleted(jobId);
         } catch (Exception e) {
             String errorMessage = resolveErrorMessage(e);
-            markCommitFailed(targetId, errorMessage);
+            markCommitFailedIfExists(targetId, errorMessage);
             asyncJobManager.markFailed(jobId, errorMessage);
         }
     }
@@ -123,9 +123,19 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
         transactionTemplate().executeWithoutResult(status -> getCommit(commitId).markFailed(errorMessage));
     }
 
+    private void markCommitFailedIfExists(UUID commitId, String errorMessage) {
+        try {
+            markCommitFailed(commitId, errorMessage);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() != TilErrorCode.TIL_GITHUB_COMMIT_NOT_FOUND) {
+                throw e;
+            }
+        }
+    }
+
     private TilGithubCommit getCommit(UUID commitId) {
         return tilGithubCommitRepository.findByIdWithSummaryAndRepository(commitId)
-                .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(TilErrorCode.TIL_GITHUB_COMMIT_NOT_FOUND));
     }
 
     private String encodeContent(String content) {

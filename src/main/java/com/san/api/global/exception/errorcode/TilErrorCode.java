@@ -20,6 +20,7 @@ public enum TilErrorCode implements ErrorCode {
     TIL_ALREADY_COMMITTED(HttpStatus.CONFLICT, "T007", "동일한 TIL 내용이 이미 GitHub 커밋 요청 또는 완료 상태입니다."),
     TIL_GITHUB_REPOSITORY_NOT_CONNECTED(HttpStatus.BAD_REQUEST, "T008", "GitHub 커밋 대상 저장소를 하나만 연결해주세요."),
     TIL_GITHUB_FILE_PATH_UNAVAILABLE(HttpStatus.CONFLICT, "T009", "사용 가능한 TIL GitHub 파일 경로를 찾을 수 없습니다."),
+    TIL_GITHUB_COMMIT_NOT_FOUND(HttpStatus.NOT_FOUND, "T010", "존재하지 않는 TIL GitHub 커밋 요청입니다."),
     ;
 
     private final HttpStatus status;

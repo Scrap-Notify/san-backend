@@ -10,6 +10,7 @@ import java.util.UUID;
 public record TilResponse(
         UUID summaryId,
         LocalDate targetDate,
+        String title,
         String content,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
@@ -25,6 +26,7 @@ public record TilResponse(
         return new TilResponse(
                 summary.getSummaryId(),
                 summary.getTargetDate(),
+                summary.getTitle(),
                 summary.getContent(),
                 summary.getCreatedAt(),
                 summary.getUpdatedAt()

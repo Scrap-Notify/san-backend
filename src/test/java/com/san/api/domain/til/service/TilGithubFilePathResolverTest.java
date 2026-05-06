@@ -1,5 +1,7 @@
 package com.san.api.domain.til.service;
 
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.TilErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,6 +91,32 @@ class TilGithubFilePathResolverTest {
         );
 
         assertThat(filePath).isEqualTo("2026/05/07/spring-security.md");
+    }
+
+    @Test
+    @DisplayName("suffix 상한까지 같은 제목 파일이 존재하면 예외가 발생한다")
+    void resolveUnavailablePath() {
+        for (int suffix = 0; suffix <= 5; suffix++) {
+            String fileName = suffix == 0 ? "spring-security.md" : "spring-security-" + suffix + ".md";
+            when(githubApiClient.existsContent(
+                    "token",
+                    "san",
+                    "til",
+                    "2026/05/06/" + fileName,
+                    "main"
+            )).thenReturn(true);
+        }
+
+        assertThatThrownBy(() -> resolver.resolve(
+                "token",
+                "san/til",
+                "main",
+                LocalDate.of(2026, 5, 6),
+                "Spring Security"
+        ))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(TilErrorCode.TIL_GITHUB_FILE_PATH_UNAVAILABLE);
     }
 
     @Test

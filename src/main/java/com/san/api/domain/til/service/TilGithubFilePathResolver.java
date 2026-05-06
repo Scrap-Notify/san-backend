@@ -13,7 +13,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class TilGithubFilePathResolver {
 
-    private static final int MAX_SUFFIX = 20;
+    private static final int MAX_SUFFIX = 5;
 
     private final TilGithubFilePolicy filePolicy;
     private final GithubApiClient githubApiClient;

@@ -4,9 +4,9 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.ai.dto.request.AiEmbedRequest;
 import com.san.api.global.external.ai.dto.response.AiEmbedResponse;
-
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -22,10 +22,9 @@ public class AiEmbeddingClientImpl implements AiEmbeddingClient {
 
     private final RestClient restClient;
 
-    public AiEmbeddingClientImpl(@Value("${ai.server.base-url}") String baseUrl) {
-        this.restClient = RestClient.builder()
-                .baseUrl(baseUrl)
-                .build();
+    /** 공통 설정이 적용된 AI 서버 호출 Client를 주입받는다. */
+    public AiEmbeddingClientImpl(@Qualifier("aiRestClient") RestClient restClient) {
+        this.restClient = restClient;
     }
 
     /**
@@ -40,6 +39,8 @@ public class AiEmbeddingClientImpl implements AiEmbeddingClient {
         try {
             AiEmbedResponse response = restClient.post()
                     .uri("/ai/search")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)
                     .body(new AiEmbedRequest(text))
                     .retrieve()
                     .body(AiEmbedResponse.class);
@@ -53,9 +54,8 @@ public class AiEmbeddingClientImpl implements AiEmbeddingClient {
                 vector[i] = response.embedding().get(i);
             }
             return vector;
-
         } catch (RestClientException e) {
-            log.error("AI 서버 임베딩 요청 실패: {}", e.getMessage());
+            log.error("AI embedding request failed: {}", e.getMessage(), e);
             throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
         }
     }

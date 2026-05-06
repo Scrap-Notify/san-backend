@@ -4,22 +4,23 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AiErrorCode;
 import com.san.api.global.external.ai.dto.request.AiTilRequest;
 import com.san.api.global.external.ai.dto.response.AiTilResponse;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /** AI TIL 생성 Client */
+@Slf4j
 @Component
 public class AiTilClient {
 
     private final RestClient restClient;
 
-    public AiTilClient(@Value("${ai.server.base-url}") String aiServerUrl) {
-        this.restClient = RestClient.builder()
-                .baseUrl(aiServerUrl)
-                .build();
+    /** 공통 설정이 적용된 AI 서버 호출 Client를 주입받는다. */
+    public AiTilClient(@Qualifier("aiRestClient") RestClient restClient) {
+        this.restClient = restClient;
     }
 
     /**
@@ -43,6 +44,7 @@ public class AiTilClient {
         } catch (BusinessException e) {
             throw e;
         } catch (RestClientException e) {
+            log.error("AI TIL generation request failed: {}", e.getMessage(), e);
             throw new BusinessException(AiErrorCode.AI_TIL_GENERATION_FAILED);
         }
     }

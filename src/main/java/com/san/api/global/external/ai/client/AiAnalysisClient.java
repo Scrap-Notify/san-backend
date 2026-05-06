@@ -4,22 +4,23 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AiErrorCode;
 import com.san.api.global.external.ai.dto.request.AiAnalyzeRequest;
 import com.san.api.global.external.ai.dto.response.AiAnalyzeResponse;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /** AI 서버 지식카드 분석 Client */
+@Slf4j
 @Component
 public class AiAnalysisClient {
 
     private final RestClient restClient;
 
-    public AiAnalysisClient(@Value("${ai.server.base-url}") String aiServerUrl) {
-        this.restClient = RestClient.builder()
-                .baseUrl(aiServerUrl)
-                .build();
+    /** 공통 설정이 적용된 AI 서버 호출 Client를 주입받는다. */
+    public AiAnalysisClient(@Qualifier("aiRestClient") RestClient restClient) {
+        this.restClient = restClient;
     }
 
     /**
@@ -43,6 +44,7 @@ public class AiAnalysisClient {
         } catch (BusinessException e) {
             throw e;
         } catch (RestClientException e) {
+            log.error("AI analysis request failed: {}", e.getMessage(), e);
             throw new BusinessException(AiErrorCode.AI_ANALYSIS_FAILED);
         }
     }

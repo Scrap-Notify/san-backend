@@ -31,7 +31,7 @@ public class AsyncJobManager {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UUID enqueue(JobType jobType, UUID targetId) {
         try {
-            AsyncJob job = asyncJobRepository.save(
+            AsyncJob job = asyncJobRepository.saveAndFlush(
                     AsyncJob.builder()
                             .jobType(jobType)
                             .targetId(targetId)

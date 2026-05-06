@@ -79,6 +79,7 @@ public class TilService {
      * @param userId    로그인 사용자 ID
      * @return 리콜 카드 목록
      */
+    @Transactional(readOnly = true)
     public TilRecallCardsResponse getRecallCards(UUID summaryId, UUID userId) {
         List<KnowledgeCard> cards = vectorSearchService.findRelatedByTil(summaryId, userId);
 

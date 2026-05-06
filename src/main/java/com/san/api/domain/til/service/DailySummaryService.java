@@ -77,15 +77,16 @@ public class DailySummaryService {
      * AI TIL 생성 결과 저장
      *
      * @param summaryId 매일의 요약 ID
+     * @param title 생성된 TIL 제목
      * @param content 생성된 TIL 마크다운 내용
      * @param embedding 생성된 TIL 임베딩
      */
     @Transactional
-    public void updateGeneratedResult(UUID summaryId, String content, float[] embedding) {
+    public void updateGeneratedResult(UUID summaryId, String title, String content, float[] embedding) {
         DailySummary summary = dailySummaryRepository.findById(summaryId)
                 .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
 
-        summary.updateGeneratedResult(content, embedding);
+        summary.updateGeneratedResult(title, content, embedding);
     }
 
     /**

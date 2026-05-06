@@ -2,14 +2,7 @@ package com.san.api.domain.til.entity;
 
 import com.san.api.domain.user.entity.User;
 import com.san.api.global.entity.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -50,6 +43,9 @@ public class DailySummary extends BaseEntity {
     @Column(name = "target_date", nullable = false)
     private LocalDate targetDate;
 
+    @Column(name = "title")
+    private String title;
+
     @Column(columnDefinition = "text")
     private String content;
 
@@ -74,6 +70,7 @@ public class DailySummary extends BaseEntity {
     public DailySummary(
             User user,
             LocalDate targetDate,
+            String title,
             String content,
             float[] embedding,
             LocalDateTime pushedAt
@@ -81,6 +78,7 @@ public class DailySummary extends BaseEntity {
         this.summaryId = UUID.randomUUID();
         this.user = user;
         this.targetDate = targetDate;
+        this.title = title;
         this.content = content;
         this.embedding = embedding;
         this.pushedAt = pushedAt;
@@ -106,7 +104,8 @@ public class DailySummary extends BaseEntity {
      * @param content 생성된 TIL 마크다운 내용
      * @param embedding 생성된 TIL 임베딩
      */
-    public void updateGeneratedResult(String content, float[] embedding) {
+    public void updateGeneratedResult(String title, String content, float[] embedding) {
+        this.title = title;
         this.content = content;
         this.embedding = embedding;
     }

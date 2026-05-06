@@ -56,6 +56,7 @@ public class TilGenerationJobProcessor implements AsyncJobProcessor {
 
             dailySummaryService.updateGeneratedResult(
                     summary.getSummaryId(),
+                    response.title(),
                     response.tilMarkdown(),
                     response.embedding()
             );

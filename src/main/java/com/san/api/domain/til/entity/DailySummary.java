@@ -13,7 +13,6 @@ import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 /** 매일의 요약 엔티티 */
@@ -54,9 +53,6 @@ public class DailySummary extends BaseEntity {
     @Column(columnDefinition = "vector(1536)")
     private float[] embedding;
 
-    @Column(name = "pushed_at")
-    private LocalDateTime pushedAt;
-
     /**
      * 매일의 요약 생성
      *
@@ -64,7 +60,6 @@ public class DailySummary extends BaseEntity {
      * @param targetDate 요약 대상 날짜
      * @param content 생성된 TIL 마크다운 내용
      * @param embedding 생성된 TIL 임베딩
-     * @param pushedAt GitHub 업로드 완료 시각
      */
     @Builder
     public DailySummary(
@@ -72,8 +67,7 @@ public class DailySummary extends BaseEntity {
             LocalDate targetDate,
             String title,
             String content,
-            float[] embedding,
-            LocalDateTime pushedAt
+            float[] embedding
     ) {
         this.summaryId = UUID.randomUUID();
         this.user = user;
@@ -81,7 +75,6 @@ public class DailySummary extends BaseEntity {
         this.title = title;
         this.content = content;
         this.embedding = embedding;
-        this.pushedAt = pushedAt;
     }
 
     /**
@@ -109,4 +102,5 @@ public class DailySummary extends BaseEntity {
         this.content = content;
         this.embedding = embedding;
     }
+
 }

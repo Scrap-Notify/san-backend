@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 
 /** TIL GitHub 커밋 이력을 조회하는 repository */
@@ -26,4 +27,14 @@ public interface TilGithubCommitRepository extends JpaRepository<TilGithubCommit
             @Param("contentHash") String contentHash,
             @Param("statuses") Collection<TilGithubCommitStatus> statuses
     );
+
+    @Query("""
+            SELECT tgc
+            FROM TilGithubCommit tgc
+            JOIN FETCH tgc.dailySummary ds
+            JOIN FETCH ds.user
+            JOIN FETCH tgc.githubRepositoryConnection
+            WHERE tgc.tilGithubCommitId = :commitId
+            """)
+    Optional<TilGithubCommit> findByIdWithSummaryAndRepository(@Param("commitId") UUID commitId);
 }

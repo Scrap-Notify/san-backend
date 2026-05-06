@@ -9,10 +9,11 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -24,28 +25,23 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AsyncJobManager {
 
-    private static final List<JobStatus> ACTIVE_STATUSES =
-            List.of(JobStatus.PENDING, JobStatus.PROCESSING);
-
     private final AsyncJobRepository asyncJobRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UUID enqueue(JobType jobType, UUID targetId) {
-        if (asyncJobRepository.existsByTargetIdAndJobTypeAndStatusIn(targetId, jobType, ACTIVE_STATUSES)) {
+        try {
+            AsyncJob job = asyncJobRepository.saveAndFlush(
+                    AsyncJob.builder()
+                            .jobType(jobType)
+                            .targetId(targetId)
+                            .build()
+            );
+            eventPublisher.publishEvent(new JobCreatedEvent(job.getJobId(), jobType, targetId));
+            return job.getJobId();
+        } catch (DataIntegrityViolationException e) {
             throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "이미 동일한 작업이 진행 중입니다.");
         }
-
-        AsyncJob job = asyncJobRepository.save(
-                AsyncJob.builder()
-                        .jobType(jobType)
-                        .targetId(targetId)
-                        .build()
-        );
-
-        eventPublisher.publishEvent(new JobCreatedEvent(job.getJobId(), jobType, targetId));
-
-        return job.getJobId();
     }
 
     @Transactional(readOnly = true)

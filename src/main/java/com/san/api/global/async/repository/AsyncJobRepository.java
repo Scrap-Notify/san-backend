@@ -14,6 +14,4 @@ public interface AsyncJobRepository extends JpaRepository<AsyncJob, UUID> {
     List<AsyncJob> findByTargetIdAndJobType(UUID targetId, JobType jobType);
 
     List<AsyncJob> findByStatus(JobStatus status);
-
-    boolean existsByTargetIdAndJobTypeAndStatusIn(UUID targetId, JobType jobType, List<JobStatus> statuses);
 }

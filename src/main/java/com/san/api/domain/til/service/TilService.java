@@ -43,13 +43,12 @@ public class TilService {
      */
     public TilGenerationJobResponse requestGeneration(UUID userId, TilGenerateRequest request) {
         DailySummary summary = dailySummaryService.createSummary(userId, request.targetDate());
-        DailySummary lockedSummary = dailySummaryService.getSummaryForUpdate(summary.getSummaryId());
-        UUID jobId = asyncJobManager.enqueue(JobType.TIL_GENERATION, lockedSummary.getSummaryId());
+        UUID jobId = asyncJobManager.enqueue(JobType.TIL_GENERATION, summary.getSummaryId());
 
         return new TilGenerationJobResponse(
-                lockedSummary.getSummaryId(),
+                summary.getSummaryId(),
                 jobId,
-                lockedSummary.getTargetDate()
+                summary.getTargetDate()
         );
     }
 

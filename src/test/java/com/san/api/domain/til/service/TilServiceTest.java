@@ -68,7 +68,6 @@ class TilServiceTest {
         UUID jobId = UUID.randomUUID();
 
         when(dailySummaryService.createSummary(userId, targetDate)).thenReturn(summary);
-        when(dailySummaryService.getSummaryForUpdate(summary.getSummaryId())).thenReturn(summary);
         when(asyncJobManager.enqueue(JobType.TIL_GENERATION, summary.getSummaryId())).thenReturn(jobId);
 
         TilGenerationJobResponse response = tilService.requestGeneration(userId, new TilGenerateRequest(targetDate));

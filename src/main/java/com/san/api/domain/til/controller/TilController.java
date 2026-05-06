@@ -2,6 +2,7 @@ package com.san.api.domain.til.controller;
 
 import com.san.api.domain.til.dto.request.TilGenerateRequest;
 import com.san.api.domain.til.dto.response.TilGenerationJobResponse;
+import com.san.api.domain.til.dto.response.TilRecallCardsResponse;
 import com.san.api.domain.til.dto.response.TilResponse;
 import com.san.api.domain.til.service.TilService;
 import com.san.api.global.exception.BusinessException;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,7 +39,7 @@ public class TilController {
      * TIL 생성 작업 등록
      *
      * @param authentication 인증 정보
-     * @param request TIL 생성 작업 등록 요청
+     * @param request        TIL 생성 작업 등록 요청
      * @return 등록된 TIL 생성 작업 응답
      */
     @Operation(summary = "TIL 생성 작업 등록", description = "대상 날짜의 지식카드 원본을 기반으로 TIL을 생성하는 비동기 작업을 등록")
@@ -73,11 +75,24 @@ public class TilController {
     }
 
     /**
-     * 인증 정보에서 사용자 ID 추출
+     * TIL 기반 리콜 카드 조회
      *
      * @param authentication 인증 정보
-     * @return 로그인 사용자 ID
+     * @param summaryId      TIL ID
+     * @return 리콜 카드 목록
      */
+    @Operation(summary = "TIL 리콜 카드 조회", description = "TIL 임베딩 기반으로 유사한 지식카드를 추천. 원본 카드는 제외되며 유사도 threshold 이상인 카드를 전체 반환")
+    @GetMapping("/{summaryId}/recall-cards")
+    public ApiResponse<TilRecallCardsResponse> getRecallCards(
+            Authentication authentication,
+            @PathVariable UUID summaryId) {
+
+        UUID userId = currentUserId(authentication);
+        TilRecallCardsResponse response = tilService.getRecallCards(summaryId, userId);
+
+        return ApiResponse.success(response);
+    }
+
     private UUID currentUserId(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED);

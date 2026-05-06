@@ -178,7 +178,7 @@ class VectorSearchServiceTest {
         UUID summaryId = UUID.randomUUID();
         when(dailySummaryRepository.findById(summaryId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> vectorSearchService.findRelatedByTil(summaryId, userId, 5))
+        assertThatThrownBy(() -> vectorSearchService.findRelatedByTil(summaryId, userId))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", TilErrorCode.SUMMARY_NOT_FOUND);
     }
@@ -189,7 +189,7 @@ class VectorSearchServiceTest {
         DailySummary summary = buildSummary(summaryId, otherUser, new float[]{0.1f, 0.2f});
         when(dailySummaryRepository.findById(summaryId)).thenReturn(Optional.of(summary));
 
-        assertThatThrownBy(() -> vectorSearchService.findRelatedByTil(summaryId, userId, 5))
+        assertThatThrownBy(() -> vectorSearchService.findRelatedByTil(summaryId, userId))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", TilErrorCode.SUMMARY_ACCESS_DENIED);
     }
@@ -200,32 +200,14 @@ class VectorSearchServiceTest {
         DailySummary summary = buildSummary(summaryId, user, null);
         when(dailySummaryRepository.findById(summaryId)).thenReturn(Optional.of(summary));
 
-        List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId, 5);
+        List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId);
 
         assertThat(result).isEmpty();
         verifyNoInteractions(knowledgeCardRepository);
     }
 
     @Test
-    void findRelatedByTil_원본카드없을때_excludeIds없이조회() {
-        UUID summaryId = UUID.randomUUID();
-        DailySummary summary = buildSummary(summaryId, user, new float[]{0.1f, 0.2f});
-        KnowledgeCard related = buildCard(UUID.randomUUID(), user, new float[]{0.3f, 0.4f});
-
-        when(dailySummaryRepository.findById(summaryId)).thenReturn(Optional.of(summary));
-        when(scrapRepository.findCardIdsByUserAndDate(eq(userId), any(LocalDate.class)))
-                .thenReturn(List.of());
-        when(knowledgeCardRepository.searchByVector(anyString(), eq(userId), eq(5), eq(0)))
-                .thenReturn(List.of(related));
-
-        List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId, 5);
-
-        assertThat(result).containsExactly(related);
-        verify(knowledgeCardRepository, never()).searchByVectorExcluding(any(), any(), any(), anyInt(), anyInt());
-    }
-
-    @Test
-    void findRelatedByTil_원본카드있을때_excludeIds로조회() {
+    void findRelatedByTil_threshold_이상_카드만_반환() {
         UUID summaryId = UUID.randomUUID();
         UUID sourceCardId = UUID.randomUUID();
         DailySummary summary = buildSummary(summaryId, user, new float[]{0.1f, 0.2f});
@@ -234,13 +216,13 @@ class VectorSearchServiceTest {
         when(dailySummaryRepository.findById(summaryId)).thenReturn(Optional.of(summary));
         when(scrapRepository.findCardIdsByUserAndDate(eq(userId), any(LocalDate.class)))
                 .thenReturn(List.of(sourceCardId));
-        when(knowledgeCardRepository.searchByVectorExcluding(anyString(), eq(userId), eq(List.of(sourceCardId)), eq(5), eq(0)))
+        when(knowledgeCardRepository.searchByVectorExcludingWithThreshold(
+                anyString(), eq(userId), eq(List.of(sourceCardId)), eq(0.3)))
                 .thenReturn(List.of(related));
 
-        List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId, 5);
+        List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId);
 
         assertThat(result).containsExactly(related);
-        verify(knowledgeCardRepository, never()).searchByVector(any(), any(), anyInt(), anyInt());
     }
 
     // ───────────────────────────────────────────────

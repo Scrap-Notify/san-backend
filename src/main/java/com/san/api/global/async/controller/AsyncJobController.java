@@ -18,7 +18,7 @@ import java.util.UUID;
  */
 @Tag(name = "AsyncJob", description = "비동기 작업 상태 조회 API")
 @RestController
-@RequestMapping("/api/async-jobs")
+@RequestMapping("/async-jobs")
 @RequiredArgsConstructor
 public class AsyncJobController {
 

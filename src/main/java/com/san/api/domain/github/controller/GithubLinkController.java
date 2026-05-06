@@ -15,7 +15,7 @@ import java.util.UUID;
 /** 로그인된 서비스 계정의 GitHub 계정 연동 요청을 처리하는 컨트롤러. */
 @Tag(name = "GitHub Link", description = "GitHub 계정 연동 API")
 @RestController
-@RequestMapping("/api/github/link")
+@RequestMapping("/github/link")
 @RequiredArgsConstructor
 public class GithubLinkController {
 

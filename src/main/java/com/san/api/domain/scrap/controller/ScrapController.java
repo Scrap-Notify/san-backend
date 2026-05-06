@@ -23,7 +23,7 @@ import java.util.UUID;
 /** 수집 원본 API Controller */
 @Tag(name = "Scrap", description = "수집 원본 API")
 @RestController
-@RequestMapping("/api/scraps")
+@RequestMapping("/scraps")
 @RequiredArgsConstructor
 public class ScrapController {
 

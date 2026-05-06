@@ -27,7 +27,7 @@ import java.util.UUID;
 /** 지식카드 API Controller */
 @Tag(name = "KnowledgeCard", description = "지식카드 API")
 @RestController
-@RequestMapping("/api/cards")
+@RequestMapping("/cards")
 @RequiredArgsConstructor
 public class KnowledgeCardController {
 

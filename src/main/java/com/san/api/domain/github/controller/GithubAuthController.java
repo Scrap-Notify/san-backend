@@ -16,7 +16,7 @@ import org.springframework.web.servlet.view.RedirectView;
 /** GitHub OAuth 로그인 요청을 처리하는 컨트롤러. */
 @Tag(name = "GitHub Auth", description = "GitHub OAuth 로그인 API")
 @RestController
-@RequestMapping("/api/auth/github")
+@RequestMapping("/auth/github")
 @RequiredArgsConstructor
 public class GithubAuthController {
 

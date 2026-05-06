@@ -217,7 +217,7 @@ class VectorSearchServiceTest {
         when(scrapRepository.findCardIdsByUserAndDate(eq(userId), any(LocalDate.class)))
                 .thenReturn(List.of(sourceCardId));
         when(knowledgeCardRepository.searchByVectorExcludingWithThreshold(
-                anyString(), eq(userId), eq(List.of(sourceCardId)), anyDouble()))
+                anyString(), eq(userId), eq(List.of(sourceCardId)), eq(0.3)))
                 .thenReturn(List.of(related));
 
         List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId);

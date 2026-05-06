@@ -1,5 +1,7 @@
 package com.san.api.domain.til.service;
 
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.TilErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -53,7 +55,7 @@ public class TilGithubFilePathResolver {
             }
         }
 
-        throw new IllegalStateException("TIL GitHub file path is unavailable.");
+        throw new BusinessException(TilErrorCode.TIL_GITHUB_FILE_PATH_UNAVAILABLE);
     }
 
     private record RepositoryName(String owner, String repo) {

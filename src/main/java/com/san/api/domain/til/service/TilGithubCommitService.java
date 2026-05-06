@@ -12,7 +12,6 @@ import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
-import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.TilErrorCode;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import lombok.RequiredArgsConstructor;
@@ -100,10 +99,10 @@ public class TilGithubCommitService {
 
     private void validateGeneratedTil(DailySummary summary) {
         if (isBlank(summary.getTitle())) {
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST, "TIL 제목이 없어 GitHub 커밋을 요청할 수 없습니다.");
+            throw new BusinessException(TilErrorCode.TIL_TITLE_EMPTY);
         }
         if (isBlank(summary.getContent())) {
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST, "TIL 본문이 없어 GitHub 커밋을 요청할 수 없습니다.");
+            throw new BusinessException(TilErrorCode.TIL_CONTENT_EMPTY);
         }
     }
 
@@ -120,17 +119,17 @@ public class TilGithubCommitService {
                         DUPLICATE_CHECK_STATUSES
                 );
         if (duplicated) {
-            throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "동일한 TIL 내용이 이미 GitHub 커밋 요청 또는 완료 상태입니다.");
+            throw new BusinessException(TilErrorCode.TIL_ALREADY_COMMITTED);
         }
     }
 
     private GithubRepositoryConnection findSingleRepositoryConnection(UUID userId) {
         List<GithubRepositoryConnection> connections = githubRepositoryConnectionRepository.findAllByUser_UserId(userId);
         if (connections.isEmpty()) {
-            throw new BusinessException(AuthErrorCode.GITHUB_REPOSITORY_NOT_FOUND);
+            throw new BusinessException(TilErrorCode.TIL_GITHUB_REPOSITORY_NOT_CONNECTED);
         }
         if (connections.size() > 1) {
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST, "GitHub 커밋 대상 저장소를 하나만 연결해주세요.");
+            throw new BusinessException(TilErrorCode.TIL_GITHUB_REPOSITORY_NOT_CONNECTED);
         }
         return connections.get(0);
     }

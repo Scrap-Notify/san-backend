@@ -30,14 +30,14 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     private static final String[] PUBLIC_URLS = {
-            "/api/auth/check-username",
-            "/api/auth/signup",
-            "/api/auth/login",
-            "/api/auth/github/authorize",
-            "/api/auth/github/callback",
-            "/api/auth/github/login",
-            "/api/auth/github/token",
-            "/api/auth/reissue",
+            "/auth/check-username",
+            "/auth/signup",
+            "/auth/login",
+            "/auth/github/authorize",
+            "/auth/github/callback",
+            "/auth/github/login",
+            "/auth/github/token",
+            "/auth/reissue",
             "/health",
             "/actuator/**",
             "/swagger-ui/**",

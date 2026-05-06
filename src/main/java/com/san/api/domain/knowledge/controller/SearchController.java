@@ -21,7 +21,7 @@ import java.util.UUID;
 /** 자연어 통합 검색 API Controller */
 @Tag(name = "Search", description = "자연어 통합 검색 API")
 @RestController
-@RequestMapping("/api/search")
+@RequestMapping("/search")
 @RequiredArgsConstructor
 public class SearchController {
 

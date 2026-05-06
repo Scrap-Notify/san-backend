@@ -29,7 +29,7 @@ import java.util.UUID;
 /** TIL API Controller */
 @Tag(name = "TIL", description = "TIL API")
 @RestController
-@RequestMapping("/api/til")
+@RequestMapping("/til")
 @RequiredArgsConstructor
 public class TilController {
 

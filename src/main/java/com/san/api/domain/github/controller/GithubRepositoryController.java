@@ -18,7 +18,7 @@ import java.util.UUID;
 /** GitHub 레포지토리 조회와 연결 요청을 처리하는 컨트롤러. */
 @Tag(name = "GitHub Repository", description = "GitHub 레포지토리 연동 API")
 @RestController
-@RequestMapping("/api/github/repositories")
+@RequestMapping("/github/repositories")
 @RequiredArgsConstructor
 public class GithubRepositoryController {
 

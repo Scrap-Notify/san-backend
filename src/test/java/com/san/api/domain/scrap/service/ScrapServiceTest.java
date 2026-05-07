@@ -1,5 +1,8 @@
 package com.san.api.domain.scrap.service;
 
+import com.san.api.domain.knowledge.entity.Category;
+import com.san.api.domain.knowledge.entity.KnowledgeCard;
+import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.dto.request.ScrapCreateRequest;
 import com.san.api.domain.scrap.dto.response.ScrapResponse;
 import com.san.api.domain.scrap.entity.Scrap;
@@ -51,6 +54,9 @@ class ScrapServiceTest {
     @Mock
     private AsyncJobRepository asyncJobRepository;
 
+    @Mock
+    private KnowledgeCardRepository knowledgeCardRepository;
+
     private ScrapContentHashPolicy contentHashPolicy;
     private ScrapService scrapService;
 
@@ -63,7 +69,8 @@ class ScrapServiceTest {
                 new SourceTypeDetector(),
                 contentHashPolicy,
                 asyncJobManager,
-                asyncJobRepository
+                asyncJobRepository,
+                knowledgeCardRepository
         );
     }
 
@@ -80,6 +87,7 @@ class ScrapServiceTest {
         when(scrapRepository.save(any(Scrap.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         UUID jobId = UUID.randomUUID();
+        when(knowledgeCardRepository.findByScrapIdWithCategory(any(UUID.class))).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(any(UUID.class), eq(JobType.CARD_ANALYSIS)))
                 .thenReturn(List.of());
         when(asyncJobManager.enqueue(eq(JobType.CARD_ANALYSIS), any(UUID.class))).thenReturn(jobId);
@@ -113,6 +121,7 @@ class ScrapServiceTest {
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
                 .thenReturn(Optional.of(existingScrap));
         UUID jobId = UUID.randomUUID();
+        when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId())).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(existingScrap.getScrapId(), JobType.CARD_ANALYSIS))
                 .thenReturn(List.of());
         when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, existingScrap.getScrapId())).thenReturn(jobId);
@@ -142,6 +151,7 @@ class ScrapServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
                 .thenReturn(Optional.of(existingScrap));
+        when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId())).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(existingScrap.getScrapId(), JobType.CARD_ANALYSIS))
                 .thenReturn(List.of(activeJob));
 
@@ -149,6 +159,34 @@ class ScrapServiceTest {
 
         verify(asyncJobManager, never()).enqueue(any(JobType.class), any(UUID.class));
         assertThat(response.jobId()).isEqualTo(jobId);
+    }
+
+    @Test
+    void createScrap_returnsCreatedCardWhenCardAlreadyExists() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId);
+        String contentHash = contentHashPolicy.createContentHash("hello");
+        Scrap existingScrap = Scrap.builder()
+                .user(user)
+                .sourceType(SourceType.TEXT)
+                .rawContent("hello")
+                .contentHash(contentHash)
+                .build();
+        UUID cardId = UUID.randomUUID();
+        KnowledgeCard card = buildCard(cardId, existingScrap, user);
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
+                .thenReturn(Optional.of(existingScrap));
+        when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId()))
+                .thenReturn(Optional.of(card));
+
+        ScrapResponse response = scrapService.createScrap(userId, request);
+
+        verify(asyncJobManager, never()).enqueue(any(JobType.class), any(UUID.class));
+        assertThat(response.jobId()).isNull();
+        assertThat(response.cardId()).isEqualTo(cardId);
     }
 
     @Test
@@ -169,6 +207,7 @@ class ScrapServiceTest {
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
                 .thenReturn(Optional.empty(), Optional.of(existingScrap));
         when(scrapRepository.save(any(Scrap.class))).thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId())).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(existingScrap.getScrapId(), JobType.CARD_ANALYSIS))
                 .thenReturn(List.of());
         when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, existingScrap.getScrapId())).thenReturn(jobId);
@@ -198,6 +237,7 @@ class ScrapServiceTest {
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
                 .thenReturn(Optional.empty());
         when(scrapRepository.save(any(Scrap.class))).thenReturn(savedScrap);
+        when(knowledgeCardRepository.findByScrapIdWithCategory(savedScrap.getScrapId())).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(savedScrap.getScrapId(), JobType.CARD_ANALYSIS))
                 .thenReturn(List.of(), List.of(activeJob));
         when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, savedScrap.getScrapId()))
@@ -225,5 +265,20 @@ class ScrapServiceTest {
         ReflectionTestUtils.setField(job, "jobId", jobId);
         job.updateStatus(status);
         return job;
+    }
+
+    private KnowledgeCard buildCard(UUID cardId, Scrap scrap, User user) {
+        Category category = Category.builder()
+                .user(user)
+                .categoryName("테스트")
+                .build();
+        KnowledgeCard card = KnowledgeCard.builder()
+                .scrap(scrap)
+                .category(category)
+                .title("테스트 카드")
+                .summary("요약")
+                .build();
+        ReflectionTestUtils.setField(card, "cardId", cardId);
+        return card;
     }
 }

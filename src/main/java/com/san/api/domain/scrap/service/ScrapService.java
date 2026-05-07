@@ -2,6 +2,8 @@ package com.san.api.domain.scrap.service;
 
 import com.san.api.domain.scrap.dto.request.ScrapCreateRequest;
 import com.san.api.domain.scrap.dto.response.ScrapResponse;
+import com.san.api.domain.knowledge.entity.KnowledgeCard;
+import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.scrap.repository.ScrapRepository;
@@ -33,6 +35,7 @@ public class ScrapService {
     private final ScrapContentHashPolicy contentHashPolicy;
     private final AsyncJobManager asyncJobManager;
     private final AsyncJobRepository asyncJobRepository;
+    private final KnowledgeCardRepository knowledgeCardRepository;
 
     /**
      * 수집 원본 저장
@@ -84,10 +87,15 @@ public class ScrapService {
 
     /** 스크랩에 연결된 활성 분석 작업을 조회하거나 새로 등록 */
     private ScrapResponse createResponseWithJob(Scrap scrap) {
+        Optional<KnowledgeCard> card = knowledgeCardRepository.findByScrapIdWithCategory(scrap.getScrapId());
+        if (card.isPresent()) {
+            return ScrapResponse.from(scrap, null, card.get().getCardId());
+        }
+
         UUID jobId = findActiveCardAnalysisJobId(scrap.getScrapId())
                 .orElseGet(() -> enqueueCardAnalysisJob(scrap.getScrapId()));
 
-        return ScrapResponse.from(scrap, jobId);
+        return ScrapResponse.from(scrap, jobId, null);
     }
 
     /** 지식카드 분석 작업 등록 중 중복 충돌이 발생하면 활성 작업을 재조회 */

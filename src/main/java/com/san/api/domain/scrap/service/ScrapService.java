@@ -3,6 +3,7 @@ package com.san.api.domain.scrap.service;
 import com.san.api.domain.scrap.dto.request.ScrapCreateRequest;
 import com.san.api.domain.scrap.dto.response.ScrapResponse;
 import com.san.api.domain.scrap.entity.Scrap;
+import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.scrap.repository.ScrapRepository;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
@@ -23,6 +24,7 @@ public class ScrapService {
     private final ScrapRepository scrapRepository;
     private final UserRepository userRepository;
     private final SourceTypeDetector sourceTypeDetector;
+    private final ScrapContentHashPolicy contentHashPolicy;
 
     /**
      * 수집 원본 저장
@@ -37,12 +39,16 @@ public class ScrapService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
+        String normalizedRawContent = contentHashPolicy.normalize(request.rawContent());
+        String contentHash = contentHashPolicy.createContentHash(normalizedRawContent);
+        SourceType sourceType = sourceTypeDetector.detect(normalizedRawContent);
 
         Scrap scrap = Scrap.builder()
                 .user(user)
-                .sourceType(sourceTypeDetector.detect(request.rawContent()))
+                .sourceType(sourceType)
                 .sourceUrl(blankToNull(request.sourceUrl()))
-                .rawContent(request.rawContent().trim())
+                .rawContent(normalizedRawContent)
+                .contentHash(contentHash)
                 .imageUrl(null)
                 .build();
 

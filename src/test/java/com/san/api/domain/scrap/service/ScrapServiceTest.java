@@ -19,6 +19,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,9 +53,12 @@ class ScrapServiceTest {
         UUID userId = UUID.randomUUID();
         User user = buildUser(userId);
         ScrapCreateRequest request = new ScrapCreateRequest(null, " hello\r\nworld \n");
+        String contentHash = contentHashPolicy.createContentHash("hello\nworld");
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(scrapRepository.save(org.mockito.ArgumentMatchers.any(Scrap.class)))
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
+                .thenReturn(Optional.empty());
+        when(scrapRepository.save(any(Scrap.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         scrapService.createScrap(userId, request);
@@ -64,7 +69,29 @@ class ScrapServiceTest {
 
         assertThat(saved.getSourceType()).isEqualTo(SourceType.TEXT);
         assertThat(saved.getRawContent()).isEqualTo("hello\nworld");
-        assertThat(saved.getContentHash()).isEqualTo(contentHashPolicy.createContentHash("hello\nworld"));
+        assertThat(saved.getContentHash()).isEqualTo(contentHash);
+    }
+
+    @Test
+    void createScrap_returnsExistingScrapWhenSameSourceExists() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId);
+        String contentHash = contentHashPolicy.createContentHash("hello");
+        Scrap existingScrap = Scrap.builder()
+                .user(user)
+                .sourceType(SourceType.TEXT)
+                .rawContent("hello")
+                .contentHash(contentHash)
+                .build();
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
+                .thenReturn(Optional.of(existingScrap));
+
+        scrapService.createScrap(userId, request);
+
+        verify(scrapRepository, never()).save(any(Scrap.class));
     }
 
     private User buildUser(UUID userId) {

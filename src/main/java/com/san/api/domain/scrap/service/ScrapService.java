@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /** 수집 원본 저장 Service */
@@ -42,6 +43,15 @@ public class ScrapService {
         String normalizedRawContent = contentHashPolicy.normalize(request.rawContent());
         String contentHash = contentHashPolicy.createContentHash(normalizedRawContent);
         SourceType sourceType = sourceTypeDetector.detect(normalizedRawContent);
+
+        Optional<Scrap> existingScrap = scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(
+                userId,
+                sourceType,
+                contentHash
+        );
+        if (existingScrap.isPresent()) {
+            return ScrapResponse.from(existingScrap.get());
+        }
 
         Scrap scrap = Scrap.builder()
                 .user(user)

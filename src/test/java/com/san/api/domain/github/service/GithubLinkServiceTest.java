@@ -9,7 +9,7 @@ import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
-import com.san.api.global.external.github.dto.GithubUserProfile;
+import com.san.api.global.external.github.dto.response.GithubUserProfileResponse;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,7 +113,7 @@ class GithubLinkServiceTest {
                 .passwordHash("password")
                 .provider(AuthProvider.LOCAL)
                 .build();
-        GithubUserProfile profile = new GithubUserProfile(1L, "octocat");
+        GithubUserProfileResponse profile = new GithubUserProfileResponse(1L, "octocat");
         GithubAccount linkedAccount = new GithubAccount(otherUser, "1", "octocat", "encrypted-token");
         when(encryptor.encrypt("github-token")).thenReturn("new-encrypted-token");
         when(githubAccountRepository.findByGithubUserId("1")).thenReturn(Optional.of(linkedAccount));

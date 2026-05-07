@@ -15,8 +15,8 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
-import com.san.api.global.external.github.dto.GithubAccessTokenResponse;
-import com.san.api.global.external.github.dto.GithubUserProfile;
+import com.san.api.global.external.github.dto.response.GithubAccessTokenResponse;
+import com.san.api.global.external.github.dto.response.GithubUserProfileResponse;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -119,9 +119,7 @@ public class GithubAuthService {
                 .toUriString();
     }
 
-    /**
-     * 일회용 GitHub 로그인 ticket을 서비스 JWT 토큰 쌍으로 교환합니다.
-     */
+    /** 일회용 GitHub 로그인 ticket을 서비스 JWT 토큰 쌍으로 교환합니다. */
     public TokenResponse exchangeToken(GithubTokenExchangeRequest request) {
         String key = AuthRedisKeyPrefix.GITHUB_LOGIN_TICKET + request.ticket();
         String tokenJson = redisTemplate.opsForValue().get(key);
@@ -150,7 +148,7 @@ public class GithubAuthService {
 
     private TokenResponse loginWithCode(String code) {
         GithubAccessTokenResponse tokenResponse = githubApiClient.requestAccessToken(code);
-        GithubUserProfile profile = githubApiClient.findUserProfile(tokenResponse.accessToken());
+        GithubUserProfileResponse profile = githubApiClient.findUserProfile(tokenResponse.accessToken());
         String githubUserId = profile.id().toString();
 
         User user = githubAccountRepository.findByGithubUserId(githubUserId)

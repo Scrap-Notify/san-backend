@@ -10,8 +10,8 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
-import com.san.api.global.external.github.dto.GithubAccessTokenResponse;
-import com.san.api.global.external.github.dto.GithubUserProfile;
+import com.san.api.global.external.github.dto.response.GithubAccessTokenResponse;
+import com.san.api.global.external.github.dto.response.GithubUserProfileResponse;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import lombok.RequiredArgsConstructor;
@@ -71,13 +71,13 @@ public class GithubLinkService {
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
         GithubAccessTokenResponse tokenResponse = githubApiClient.requestAccessToken(code);
-        GithubUserProfile profile = githubApiClient.findUserProfile(tokenResponse.accessToken());
+        GithubUserProfileResponse profile = githubApiClient.findUserProfile(tokenResponse.accessToken());
 
         saveGithubAccount(user, profile, tokenResponse.accessToken());
     }
 
     @Transactional
-    public void saveGithubAccount(User user, GithubUserProfile profile, String accessToken) {
+    public void saveGithubAccount(User user, GithubUserProfileResponse profile, String accessToken) {
         String githubUserId = profile.id().toString();
         String encryptedToken = encryptor.encrypt(accessToken);
 

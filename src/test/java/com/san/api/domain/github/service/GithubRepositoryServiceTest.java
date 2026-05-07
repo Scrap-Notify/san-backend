@@ -12,7 +12,7 @@ import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
-import com.san.api.global.external.github.dto.GithubRepository;
+import com.san.api.global.external.github.dto.response.ExternalGithubRepositoryResponse;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +53,7 @@ class GithubRepositoryServiceTest {
     private User user;
     private UUID userId;
     private GithubAccount githubAccount;
-    private GithubRepository repository;
+    private ExternalGithubRepositoryResponse repository;
 
     @BeforeEach
     void setUp() {
@@ -70,7 +70,7 @@ class GithubRepositoryServiceTest {
                 .build();
         userId = user.getUserId();
         githubAccount = new GithubAccount(user, "123", "octocat", "encrypted-token");
-        repository = new GithubRepository(
+        repository = new ExternalGithubRepositoryResponse(
                 100L,
                 "algorithm",
                 "octocat/algorithm",

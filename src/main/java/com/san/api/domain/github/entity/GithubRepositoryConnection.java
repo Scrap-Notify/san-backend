@@ -2,7 +2,7 @@ package com.san.api.domain.github.entity;
 
 import com.san.api.domain.user.entity.User;
 import com.san.api.global.entity.BaseEntity;
-import com.san.api.global.external.github.dto.GithubRepository;
+import com.san.api.global.external.github.dto.response.ExternalGithubRepositoryResponse;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -54,14 +54,14 @@ public class GithubRepositoryConnection extends BaseEntity {
     @Column(name = "private_repository", nullable = false)
     private boolean privateRepository;
 
-    public GithubRepositoryConnection(User user, GithubRepository repository) {
+    public GithubRepositoryConnection(User user, ExternalGithubRepositoryResponse repository) {
         this.githubRepositoryConnectionId = UUID.randomUUID();
         this.user = user;
         this.githubRepositoryId = repository.id();
         update(repository);
     }
 
-    public void update(GithubRepository repository) {
+    public void update(ExternalGithubRepositoryResponse repository) {
         this.name = repository.name();
         this.fullName = repository.fullName();
         this.defaultBranch = repository.defaultBranch();

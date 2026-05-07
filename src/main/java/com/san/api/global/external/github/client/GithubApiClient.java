@@ -3,7 +3,8 @@ package com.san.api.global.external.github.client;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
-import com.san.api.global.external.github.dto.*;
+import com.san.api.global.external.github.dto.request.GithubCreateContentRequest;
+import com.san.api.global.external.github.dto.response.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -46,9 +47,7 @@ public class GithubApiClient {
         this.scope = scope;
     }
 
-    /**
-     * 백엔드 callback URI와 CSRF 방어용 state를 포함한 GitHub OAuth authorize URL을 생성합니다.
-     */
+    /** 백엔드 callback URI와 CSRF 방어용 state를 포함한 GitHub OAuth authorize URL을 생성합니다. */
     public String createAuthorizationUrl(String state) {
         return UriComponentsBuilder.fromUriString("https://github.com/login/oauth/authorize")
                 .queryParam("client_id", clientId)
@@ -59,9 +58,7 @@ public class GithubApiClient {
                 .toUriString();
     }
 
-    /**
-     * GitHub OAuth authorization code를 GitHub access token으로 교환합니다.
-     */
+    /** GitHub OAuth authorization code를 GitHub access token으로 교환합니다. */
     public GithubAccessTokenResponse requestAccessToken(String code) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("client_id", clientId);
@@ -87,16 +84,14 @@ public class GithubApiClient {
         }
     }
 
-    /**
-     * GitHub access token으로 현재 GitHub 사용자 프로필을 조회합니다.
-     */
-    public GithubUserProfile findUserProfile(String accessToken) {
+    /** GitHub access token으로 현재 GitHub 사용자 프로필을 조회합니다. */
+    public GithubUserProfileResponse findUserProfile(String accessToken) {
         try {
-            GithubUserProfile profile = restClient.get()
+            GithubUserProfileResponse profile = restClient.get()
                     .uri("https://api.github.com/user")
                     .headers(headers -> setGithubHeaders(headers, accessToken))
                     .retrieve()
-                    .body(GithubUserProfile.class);
+                    .body(GithubUserProfileResponse.class);
 
             if (profile == null || profile.id() == null || profile.login() == null || profile.login().isBlank()) {
                 throw new BusinessException(AuthErrorCode.GITHUB_OAUTH_FAILED);
@@ -107,12 +102,10 @@ public class GithubApiClient {
         }
     }
 
-    /**
-     * GitHub access token으로 사용자가 접근 가능한 저장소 목록을 조회합니다.
-     */
-    public List<GithubRepository> findRepositories(String accessToken) {
+    /** GitHub access token으로 사용자가 접근 가능한 저장소 목록을 조회합니다. */
+    public List<ExternalGithubRepositoryResponse> findRepositories(String accessToken) {
         try {
-            List<GithubRepository> repositories = restClient.get()
+            List<ExternalGithubRepositoryResponse> repositories = restClient.get()
                     .uri("https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator&sort=updated&per_page=100")
                     .headers(headers -> setGithubHeaders(headers, accessToken))
                     .retrieve()
@@ -125,9 +118,7 @@ public class GithubApiClient {
         }
     }
 
-    /**
-     * GitHub 저장소의 특정 경로에 파일이 존재하는지 확인합니다.
-     */
+    /** GitHub 저장소의 특정 경로에 파일이 존재하는지 확인합니다. */
     public boolean existsContent(String accessToken, String owner, String repo, String path, String branch) {
         try {
             GithubContentResponse response = restClient.get()
@@ -153,9 +144,7 @@ public class GithubApiClient {
         }
     }
 
-    /**
-     * GitHub 저장소에 새 파일을 생성하고 해당 변경을 커밋합니다.
-     */
+    /** GitHub 저장소에 새 파일을 생성하고 해당 변경을 커밋합니다. */
     public GithubCreateContentResponse createContent(
             String accessToken,
             String owner,

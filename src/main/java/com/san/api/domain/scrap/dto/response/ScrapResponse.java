@@ -20,10 +20,6 @@ public record ScrapResponse(
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         LocalDateTime createdAt
 ) {
-    public static ScrapResponse from(Scrap scrap) {
-        return from(scrap, null);
-    }
-
     public static ScrapResponse from(Scrap scrap, UUID jobId) {
         return new ScrapResponse(
                 scrap.getScrapId(),

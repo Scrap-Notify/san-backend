@@ -1,18 +1,15 @@
 package com.san.api.domain.scrap.entity;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /** 스크랩 원본 데이터 유형 */
 @Getter
-@AllArgsConstructor
+@RequiredArgsConstructor
 public enum SourceType {
-    // 링크
-    LINK,
+    LINK("링크"),
+    TEXT("텍스트"),
+    IMAGE("이미지");
 
-    // 텍스트
-    TEXT,
-
-    // 이미지
-    IMAGE
+    private final String description;
 }

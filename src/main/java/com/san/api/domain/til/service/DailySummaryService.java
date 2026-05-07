@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** 매일의 요약 조회 및 생성 결과 저장 Service */
+/** DailySummary 조회 및 생성 결과 저장 Service */
 @Service
 @RequiredArgsConstructor
 public class DailySummaryService {
@@ -23,11 +23,11 @@ public class DailySummaryService {
     private final UserRepository userRepository;
 
     /**
-     * TIL 생성 요청마다 새로운 빈 매일의 요약을 생성합니다.
+     * TIL 생성 요청마다 새로운 빈 DailySummary를 생성합니다.
      *
      * @param userId 사용자 ID
      * @param targetDate TIL 대상 날짜
-     * @return 새로 생성된 매일의 요약
+     * @return 새로 생성된 DailySummary
      */
     @Transactional
     public DailySummary createSummary(UUID userId, LocalDate targetDate) {
@@ -38,10 +38,10 @@ public class DailySummaryService {
     }
 
     /**
-     * 매일의 요약을 조회합니다.
+     * DailySummary를 조회합니다.
      *
-     * @param summaryId 매일의 요약 ID
-     * @return 조회된 매일의 요약
+     * @param summaryId DailySummary ID
+     * @return 조회된 DailySummary
      */
     @Transactional(readOnly = true)
     public DailySummary getSummary(UUID summaryId) {
@@ -50,21 +50,9 @@ public class DailySummaryService {
     }
 
     /**
-     * 쓰기 잠금을 적용해 매일의 요약을 조회합니다.
-     *
-     * @param summaryId 매일의 요약 ID
-     * @return 쓰기 잠금이 적용된 매일의 요약
-     */
-    @Transactional
-    public DailySummary getSummaryForUpdate(UUID summaryId) {
-        return dailySummaryRepository.findBySummaryIdWithUserForUpdate(summaryId)
-                .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
-    }
-
-    /**
      * AI가 생성한 TIL 결과를 저장합니다.
      *
-     * @param summaryId 매일의 요약 ID
+     * @param summaryId DailySummary ID
      * @param title 생성된 TIL 제목
      * @param content 생성된 TIL 마크다운 본문
      * @param embedding 생성된 TIL 임베딩

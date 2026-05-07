@@ -17,6 +17,8 @@ import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -76,6 +79,21 @@ class TilServiceTest {
         assertThat(response.jobId()).isEqualTo(jobId);
         assertThat(response.targetDate()).isEqualTo(targetDate);
         verify(dailySummaryService).createSummary(userId, targetDate);
+        verify(asyncJobManager).enqueue(JobType.TIL_GENERATION, summary.getSummaryId());
+    }
+
+    @Test
+    void requestGeneration_duplicateActiveJob_throwsException() {
+        LocalDate targetDate = LocalDate.of(2026, 5, 6);
+        DailySummary summary = buildSummary(UUID.randomUUID(), user, targetDate, null, null);
+
+        when(dailySummaryService.createSummary(userId, targetDate)).thenReturn(summary);
+        when(asyncJobManager.enqueue(JobType.TIL_GENERATION, summary.getSummaryId()))
+                .thenThrow(new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE));
+
+        assertThatThrownBy(() -> tilService.requestGeneration(userId, new TilGenerateRequest(targetDate)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.DUPLICATE_RESOURCE);
     }
 
     @Test

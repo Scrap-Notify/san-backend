@@ -43,16 +43,21 @@ public class Scrap extends BaseEntity {
     @Column(name = "raw_content", columnDefinition = "text")
     private String rawContent;
 
+    // 동일 사용자의 중복 원본 저장 방지를 위한 정규화 원본 해시
+    @Column(name = "content_hash", length = 64)
+    private String contentHash;
+
     @Column(name = "image_url", columnDefinition = "text")
     private String imageUrl;
 
     @Builder
-    public Scrap(User user, SourceType sourceType, String sourceUrl, String rawContent, String imageUrl) {
+    public Scrap(User user, SourceType sourceType, String sourceUrl, String rawContent, String contentHash, String imageUrl) {
         this.scrapId = UUID.randomUUID();
         this.user = user;
         this.sourceType = sourceType;
         this.sourceUrl = sourceUrl;
         this.rawContent = rawContent;
+        this.contentHash = contentHash;
         this.imageUrl = imageUrl;
     }
 }

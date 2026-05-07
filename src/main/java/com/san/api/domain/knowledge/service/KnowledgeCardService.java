@@ -74,6 +74,13 @@ public class KnowledgeCardService {
         return new KnowledgeCardListResponse(toKnowledgeCardResponses(cards));
     }
 
+    /**
+     * 수집 원본 기준 생성된 지식카드 ID 조회
+     *
+     * @param userId 로그인 사용자 ID
+     * @param scrapId 수집 원본 ID
+     * @return 생성된 지식카드 ID 응답
+     */
     @Transactional(readOnly = true)
     public KnowledgeCardIdResponse getCardIdByScrap(UUID userId, UUID scrapId) {
         Scrap scrap = scrapRepository.findById(scrapId)
@@ -84,6 +91,13 @@ public class KnowledgeCardService {
         return KnowledgeCardIdResponse.from(scrapId, card.getCardId());
     }
 
+    /**
+     * 지식카드 기준 유사 카드 조회
+     *
+     * @param userId 로그인 사용자 ID
+     * @param cardId 지식카드 ID
+     * @return 유사 지식카드 목록 응답
+     */
     @Transactional(readOnly = true)
     public KnowledgeCardSimilarCardsResponse getSimilarCardsByCard(UUID userId, UUID cardId) {
         List<KnowledgeCard> similarCards = vectorSearchService.findRelatedByCard(

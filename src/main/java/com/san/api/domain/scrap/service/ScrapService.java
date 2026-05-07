@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
 import java.util.Optional;
 import java.util.UUID;
 
-/** 수집 원본 저장 Service */
+/** 수집 원본 저장 및 지식카드 분석 작업 등록 Service */
 @Service
 @RequiredArgsConstructor
 public class ScrapService {
@@ -38,11 +38,11 @@ public class ScrapService {
     private final KnowledgeCardRepository knowledgeCardRepository;
 
     /**
-     * 수집 원본 저장
+     * 수집 원본 저장 후 지식카드 분석 작업 등록
      *
      * @param userId 로그인 사용자 ID
      * @param request 수집 원본 저장 요청
-     * @return 저장된 수집 원본 응답
+     * @return 저장된 수집 원본과 분석 작업 또는 지식카드 ID 응답
      */
     public ScrapResponse createScrap(UUID userId, ScrapCreateRequest request) {
         validateRawContent(request.rawContent());

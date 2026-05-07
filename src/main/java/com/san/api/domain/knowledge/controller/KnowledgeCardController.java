@@ -54,6 +54,13 @@ public class KnowledgeCardController {
         return ApiResponse.success(response);
     }
 
+    /**
+     * 수집 원본 기준 생성된 지식카드 ID 조회
+     *
+     * @param authentication 인증 정보
+     * @param scrapId 수집 원본 ID
+     * @return 생성된 지식카드 ID 응답
+     */
     @Operation(summary = "수집 원본 기준 지식카드 ID 조회", description = "수집 원본 ID를 기준으로 생성된 지식카드 ID를 조회")
     @GetMapping("/{scrapId}")
     public ApiResponse<KnowledgeCardIdResponse> getCardIdByScrap(
@@ -66,6 +73,13 @@ public class KnowledgeCardController {
         return ApiResponse.success(response);
     }
 
+    /**
+     * 지식카드 기준 유사 카드 조회
+     *
+     * @param authentication 인증 정보
+     * @param cardId 지식카드 ID
+     * @return 유사 지식카드 목록 응답
+     */
     @Operation(summary = "지식카드 기준 유사 카드 조회", description = "지식카드 ID를 기준으로 유사한 지식카드 3개를 조회")
     @GetMapping("/{cardId}/similar-cards")
     public ApiResponse<KnowledgeCardSimilarCardsResponse> getSimilarCardsByCard(

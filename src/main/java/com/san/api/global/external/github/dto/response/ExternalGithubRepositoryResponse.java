@@ -1,9 +1,9 @@
-package com.san.api.global.external.github.dto;
+package com.san.api.global.external.github.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** GitHub API 레포지토리 응답 DTO. */
-public record GithubRepository(
+/** 외부 GitHub API 레포지토리 응답 DTO. */
+public record ExternalGithubRepositoryResponse(
         Long id,
         String name,
 

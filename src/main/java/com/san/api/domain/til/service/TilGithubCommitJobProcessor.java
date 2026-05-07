@@ -14,7 +14,7 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.TilErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
-import com.san.api.global.external.github.dto.GithubCreateContentResponse;
+import com.san.api.global.external.github.dto.response.GithubCreateContentResponse;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;

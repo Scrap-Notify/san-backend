@@ -10,8 +10,8 @@ import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.external.github.client.GithubApiClient;
-import com.san.api.global.external.github.dto.GithubAccessTokenResponse;
-import com.san.api.global.external.github.dto.GithubUserProfile;
+import com.san.api.global.external.github.dto.response.GithubAccessTokenResponse;
+import com.san.api.global.external.github.dto.response.GithubUserProfileResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,7 +74,7 @@ class GithubAuthServiceTest {
                 .build();
         GithubAccount githubAccount = new GithubAccount(user, "1", "octocat", "encrypted-token");
         GithubAccessTokenResponse githubToken = new GithubAccessTokenResponse("github-token", "bearer", "repo");
-        GithubUserProfile profile = new GithubUserProfile(1L, "octocat");
+        GithubUserProfileResponse profile = new GithubUserProfileResponse(1L, "octocat");
         TokenResponse tokenResponse = TokenResponse.of("access-token", "refresh-token", 1800);
 
         when(githubApiClient.requestAccessToken("code")).thenReturn(githubToken);

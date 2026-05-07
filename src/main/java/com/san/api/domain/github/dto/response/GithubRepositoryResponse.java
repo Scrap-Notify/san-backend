@@ -1,7 +1,7 @@
 package com.san.api.domain.github.dto.response;
 
 import com.san.api.domain.github.entity.GithubRepositoryConnection;
-import com.san.api.global.external.github.dto.GithubRepository;
+import com.san.api.global.external.github.dto.response.ExternalGithubRepositoryResponse;
 
 /** GitHub 레포지토리 조회 및 연결 결과 응답 DTO. */
 public record GithubRepositoryResponse(
@@ -12,7 +12,7 @@ public record GithubRepositoryResponse(
         String defaultBranch,
         String htmlUrl
 ) {
-    public static GithubRepositoryResponse from(GithubRepository repository) {
+    public static GithubRepositoryResponse from(ExternalGithubRepositoryResponse repository) {
         return new GithubRepositoryResponse(
                 repository.id(),
                 repository.name(),

@@ -14,7 +14,7 @@ import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.TilErrorCode;
-import com.san.api.global.external.github.dto.GithubRepository;
+import com.san.api.global.external.github.dto.response.ExternalGithubRepositoryResponse;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/** TIL GitHub 커밋 요청 검증과 작업 등록 정책 테스트 */
+/** TIL GitHub 커밋 요청 검증과 작업 등록 정책 테스트. */
 @ExtendWith(MockitoExtension.class)
 class TilGithubCommitServiceTest {
 
@@ -90,7 +90,7 @@ class TilGithubCommitServiceTest {
                 .embedding(new float[]{0.1f})
                 .build();
         githubAccount = new GithubAccount(user, "123", "octocat", "encrypted-token");
-        repositoryConnection = new GithubRepositoryConnection(user, new GithubRepository(
+        repositoryConnection = new GithubRepositoryConnection(user, new ExternalGithubRepositoryResponse(
                 100L,
                 "til",
                 "octocat/til",
@@ -101,7 +101,7 @@ class TilGithubCommitServiceTest {
     }
 
     @Test
-    void requestCommit_유효한요청이면_커밋요청과작업을등록한다() {
+    void requestCommit_validRequest_registersCommitRequestAndJob() {
         UUID jobId = UUID.randomUUID();
         mockValidSummaryAndGithub();
         when(filePolicy.createContentHash(summary.getContent())).thenReturn("content-hash");
@@ -137,7 +137,7 @@ class TilGithubCommitServiceTest {
     }
 
     @Test
-    void requestCommit_제목이없으면_실패한다() {
+    void requestCommit_withoutTitle_fails() {
         DailySummary titleEmptySummary = DailySummary.builder()
                 .user(user)
                 .targetDate(LocalDate.of(2026, 5, 6))
@@ -155,7 +155,7 @@ class TilGithubCommitServiceTest {
     }
 
     @Test
-    void requestCommit_본문이없으면_실패한다() {
+    void requestCommit_withoutContent_fails() {
         DailySummary contentEmptySummary = DailySummary.builder()
                 .user(user)
                 .targetDate(LocalDate.of(2026, 5, 6))
@@ -173,7 +173,7 @@ class TilGithubCommitServiceTest {
     }
 
     @Test
-    void requestCommit_동일본문커밋이있으면_실패한다() {
+    void requestCommit_withDuplicateContentCommit_fails() {
         mockValidSummaryAndGithub();
         when(filePolicy.createContentHash(summary.getContent())).thenReturn("content-hash");
         when(tilGithubCommitRepository.existsDuplicateContent(
@@ -192,7 +192,7 @@ class TilGithubCommitServiceTest {
     }
 
     @Test
-    void requestCommit_연결저장소가없으면_실패한다() {
+    void requestCommit_withoutConnectedRepository_fails() {
         when(dailySummaryService.getSummary(summaryId)).thenReturn(summary);
         when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.of(githubAccount));
         when(githubRepositoryConnectionRepository.findAllByUser_UserId(userId)).thenReturn(List.of());
@@ -206,8 +206,8 @@ class TilGithubCommitServiceTest {
     }
 
     @Test
-    void requestCommit_연결저장소가여러개면_실패한다() {
-        GithubRepositoryConnection anotherConnection = new GithubRepositoryConnection(user, new GithubRepository(
+    void requestCommit_withMultipleConnectedRepositories_fails() {
+        GithubRepositoryConnection anotherConnection = new GithubRepositoryConnection(user, new ExternalGithubRepositoryResponse(
                 200L,
                 "second-til",
                 "octocat/second-til",

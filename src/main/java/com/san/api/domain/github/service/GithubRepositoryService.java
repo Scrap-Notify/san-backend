@@ -12,7 +12,7 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
-import com.san.api.global.external.github.dto.GithubRepository;
+import com.san.api.global.external.github.dto.response.ExternalGithubRepositoryResponse;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,9 +32,7 @@ public class GithubRepositoryService {
     private final UserRepository userRepository;
     private final AesGcmStringEncryptor encryptor;
 
-    /**
-     * 로그인 사용자의 GitHub access token으로 접근 가능한 저장소 목록을 조회합니다.
-     */
+    /** 로그인 사용자의 GitHub access token으로 접근 가능한 저장소 목록을 조회합니다. */
     @Transactional(readOnly = true)
     public List<GithubRepositoryResponse> findRepositories(UUID userId) {
         return findGithubRepositories(userId).stream()
@@ -45,14 +43,15 @@ public class GithubRepositoryService {
     /**
      * 사용자가 선택한 GitHub 저장소를 서비스 계정에 연결합니다.
      *
-     * 클라이언트를 통해 받은 저장소 ID를 신뢰하지 않고(보안상) GitHub API 목록에서 다시 조회해,
-     * 사용자가 실제 접근 가능한 저장소만 연결합니다.     */
+     * 클라이언트를 통해 받은 저장소 ID를 신뢰하지 않고 GitHub API 목록에서 다시 조회해,
+     * 사용자가 실제 접근 가능한 저장소만 연결합니다.
+     */
     @Transactional
     public GithubRepositoryResponse connectRepository(UUID userId, GithubRepositoryConnectRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
-        GithubRepository repository = findGithubRepositories(userId).stream()
+        ExternalGithubRepositoryResponse repository = findGithubRepositories(userId).stream()
                 .filter(item -> item.id().equals(request.githubRepositoryId()))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_REPOSITORY_NOT_FOUND));
@@ -68,9 +67,7 @@ public class GithubRepositoryService {
         return GithubRepositoryResponse.from(connection);
     }
 
-    /**
-     * 서비스에 연결된 GitHub 저장소 목록을 조회합니다.
-     */
+    /** 서비스에 연결된 GitHub 저장소 목록을 조회합니다. */
     @Transactional(readOnly = true)
     public List<GithubRepositoryResponse> findConnectedRepositories(UUID userId) {
         return connectionRepository.findAllByUser_UserId(userId).stream()
@@ -78,9 +75,7 @@ public class GithubRepositoryService {
                 .toList();
     }
 
-    /**
-     * 서비스에 연결된 GitHub 저장소를 해제합니다.
-     */
+    /** 서비스에 연결된 GitHub 저장소를 해제합니다. */
     @Transactional
     public void disconnectRepository(UUID userId, Long repositoryId) {
         GithubRepositoryConnection connection = connectionRepository
@@ -90,7 +85,7 @@ public class GithubRepositoryService {
         connectionRepository.delete(connection);
     }
 
-    private List<GithubRepository> findGithubRepositories(UUID userId) {
+    private List<ExternalGithubRepositoryResponse> findGithubRepositories(UUID userId) {
         GithubAccount githubAccount = githubAccountRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED));
         String accessToken = encryptor.decrypt(githubAccount.getAccessTokenEncrypted());

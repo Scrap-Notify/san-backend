@@ -1,4 +1,4 @@
-package com.san.api.global.external.github.dto;
+package com.san.api.global.external.github.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

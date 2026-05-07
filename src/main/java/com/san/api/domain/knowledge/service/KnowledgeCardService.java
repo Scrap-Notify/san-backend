@@ -2,6 +2,7 @@ package com.san.api.domain.knowledge.service;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardIdResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardSimilarCardsResponse;
@@ -11,8 +12,6 @@ import com.san.api.domain.knowledge.repository.CardTagRepository;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.repository.ScrapRepository;
-import com.san.api.global.async.entity.AsyncJob;
-import com.san.api.global.async.entity.JobStatus;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
@@ -75,46 +74,20 @@ public class KnowledgeCardService {
         return new KnowledgeCardListResponse(toKnowledgeCardResponses(cards));
     }
 
-    /**
-     * 완료된 지식카드 AI 분석 작업 유사 카드 조회
-     *
-     * @param userId 로그인 사용자 ID
-     * @param jobId 분석 작업 ID
-     * @return 입력 데이터와 유사도 높은 카드 목록 응답
-     */
     @Transactional(readOnly = true)
-    public KnowledgeCardSimilarCardsResponse getSimilarCards(UUID userId, UUID jobId) {
-        AsyncJob job = asyncJobManager.getJob(jobId);
-        validateCardAnalysisJob(job);
-
-        Scrap scrap = scrapRepository.findById(job.getTargetId())
+    public KnowledgeCardIdResponse getCardIdByScrap(UUID userId, UUID scrapId) {
+        Scrap scrap = scrapRepository.findById(scrapId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
         validateScrapOwner(scrap, userId);
 
-        validateCompletedJob(job);
-
-        return getSimilarCardsResponse(job, userId);
+        KnowledgeCard card = getCreatedCard(scrapId);
+        return KnowledgeCardIdResponse.from(scrapId, card.getCardId());
     }
 
-    /** 지식카드 분석 작업 여부 검증 */
-    private void validateCardAnalysisJob(AsyncJob job) {
-        if (job.getJobType() != JobType.CARD_ANALYSIS) {
-            throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
-        }
-    }
-
-    /** 완료된 작업 여부 검증 */
-    private void validateCompletedJob(AsyncJob job) {
-        if (job.getStatus() != JobStatus.COMPLETED) {
-            throw new BusinessException(CommonErrorCode.BAD_REQUEST, "완료되지 않은 지식카드 분석 작업입니다.");
-        }
-    }
-
-    /** 완료된 지식카드 분석 작업 유사 카드 응답 생성 */
-    private KnowledgeCardSimilarCardsResponse getSimilarCardsResponse(AsyncJob job, UUID userId) {
-        KnowledgeCard card = getCreatedCard(job.getTargetId());
+    @Transactional(readOnly = true)
+    public KnowledgeCardSimilarCardsResponse getSimilarCardsByCard(UUID userId, UUID cardId) {
         List<KnowledgeCard> similarCards = vectorSearchService.findRelatedByCard(
-                card.getCardId(),
+                cardId,
                 userId,
                 RELATED_CARD_LIMIT
         );

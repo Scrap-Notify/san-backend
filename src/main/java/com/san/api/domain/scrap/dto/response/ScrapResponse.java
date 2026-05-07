@@ -11,6 +11,7 @@ import java.util.UUID;
 public record ScrapResponse(
 
         UUID scrapId,
+        UUID jobId,
         SourceType sourceType,
         String sourceUrl,
         String rawContent,
@@ -20,8 +21,13 @@ public record ScrapResponse(
         LocalDateTime createdAt
 ) {
     public static ScrapResponse from(Scrap scrap) {
+        return from(scrap, null);
+    }
+
+    public static ScrapResponse from(Scrap scrap, UUID jobId) {
         return new ScrapResponse(
                 scrap.getScrapId(),
+                jobId,
                 scrap.getSourceType(),
                 scrap.getSourceUrl(),
                 scrap.getRawContent(),

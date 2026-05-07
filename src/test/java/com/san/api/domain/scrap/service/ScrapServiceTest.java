@@ -13,12 +13,15 @@ import com.san.api.global.async.entity.JobStatus;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.repository.AsyncJobRepository;
 import com.san.api.global.async.service.AsyncJobManager;
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -145,6 +148,63 @@ class ScrapServiceTest {
         ScrapResponse response = scrapService.createScrap(userId, request);
 
         verify(asyncJobManager, never()).enqueue(any(JobType.class), any(UUID.class));
+        assertThat(response.jobId()).isEqualTo(jobId);
+    }
+
+    @Test
+    void createScrap_returnsExistingScrapWhenUniqueConstraintConflicts() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId);
+        String contentHash = contentHashPolicy.createContentHash("hello");
+        Scrap existingScrap = Scrap.builder()
+                .user(user)
+                .sourceType(SourceType.TEXT)
+                .rawContent("hello")
+                .contentHash(contentHash)
+                .build();
+        UUID jobId = UUID.randomUUID();
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
+                .thenReturn(Optional.empty(), Optional.of(existingScrap));
+        when(scrapRepository.save(any(Scrap.class))).thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(asyncJobRepository.findByTargetIdAndJobType(existingScrap.getScrapId(), JobType.CARD_ANALYSIS))
+                .thenReturn(List.of());
+        when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, existingScrap.getScrapId())).thenReturn(jobId);
+
+        ScrapResponse response = scrapService.createScrap(userId, request);
+
+        assertThat(response.scrapId()).isEqualTo(existingScrap.getScrapId());
+        assertThat(response.jobId()).isEqualTo(jobId);
+    }
+
+    @Test
+    void createScrap_returnsActiveJobWhenEnqueueConflicts() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId);
+        String contentHash = contentHashPolicy.createContentHash("hello");
+        Scrap savedScrap = Scrap.builder()
+                .user(user)
+                .sourceType(SourceType.TEXT)
+                .rawContent("hello")
+                .contentHash(contentHash)
+                .build();
+        UUID jobId = UUID.randomUUID();
+        AsyncJob activeJob = buildJob(jobId, JobType.CARD_ANALYSIS, JobStatus.PENDING, savedScrap.getScrapId());
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
+                .thenReturn(Optional.empty());
+        when(scrapRepository.save(any(Scrap.class))).thenReturn(savedScrap);
+        when(asyncJobRepository.findByTargetIdAndJobType(savedScrap.getScrapId(), JobType.CARD_ANALYSIS))
+                .thenReturn(List.of(), List.of(activeJob));
+        when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, savedScrap.getScrapId()))
+                .thenThrow(new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE));
+
+        ScrapResponse response = scrapService.createScrap(userId, request);
+
         assertThat(response.jobId()).isEqualTo(jobId);
     }
 

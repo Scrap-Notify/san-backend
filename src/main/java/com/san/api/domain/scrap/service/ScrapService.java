@@ -16,6 +16,7 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.ScrapErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -67,17 +68,39 @@ public class ScrapService {
                 .imageUrl(null)
                 .build();
 
-        Scrap savedScrap = scrapRepository.save(scrap);
+        Scrap savedScrap = saveScrap(scrap, userId, sourceType, contentHash);
 
         return createResponseWithJob(savedScrap);
+    }
+
+    /** 스크랩 저장 중 유니크 충돌이 발생하면 기존 스크랩을 재조회 */
+    private Scrap saveScrap(Scrap scrap, UUID userId, SourceType sourceType, String contentHash) {
+        try {
+            return scrapRepository.save(scrap);
+        } catch (DataIntegrityViolationException e) {
+            return findExistingScrap(userId, sourceType, contentHash);
+        }
     }
 
     /** 스크랩에 연결된 활성 분석 작업을 조회하거나 새로 등록 */
     private ScrapResponse createResponseWithJob(Scrap scrap) {
         UUID jobId = findActiveCardAnalysisJobId(scrap.getScrapId())
-                .orElseGet(() -> asyncJobManager.enqueue(JobType.CARD_ANALYSIS, scrap.getScrapId()));
+                .orElseGet(() -> enqueueCardAnalysisJob(scrap.getScrapId()));
 
         return ScrapResponse.from(scrap, jobId);
+    }
+
+    /** 지식카드 분석 작업 등록 중 중복 충돌이 발생하면 활성 작업을 재조회 */
+    private UUID enqueueCardAnalysisJob(UUID scrapId) {
+        try {
+            return asyncJobManager.enqueue(JobType.CARD_ANALYSIS, scrapId);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() != CommonErrorCode.DUPLICATE_RESOURCE) {
+                throw e;
+            }
+            return findActiveCardAnalysisJobId(scrapId)
+                    .orElseThrow(() -> e);
+        }
     }
 
     /** 진행 중인 지식카드 분석 작업 ID 조회 */
@@ -92,6 +115,12 @@ public class ScrapService {
     /** 활성 작업 여부 */
     private boolean isActiveJob(AsyncJob job) {
         return job.getStatus() == JobStatus.PENDING || job.getStatus() == JobStatus.PROCESSING;
+    }
+
+    /** 기존 스크랩 조회 */
+    private Scrap findExistingScrap(UUID userId, SourceType sourceType, String contentHash) {
+        return scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, sourceType, contentHash)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE));
     }
 
     /**

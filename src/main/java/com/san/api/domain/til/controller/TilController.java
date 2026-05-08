@@ -4,6 +4,7 @@ import com.san.api.domain.til.dto.request.TilGenerateRequest;
 import com.san.api.domain.til.dto.response.TilGenerationJobResponse;
 import com.san.api.domain.til.dto.response.TilRecallCardsResponse;
 import com.san.api.domain.til.dto.response.TilResponse;
+import com.san.api.domain.til.dto.response.TilSourcesResponse;
 import com.san.api.domain.til.service.TilService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -23,7 +24,7 @@ import java.util.UUID;
 /** TIL API Controller */
 @Tag(name = "TIL", description = "TIL API")
 @RestController
-@RequestMapping("/til")
+@RequestMapping("/tils")
 @RequiredArgsConstructor
 public class TilController {
 
@@ -83,6 +84,25 @@ public class TilController {
 
         UUID userId = currentUserId(authentication);
         TilRecallCardsResponse response = tilService.getRecallCards(summaryId, userId);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * TIL 생성 원본 조회
+     *
+     * @param authentication 인증 정보
+     * @param summaryId      TIL ID
+     * @return TIL 생성 원본 목록
+     */
+    @Operation(summary = "TIL 생성 원본 조회", description = "TIL 생성에 사용된 지식카드 원본 목록을 조회")
+    @GetMapping("/{summaryId}/source")
+    public ApiResponse<TilSourcesResponse> getSources(
+            Authentication authentication,
+            @PathVariable UUID summaryId) {
+
+        UUID userId = currentUserId(authentication);
+        TilSourcesResponse response = tilService.getSources(summaryId, userId);
 
         return ApiResponse.success(response);
     }

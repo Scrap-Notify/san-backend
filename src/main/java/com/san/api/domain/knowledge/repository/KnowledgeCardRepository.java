@@ -44,6 +44,7 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
             SELECT kc
             FROM KnowledgeCard kc
             JOIN FETCH kc.scrap s
+            JOIN FETCH kc.category
             WHERE s.user.userId = :userId
               AND s.createdAt >= :startAt
               AND s.createdAt < :endAt

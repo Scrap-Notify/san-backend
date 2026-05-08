@@ -3,6 +3,7 @@ package com.san.api.domain.github.controller;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.github.dto.request.GithubLoginRequest;
 import com.san.api.domain.github.dto.request.GithubTokenExchangeRequest;
+import com.san.api.domain.github.dto.response.GithubAuthorizationUrlResponse;
 import com.san.api.domain.github.service.GithubAuthService;
 import com.san.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +34,18 @@ public class GithubAuthController {
     @ResponseStatus(HttpStatus.FOUND)
     public RedirectView authorize() {
         return new RedirectView(githubAuthService.createAuthorizationRedirectUrl());
+    }
+
+    @Operation(
+            summary = "GitHub OAuth URL 조회",
+            description = "프론트/익스텐션이 직접 이동할 GitHub authorize URL을 반환합니다."
+    )
+    @GetMapping("/authorize-url")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<GithubAuthorizationUrlResponse> authorizeUrl() {
+        return ApiResponse.success(
+                new GithubAuthorizationUrlResponse(githubAuthService.createAuthorizationRedirectUrl())
+        );
     }
 
     @Operation(

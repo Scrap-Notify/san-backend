@@ -1,5 +1,6 @@
 package com.san.api.domain.github.controller;
 
+import com.san.api.domain.github.dto.response.GithubAuthorizationUrlResponse;
 import com.san.api.domain.github.service.GithubLinkService;
 import com.san.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,20 @@ public class GithubLinkController {
     @ResponseStatus(HttpStatus.FOUND)
     public RedirectView authorize(Authentication authentication) {
         return new RedirectView(githubLinkService.createLinkAuthorizationRedirectUrl(currentUserId(authentication)));
+    }
+
+    @Operation(
+            summary = "GitHub 계정 연동 URL 조회",
+            description = "Authorization 헤더로 인증한 뒤 프론트/익스텐션이 직접 이동할 GitHub authorize URL을 반환합니다."
+    )
+    @GetMapping("/authorize-url")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<GithubAuthorizationUrlResponse> authorizeUrl(Authentication authentication) {
+        return ApiResponse.success(
+                new GithubAuthorizationUrlResponse(
+                        githubLinkService.createLinkAuthorizationRedirectUrl(currentUserId(authentication))
+                )
+        );
     }
 
     @Operation(

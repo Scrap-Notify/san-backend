@@ -2,6 +2,7 @@ package com.san.api.domain.knowledge.controller;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardIdResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardSimilarCardsResponse;
 import com.san.api.domain.knowledge.service.KnowledgeCardService;
@@ -54,20 +55,39 @@ public class KnowledgeCardController {
     }
 
     /**
-     * 완료된 지식카드 AI 분석 작업 유사 카드 조회
+     * 수집 원본 기준 생성된 지식카드 ID 조회
      *
      * @param authentication 인증 정보
-     * @param jobId 분석 작업 ID
-     * @return 완료된 지식카드 AI 분석 작업 유사 카드 응답
+     * @param scrapId 수집 원본 ID
+     * @return 생성된 지식카드 ID 응답
      */
-    @Operation(summary = "지식카드 분석 작업 유사 카드 조회", description = "공통 비동기 상태 조회 API에서 COMPLETED 확인 후 입력 데이터와 유사도 높은 카드 3개를 조회")
-    @GetMapping("/jobs/{jobId}/similar-cards")
-    public ApiResponse<KnowledgeCardSimilarCardsResponse> getSimilarCards(
+    @Operation(summary = "수집 원본 기준 지식카드 ID 조회", description = "수집 원본 ID를 기준으로 생성된 지식카드 ID를 조회")
+    @GetMapping("/{scrapId}")
+    public ApiResponse<KnowledgeCardIdResponse> getCardIdByScrap(
             Authentication authentication,
-            @PathVariable UUID jobId) {
+            @PathVariable UUID scrapId) {
 
         UUID userId = currentUserId(authentication);
-        KnowledgeCardSimilarCardsResponse response = knowledgeCardService.getSimilarCards(userId, jobId);
+        KnowledgeCardIdResponse response = knowledgeCardService.getCardIdByScrap(userId, scrapId);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 지식카드 기준 유사 카드 조회
+     *
+     * @param authentication 인증 정보
+     * @param cardId 지식카드 ID
+     * @return 유사 지식카드 목록 응답
+     */
+    @Operation(summary = "지식카드 기준 유사 카드 조회", description = "지식카드 ID를 기준으로 유사한 지식카드 3개를 조회")
+    @GetMapping("/{cardId}/similar-cards")
+    public ApiResponse<KnowledgeCardSimilarCardsResponse> getSimilarCardsByCard(
+            Authentication authentication,
+            @PathVariable UUID cardId) {
+
+        UUID userId = currentUserId(authentication);
+        KnowledgeCardSimilarCardsResponse response = knowledgeCardService.getSimilarCardsByCard(userId, cardId);
 
         return ApiResponse.success(response);
     }

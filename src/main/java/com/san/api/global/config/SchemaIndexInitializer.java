@@ -19,5 +19,11 @@ public class SchemaIndexInitializer implements ApplicationRunner {
                     ON async_jobs (target_id, job_type)
                     WHERE status IN ('PENDING', 'PROCESSING')
                 """);
+        jdbcTemplate.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uk_scraps_active_user_source_hash
+                    ON scraps (user_id, source_type, content_hash)
+                    WHERE is_deleted = false
+                      AND content_hash IS NOT NULL
+                """);
     }
 }

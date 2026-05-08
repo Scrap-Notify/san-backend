@@ -30,13 +30,13 @@ public class ScrapController {
     private final ScrapService scrapService;
 
     /**
-     * 수집 원본 저장
+     * 수집 원본 저장 및 지식카드 분석 작업 등록
      *
      * @param authentication 인증 정보
      * @param request 수집 원본 저장 요청
-     * @return 저장된 수집 원본 응답
+     * @return 저장된 수집 원본과 분석 작업 또는 지식카드 ID 응답
      */
-    @Operation(summary = "수집 원본 저장", description = "전달받은 원본 데이터를 분석 없이 Scrap으로 저장")
+    @Operation(summary = "수집 원본 저장 및 지식카드 분석 작업 등록", description = "전달받은 원본 데이터를 Scrap으로 저장하고 지식카드 분석 작업을 등록")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<ScrapResponse> createScrap(

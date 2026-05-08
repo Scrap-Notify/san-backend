@@ -87,11 +87,8 @@ public class VectorSearchService {
         }
 
         String queryVector = toVectorString(baseCard.getEmbedding());
-        return knowledgeCardRepository.searchByVectorExcludingWithThreshold(
-                queryVector, userId, List.of(cardId), SIMILAR_CARD_DISTANCE_THRESHOLD)
-                .stream()
-                .limit(limit)
-                .toList();
+        return knowledgeCardRepository.searchSimilarCardsByVectorExcludingWithThreshold(
+                queryVector, userId, List.of(cardId), SIMILAR_CARD_DISTANCE_THRESHOLD, limit);
     }
 
     /**

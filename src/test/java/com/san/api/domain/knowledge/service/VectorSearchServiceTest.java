@@ -190,8 +190,8 @@ class VectorSearchServiceTest {
         KnowledgeCard related2 = buildCard(UUID.randomUUID(), user, new float[]{0.5f, 0.6f});
 
         when(knowledgeCardRepository.findById(cardId)).thenReturn(Optional.of(baseCard));
-        when(knowledgeCardRepository.searchByVectorExcludingWithThreshold(
-                anyString(), eq(userId), eq(List.of(cardId)), eq(0.3d)))
+        when(knowledgeCardRepository.searchSimilarCardsByVectorExcludingWithThreshold(
+                anyString(), eq(userId), eq(List.of(cardId)), eq(0.3d), eq(5)))
                 .thenReturn(List.of(related1, related2));
 
         List<KnowledgeCard> result = vectorSearchService.findRelatedByCard(cardId, userId, 5);
@@ -205,8 +205,8 @@ class VectorSearchServiceTest {
         KnowledgeCard baseCard = buildCard(cardId, user, new float[]{0.1f, 0.2f});
 
         when(knowledgeCardRepository.findById(cardId)).thenReturn(Optional.of(baseCard));
-        when(knowledgeCardRepository.searchByVectorExcludingWithThreshold(
-                anyString(), eq(userId), eq(List.of(cardId)), eq(0.3d)))
+        when(knowledgeCardRepository.searchSimilarCardsByVectorExcludingWithThreshold(
+                anyString(), eq(userId), eq(List.of(cardId)), eq(0.3d), eq(5)))
                 .thenReturn(List.of());
 
         List<KnowledgeCard> result = vectorSearchService.findRelatedByCard(cardId, userId, 5);

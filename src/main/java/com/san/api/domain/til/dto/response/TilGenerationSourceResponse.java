@@ -4,8 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /** TIL 생성용 지식 원본 목록 응답 DTO */
-public record TilSourceResponse(
+public record TilGenerationSourceResponse(
         LocalDate targetDate,
-        List<TilSourceContentResponse> contents
+        List<TilGenerationSourceContentResponse> contents
 ) {
 }

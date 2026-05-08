@@ -1,7 +1,7 @@
 package com.san.api.domain.til.service;
 
-import com.san.api.domain.til.dto.response.TilSourceContentResponse;
-import com.san.api.domain.til.dto.response.TilSourceResponse;
+import com.san.api.domain.til.dto.response.TilGenerationSourceContentResponse;
+import com.san.api.domain.til.dto.response.TilGenerationSourceResponse;
 import com.san.api.global.external.ai.client.AiTilClient;
 import com.san.api.global.external.ai.dto.request.AiTilContentRequest;
 import com.san.api.global.external.ai.dto.request.AiTilRequest;
@@ -30,7 +30,7 @@ public class TilGenerationService {
      */
     @Transactional(readOnly = true)
     public AiTilResponse generate(UUID userId, LocalDate targetDate) {
-        TilSourceResponse source = tilSourceService.getSource(userId, targetDate);
+        TilGenerationSourceResponse source = tilSourceService.getSource(userId, targetDate);
 
         return aiTilClient.generateTil(new AiTilRequest(
                 source.contents().stream()
@@ -46,7 +46,7 @@ public class TilGenerationService {
      * @param content TIL 생성용 지식 원본
      * @return AI TIL 생성 요청 원본 DTO
      */
-    private AiTilContentRequest toAiTilContentRequest(TilSourceContentResponse content) {
+    private AiTilContentRequest toAiTilContentRequest(TilGenerationSourceContentResponse content) {
         return new AiTilContentRequest(content.inputType(), content.content());
     }
 }

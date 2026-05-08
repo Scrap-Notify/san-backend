@@ -4,8 +4,8 @@ import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.entity.SourceType;
-import com.san.api.domain.til.dto.response.TilSourceContentResponse;
-import com.san.api.domain.til.dto.response.TilSourceResponse;
+import com.san.api.domain.til.dto.response.TilGenerationSourceContentResponse;
+import com.san.api.domain.til.dto.response.TilGenerationSourceResponse;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.TilErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -32,11 +32,11 @@ public class TilSourceService {
      * @return TIL 생성용 지식 원본 목록
      */
     @Transactional(readOnly = true)
-    public TilSourceResponse getSource(UUID userId, LocalDate targetDate) {
+    public TilGenerationSourceResponse getSource(UUID userId, LocalDate targetDate) {
         LocalDateTime startAt = targetDate.atStartOfDay();
         LocalDateTime endAt = targetDate.plusDays(1).atStartOfDay();
 
-        List<TilSourceContentResponse> contents = knowledgeCardRepository.findTilSourceCards(userId, startAt, endAt).stream()
+        List<TilGenerationSourceContentResponse> contents = knowledgeCardRepository.findTilSourceCards(userId, startAt, endAt).stream()
                 .map(KnowledgeCard::getScrap)
                 .map(this::toSourceContent)
                 .toList();
@@ -45,7 +45,7 @@ public class TilSourceService {
             throw new BusinessException(TilErrorCode.EMPTY_TIL_SOURCE);
         }
 
-        return new TilSourceResponse(targetDate, contents);
+        return new TilGenerationSourceResponse(targetDate, contents);
     }
 
     /**
@@ -54,13 +54,13 @@ public class TilSourceService {
      * @param scrap 지식카드의 원본 스크랩
      * @return AI TIL 생성 요청에 사용할 원본 DTO
      */
-    private TilSourceContentResponse toSourceContent(Scrap scrap) {
+    private TilGenerationSourceContentResponse toSourceContent(Scrap scrap) {
         String content = resolveContent(scrap);
         if (isBlank(content)) {
             throw new BusinessException(TilErrorCode.INVALID_TIL_SOURCE_CONTENT);
         }
 
-        return new TilSourceContentResponse(toInputType(scrap.getSourceType()), content.trim());
+        return new TilGenerationSourceContentResponse(toInputType(scrap.getSourceType()), content.trim());
     }
 
     /**

@@ -190,14 +190,28 @@ class VectorSearchServiceTest {
         KnowledgeCard related2 = buildCard(UUID.randomUUID(), user, new float[]{0.5f, 0.6f});
 
         when(knowledgeCardRepository.findById(cardId)).thenReturn(Optional.of(baseCard));
-        // limit+1 개 조회 시 자기 자신 포함된 결과 반환
-        when(knowledgeCardRepository.searchByVector(anyString(), eq(userId), eq(6), eq(0)))
-                .thenReturn(List.of(baseCard, related1, related2));
+        when(knowledgeCardRepository.searchByVectorExcludingWithThreshold(
+                anyString(), eq(userId), eq(List.of(cardId)), eq(0.3d)))
+                .thenReturn(List.of(related1, related2));
 
         List<KnowledgeCard> result = vectorSearchService.findRelatedByCard(cardId, userId, 5);
 
-        assertThat(result).doesNotContain(baseCard);
         assertThat(result).containsExactly(related1, related2);
+    }
+
+    @Test
+    void findRelatedByCard_threshold_미만_결과없음_빈리스트반환() {
+        UUID cardId = UUID.randomUUID();
+        KnowledgeCard baseCard = buildCard(cardId, user, new float[]{0.1f, 0.2f});
+
+        when(knowledgeCardRepository.findById(cardId)).thenReturn(Optional.of(baseCard));
+        when(knowledgeCardRepository.searchByVectorExcludingWithThreshold(
+                anyString(), eq(userId), eq(List.of(cardId)), eq(0.3d)))
+                .thenReturn(List.of());
+
+        List<KnowledgeCard> result = vectorSearchService.findRelatedByCard(cardId, userId, 5);
+
+        assertThat(result).isEmpty();
     }
 
     // ───────────────────────────────────────────────

@@ -51,14 +51,14 @@ public class VectorSearchService {
      */
     public SearchResponse search(String keyword, UUID userId, String tag,
                                  LocalDate fromDate, LocalDate toDate, int page, int size) {
-        // TODO: AI 서버 실행 환경에서 E2E 동작 검증 필요
         float[] vector = aiEmbeddingClient.embed(keyword);
         String queryVector = toVectorString(vector);
 
         int offset = page * size;
         List<KnowledgeCard> cards = knowledgeCardRepository.searchByVectorWithFilters(
-                queryVector, userId, tag, fromDate, toDate, size, offset);
-        long totalCount = knowledgeCardRepository.countByVectorFilters(userId, tag, fromDate, toDate);
+                queryVector, userId, tag, fromDate, toDate, RECALL_THRESHOLD, size, offset);
+        long totalCount = knowledgeCardRepository.countByVectorFiltersWithThreshold(
+                queryVector, userId, tag, fromDate, toDate, RECALL_THRESHOLD);
 
         return SearchResponse.of(keyword, page, size, totalCount, cards);
     }

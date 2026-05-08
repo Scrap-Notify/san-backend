@@ -37,6 +37,7 @@ public class SecurityConfig {
             "/auth/signup",
             "/auth/login",
             "/auth/github/authorize",
+            "/auth/github/authorize-url",
             "/auth/github/callback",
             "/auth/github/login",
             "/auth/github/token",

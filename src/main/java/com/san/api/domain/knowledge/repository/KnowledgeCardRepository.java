@@ -137,6 +137,31 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     );
 
     /**
+     * 카드 기준 유사 카드 조회용 벡터 검색.
+     * threshold 미만의 가까운 카드만 DB에서 limit 개수만큼 조회한다.
+     */
+    @Query(value = """
+            SELECT kc.card_id, kc.scrap_id, kc.category_id, kc.title, kc.summary,
+                   kc.embedding, kc.created_at, kc.updated_at, kc.is_deleted
+            FROM knowledge_cards kc
+            JOIN scraps s ON kc.scrap_id = s.scrap_id
+            WHERE s.user_id = :userId
+              AND kc.is_deleted = false
+              AND kc.embedding IS NOT NULL
+              AND kc.card_id NOT IN (:excludeIds)
+              AND kc.embedding <=> CAST(:queryVector AS vector) < :threshold
+            ORDER BY kc.embedding <=> CAST(:queryVector AS vector)
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<KnowledgeCard> searchSimilarCardsByVectorExcludingWithThreshold(
+            @Param("queryVector") String queryVector,
+            @Param("userId") UUID userId,
+            @Param("excludeIds") List<UUID> excludeIds,
+            @Param("threshold") double threshold,
+            @Param("limit") int limit
+    );
+
+    /**
      * 태그·날짜 필터 조건에 맞는 전체 카드 수 조회.
      */
     @Query(value = """

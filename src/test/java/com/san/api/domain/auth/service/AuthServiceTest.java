@@ -1,5 +1,7 @@
 package com.san.api.domain.auth.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.request.LoginRequest;
 import com.san.api.domain.auth.dto.request.ReissueRequest;
 import com.san.api.domain.auth.dto.request.WithdrawRequest;
@@ -28,6 +30,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,18 +60,24 @@ class AuthServiceTest {
     private TokenIssueService tokenIssueService;
 
     private AuthSessionKeyService authSessionKeyService;
+    private RefreshTokenHashService refreshTokenHashService;
+    private ObjectMapper objectMapper;
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         authSessionKeyService = new AuthSessionKeyService();
+        refreshTokenHashService = new RefreshTokenHashService("test-secret");
+        objectMapper = new ObjectMapper();
         authService = new AuthService(
                 userRepository,
                 passwordEncoder,
                 jwtProvider,
                 redisTemplate,
                 tokenIssueService,
-                authSessionKeyService
+                authSessionKeyService,
+                refreshTokenHashService,
+                objectMapper
         );
         ReflectionTestUtils.setField(authService, "maxFailCount", 5);
         ReflectionTestUtils.setField(authService, "failWindowSeconds", 300L);
@@ -102,18 +111,47 @@ class AuthServiceTest {
         when(jwtProvider.isRefreshToken(refreshToken)).thenReturn(true);
         when(jwtProvider.getUserId(refreshToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(refreshToken))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, "family-id", "refresh-jti"));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
-        when(valueOperations.get(redisKey)).thenReturn(refreshToken);
-        when(tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId))
+        when(valueOperations.getAndDelete(redisKey)).thenReturn(refreshTokenSessionJson(refreshToken, "family-id", "refresh-jti"));
+        when(tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId, "family-id"))
                 .thenReturn(tokenResponse);
 
         TokenResponse result = authService.reissue(new ReissueRequest(refreshToken));
 
         assertThat(result).isEqualTo(tokenResponse);
-        verify(redisTemplate).delete(redisKey);
         verify(setOperations).remove(AuthRedisKeyPrefix.REFRESH + "index:user:" + userId, redisKey);
+    }
+
+    @Test
+    void reissueRevokesRefreshFamilyUsingUserSessionIndexWhenTokenHashDoesNotMatch() {
+        String userId = UUID.randomUUID().toString();
+        String sessionId = "dashboard-session";
+        String refreshToken = "old-refresh-token";
+        String redisKey = AuthRedisKeyPrefix.REFRESH + userId + ":DASHBOARD:" + sessionId;
+        String familyKey = AuthRedisKeyPrefix.REFRESH + userId + ":EXTENSION:other-session";
+        String otherFamilyKey = AuthRedisKeyPrefix.REFRESH + userId + ":DASHBOARD:another-session";
+        String indexKey = AuthRedisKeyPrefix.REFRESH + "index:user:" + userId;
+
+        when(jwtProvider.validateToken(refreshToken)).thenReturn(true);
+        when(jwtProvider.isRefreshToken(refreshToken)).thenReturn(true);
+        when(jwtProvider.getUserId(refreshToken)).thenReturn(userId);
+        when(jwtProvider.getSessionClaims(refreshToken))
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, "family-id", "old-jti"));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForSet()).thenReturn(setOperations);
+        when(valueOperations.getAndDelete(redisKey)).thenReturn(refreshTokenSessionJson("new-refresh-token", "family-id", "new-jti"));
+        when(setOperations.members(indexKey)).thenReturn(Set.of(redisKey, familyKey, otherFamilyKey));
+        when(valueOperations.get(familyKey)).thenReturn(refreshTokenSessionJson("other-refresh-token", "family-id", "other-jti"));
+        when(valueOperations.get(otherFamilyKey))
+                .thenReturn(refreshTokenSessionJson("different-refresh-token", "other-family-id", "different-jti"));
+
+        assertThatThrownBy(() -> authService.reissue(new ReissueRequest(refreshToken)))
+                .isInstanceOf(com.san.api.global.exception.BusinessException.class);
+
+        verify(redisTemplate).delete(familyKey);
+        verify(setOperations).remove(indexKey, familyKey);
     }
 
     @Test
@@ -127,7 +165,7 @@ class AuthServiceTest {
         when(jwtProvider.isAccessToken(accessToken)).thenReturn(true);
         when(jwtProvider.getUserId(accessToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(accessToken))
-                .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, sessionId));
+                .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, sessionId, null, null));
         when(jwtProvider.getRemainingExpiration(accessToken)).thenReturn(1000L);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
@@ -165,5 +203,17 @@ class AuthServiceTest {
                 .passwordHash("encoded-password")
                 .provider(AuthProvider.LOCAL)
                 .build();
+    }
+
+    private String refreshTokenSessionJson(String refreshToken, String familyId, String jti) {
+        try {
+            return objectMapper.writeValueAsString(new RefreshTokenSession(
+                    refreshTokenHashService.hash(refreshToken),
+                    familyId,
+                    jti
+            ));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

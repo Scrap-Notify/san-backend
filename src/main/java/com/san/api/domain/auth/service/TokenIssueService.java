@@ -1,7 +1,11 @@
 package com.san.api.domain.auth.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +23,8 @@ public class TokenIssueService {
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
     private final AuthSessionKeyService authSessionKeyService;
+    private final RefreshTokenHashService refreshTokenHashService;
+    private final ObjectMapper objectMapper;
 
     @Value("${jwt.access-expiration}")
     private long accessExpiration;
@@ -29,27 +35,45 @@ public class TokenIssueService {
     /**
      * 사용자 ID를 subject로 하는 서비스 JWT 토큰 쌍을 발급합니다.
      *
-     * Refresh token은 사용자별 최신 토큰만 유효하도록 Redis에 TTL과 함께 저장합니다.
+     * Refresh token은 clientType/sessionId 단위로 분리하고, Redis에는 원문 대신 검증용 메타데이터만 저장합니다.
      */
     public TokenResponse issueTokenPair(String userId, ClientType clientType) {
         return issueTokenPair(userId, clientType, UUID.randomUUID().toString());
     }
 
     public TokenResponse issueTokenPair(String userId, ClientType clientType, String sessionId) {
+        return issueTokenPair(userId, clientType, sessionId, UUID.randomUUID().toString());
+    }
+
+    public TokenResponse issueTokenPair(String userId, ClientType clientType, String sessionId, String familyId) {
         String accessToken = jwtProvider.generateAccessToken(userId, clientType, sessionId);
-        String refreshToken = jwtProvider.generateRefreshToken(userId, clientType, sessionId);
+        String refreshToken = jwtProvider.generateRefreshToken(userId, clientType, sessionId, familyId);
+        // Redis에는 refresh token 원문을 저장하지 않고 검증용 메타데이터만 저장합니다.
+        RefreshTokenSession session = new RefreshTokenSession(
+                refreshTokenHashService.hash(refreshToken),
+                familyId,
+                jwtProvider.getSessionClaims(refreshToken).jti()
+        );
 
         String refreshKey = authSessionKeyService.refreshKey(userId, clientType, sessionId);
         String indexKey = authSessionKeyService.userRefreshIndexKey(userId);
 
         redisTemplate.opsForValue().set(
                 refreshKey,
-                refreshToken,
+                serialize(session),
                 Duration.ofMillis(refreshExpiration)
         );
         redisTemplate.opsForSet().add(indexKey, refreshKey);
         redisTemplate.expire(indexKey, Duration.ofMillis(refreshExpiration));
 
         return TokenResponse.of(accessToken, refreshToken, accessExpiration / 1000, sessionId);
+    }
+
+    private String serialize(RefreshTokenSession session) {
+        try {
+            return objectMapper.writeValueAsString(session);
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(CommonErrorCode.INTERNAL_SERVER_ERROR);
+        }
     }
 }

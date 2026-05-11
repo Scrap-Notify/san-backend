@@ -1,8 +1,10 @@
 package com.san.api.domain.auth.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.global.security.jwt.JwtProvider;
+import com.san.api.global.security.jwt.JwtSessionClaims;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,11 +40,21 @@ class TokenIssueServiceTest {
 
     private TokenIssueService tokenIssueService;
     private AuthSessionKeyService authSessionKeyService;
+    private RefreshTokenHashService refreshTokenHashService;
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         authSessionKeyService = new AuthSessionKeyService();
-        tokenIssueService = new TokenIssueService(jwtProvider, redisTemplate, authSessionKeyService);
+        refreshTokenHashService = new RefreshTokenHashService("test-secret");
+        objectMapper = new ObjectMapper();
+        tokenIssueService = new TokenIssueService(
+                jwtProvider,
+                redisTemplate,
+                authSessionKeyService,
+                refreshTokenHashService,
+                objectMapper
+        );
         ReflectionTestUtils.setField(tokenIssueService, "accessExpiration", 1800000L);
         ReflectionTestUtils.setField(tokenIssueService, "refreshExpiration", 604800000L);
     }
@@ -51,12 +63,16 @@ class TokenIssueServiceTest {
     void issueTokenPairStoresRefreshTokenWithTtl() {
         String userId = "user-id";
         String sessionId = "session-id";
+        String familyId = "family-id";
+        String jti = "refresh-jti";
         when(jwtProvider.generateAccessToken(userId, ClientType.DASHBOARD, sessionId)).thenReturn("access-token");
-        when(jwtProvider.generateRefreshToken(userId, ClientType.DASHBOARD, sessionId)).thenReturn("refresh-token");
+        when(jwtProvider.generateRefreshToken(userId, ClientType.DASHBOARD, sessionId, familyId)).thenReturn("refresh-token");
+        when(jwtProvider.getSessionClaims("refresh-token"))
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, familyId, jti));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
 
-        TokenResponse response = tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId);
+        TokenResponse response = tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId, familyId);
 
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
@@ -65,7 +81,8 @@ class TokenIssueServiceTest {
         assertThat(response.sessionId()).isEqualTo(sessionId);
         verify(valueOperations).set(
                 AuthRedisKeyPrefix.REFRESH + userId + ":DASHBOARD:" + sessionId,
-                "refresh-token",
+                "{\"tokenHash\":\"" + refreshTokenHashService.hash("refresh-token")
+                        + "\",\"familyId\":\"family-id\",\"jti\":\"refresh-jti\"}",
                 Duration.ofMillis(604800000L)
         );
         verify(setOperations).add(

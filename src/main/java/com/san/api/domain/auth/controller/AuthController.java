@@ -4,9 +4,12 @@ import com.san.api.domain.auth.dto.request.LoginRequest;
 import com.san.api.domain.auth.dto.request.ReissueRequest;
 import com.san.api.domain.auth.dto.request.SignupRequest;
 import com.san.api.domain.auth.dto.request.WithdrawRequest;
+import com.san.api.domain.auth.dto.response.AuthSessionListResponse;
 import com.san.api.domain.auth.dto.response.SignupResponse;
 import com.san.api.domain.auth.dto.response.TokenResponse;
+import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.auth.service.AuthService;
+import com.san.api.domain.auth.service.AuthSessionService;
 import com.san.api.global.response.ApiResponse;
 import com.san.api.global.security.token.BearerTokenResolver;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,6 +33,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final AuthSessionService authSessionService;
 
     @Operation(summary = "아이디 중복 확인")
     @GetMapping("/check-username")
@@ -67,6 +71,40 @@ public class AuthController {
     public ApiResponse<Void> logout(HttpServletRequest request) {
         String accessToken = BearerTokenResolver.resolve(request);
         authService.logout(accessToken);
+        return ApiResponse.success();
+    }
+
+    /**
+     * 현재 로그인한 사용자의 인증 세션 목록을 조회합니다.
+     *
+     * @param request Bearer access token을 포함한 HTTP 요청
+     * @return 현재 세션 여부와 refresh token 만료 시간을 포함한 세션 목록
+     */
+    @Operation(summary = "인증 세션 목록 조회")
+    @GetMapping("/sessions")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<AuthSessionListResponse> getSessions(HttpServletRequest request) {
+        String accessToken = BearerTokenResolver.resolve(request);
+        return ApiResponse.success(authSessionService.getSessions(accessToken));
+    }
+
+    /**
+     * 현재 로그인한 사용자의 특정 인증 세션을 폐기합니다.
+     *
+     * @param request Bearer access token을 포함한 HTTP 요청
+     * @param sessionId 폐기할 인증 세션 식별자
+     * @param clientType 폐기할 인증 세션의 클라이언트 유형
+     * @return 성공 시 빈 응답
+     */
+    @Operation(summary = "인증 세션 폐기")
+    @DeleteMapping("/sessions/{sessionId}")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Void> revokeSession(
+            HttpServletRequest request,
+            @PathVariable String sessionId,
+            @RequestParam ClientType clientType) {
+        String accessToken = BearerTokenResolver.resolve(request);
+        authSessionService.revokeSession(accessToken, clientType, sessionId);
         return ApiResponse.success();
     }
 

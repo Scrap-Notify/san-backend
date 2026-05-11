@@ -1,5 +1,6 @@
 package com.san.api.global.security.jwt;
 
+import com.san.api.domain.auth.entity.ClientType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -20,6 +21,8 @@ import java.util.UUID;
 public class JwtProvider {
 
     private static final String TOKEN_TYPE_CLAIM = "typ";
+    private static final String CLIENT_TYPE_CLAIM = "clientType";
+    private static final String SESSION_ID_CLAIM = "sessionId";
     private static final String ACCESS_TOKEN_TYPE = "access";
     private static final String REFRESH_TOKEN_TYPE = "refresh";
 
@@ -40,8 +43,16 @@ public class JwtProvider {
         return buildToken(userId, accessExpiration, ACCESS_TOKEN_TYPE);
     }
 
+    public String generateAccessToken(String userId, ClientType clientType, String sessionId) {
+        return buildToken(userId, accessExpiration, ACCESS_TOKEN_TYPE, clientType, sessionId);
+    }
+
     public String generateRefreshToken(String userId) {
         return buildToken(userId, refreshExpiration, REFRESH_TOKEN_TYPE);
+    }
+
+    public String generateRefreshToken(String userId, ClientType clientType, String sessionId) {
+        return buildToken(userId, refreshExpiration, REFRESH_TOKEN_TYPE, clientType, sessionId);
     }
 
     /** 토큰에서 Authentication 객체 추출. principal은 userId(String). */
@@ -52,6 +63,13 @@ public class JwtProvider {
 
     public String getUserId(String token) {
         return getClaims(token).getSubject();
+    }
+
+    public JwtSessionClaims getSessionClaims(String token) {
+        Claims claims = getClaims(token);
+        ClientType clientType = ClientType.from(claims.get(CLIENT_TYPE_CLAIM, String.class));
+        String sessionId = claims.get(SESSION_ID_CLAIM, String.class);
+        return new JwtSessionClaims(clientType, sessionId);
     }
 
     /** 토큰 남은 유효시간(ms). 블랙리스트 TTL 계산에 사용. */
@@ -82,15 +100,27 @@ public class JwtProvider {
     }
 
     private String buildToken(String userId, long expiration, String tokenType) {
+        return buildToken(userId, expiration, tokenType, null, null);
+    }
+
+    private String buildToken(String userId, long expiration, String tokenType, ClientType clientType, String sessionId) {
         Date now = new Date();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(userId)
                 .id(UUID.randomUUID().toString())
                 .claim(TOKEN_TYPE_CLAIM, tokenType)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiration))
-                .signWith(secretKey)
-                .compact();
+                .signWith(secretKey);
+
+        if (clientType != null) {
+            builder.claim(CLIENT_TYPE_CLAIM, clientType.name());
+        }
+        if (sessionId != null && !sessionId.isBlank()) {
+            builder.claim(SESSION_ID_CLAIM, sessionId);
+        }
+
+        return builder.compact();
     }
 
     private Claims getClaims(String token) {

@@ -3,6 +3,7 @@ package com.san.api.domain.github.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.response.TokenResponse;
+import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.auth.service.TokenIssueService;
 import com.san.api.domain.github.dto.request.GithubLoginRequest;
 import com.san.api.domain.github.dto.request.GithubTokenExchangeRequest;
@@ -71,9 +72,9 @@ public class GithubAuthService {
      *
      * state는 Redis에 짧게 저장해 callback 요청이 백엔드가 시작한 OAuth 흐름인지 검증합니다.
      */
-    public String createAuthorizationRedirectUrl() {
+    public String createAuthorizationRedirectUrl(ClientType clientType) {
         String state = generateUrlSafeToken();
-        redisTemplate.opsForValue().set(AuthRedisKeyPrefix.GITHUB_OAUTH_STATE + state, "1", STATE_TTL);
+        redisTemplate.opsForValue().set(AuthRedisKeyPrefix.GITHUB_OAUTH_STATE + state, clientType.name(), STATE_TTL);
         return githubApiClient.createAuthorizationUrl(state);
     }
 
@@ -94,8 +95,8 @@ public class GithubAuthService {
                         .toUriString();
             }
 
-            validateState(state);
-            TokenResponse tokens = loginWithCode(code);
+            ClientType clientType = validateState(state);
+            TokenResponse tokens = loginWithCode(code, clientType);
             String ticket = saveLoginTicket(tokens);
             return UriComponentsBuilder.fromUriString(successRedirectUri)
                     .queryParam("ticket", ticket)
@@ -143,10 +144,10 @@ public class GithubAuthService {
      */
     @Transactional
     public TokenResponse login(GithubLoginRequest request) {
-        return loginWithCode(request.code());
+        return loginWithCode(request.code(), request.clientType());
     }
 
-    private TokenResponse loginWithCode(String code) {
+    private TokenResponse loginWithCode(String code, ClientType clientType) {
         GithubAccessTokenResponse tokenResponse = githubApiClient.requestAccessToken(code);
         GithubUserProfileResponse profile = githubApiClient.findUserProfile(tokenResponse.accessToken());
         String githubUserId = profile.id().toString();
@@ -158,7 +159,7 @@ public class GithubAuthService {
 
         githubLinkService.saveGithubAccount(user, profile, tokenResponse.accessToken());
         validateLoginAvailable(user);
-        return tokenIssueService.issueTokenPair(user.getUserId().toString());
+        return tokenIssueService.issueTokenPair(user.getUserId().toString(), clientType);
     }
 
     private User createGithubUser(String githubUserId) {
@@ -170,13 +171,14 @@ public class GithubAuthService {
         return userRepository.save(user);
     }
 
-    private void validateState(String state) {
+    private ClientType validateState(String state) {
         String key = AuthRedisKeyPrefix.GITHUB_OAUTH_STATE + state;
         String stored = redisTemplate.opsForValue().get(key);
         if (stored == null) {
             throw new BusinessException(AuthErrorCode.GITHUB_OAUTH_FAILED);
         }
         redisTemplate.delete(key);
+        return ClientType.from(stored);
     }
 
     private String saveLoginTicket(TokenResponse tokens) {

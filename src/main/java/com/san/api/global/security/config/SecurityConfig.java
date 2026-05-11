@@ -42,6 +42,7 @@ public class SecurityConfig {
             "/auth/github/login",
             "/auth/github/token",
             "/auth/reissue",
+            "/auth/bridge/token",
             "/health",
             "/actuator/**",
             "/swagger-ui/**",

@@ -1,15 +1,14 @@
 package com.san.api.domain.auth.controller;
 
-import com.san.api.domain.auth.dto.request.LoginRequest;
-import com.san.api.domain.auth.dto.request.ReissueRequest;
-import com.san.api.domain.auth.dto.request.SignupRequest;
-import com.san.api.domain.auth.dto.request.WithdrawRequest;
+import com.san.api.domain.auth.dto.request.*;
 import com.san.api.domain.auth.dto.response.AuthSessionListResponse;
+import com.san.api.domain.auth.dto.response.LoginBridgeTicketResponse;
 import com.san.api.domain.auth.dto.response.SignupResponse;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.auth.service.AuthService;
 import com.san.api.domain.auth.service.AuthSessionService;
+import com.san.api.domain.auth.service.LoginBridgeService;
 import com.san.api.global.response.ApiResponse;
 import com.san.api.global.security.token.BearerTokenResolver;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +33,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthSessionService authSessionService;
+    private final LoginBridgeService loginBridgeService;
 
     @Operation(summary = "아이디 중복 확인")
     @GetMapping("/check-username")
@@ -106,6 +106,33 @@ public class AuthController {
         String accessToken = BearerTokenResolver.resolve(request);
         authSessionService.revokeSession(accessToken, clientType, sessionId);
         return ApiResponse.success();
+    }
+
+    /**
+     * Dashboard 로그인 상태를 Extension으로 전달하기 위한 일회용 bridge ticket을 발급합니다.
+     *
+     * @param request Dashboard access token을 포함한 HTTP 요청
+     * @return Extension token 교환에 사용할 일회용 bridge ticket
+     */
+    @Operation(summary = "로그인 브릿지 ticket 발급")
+    @PostMapping("/bridge/ticket")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<LoginBridgeTicketResponse> issueLoginBridgeTicket(HttpServletRequest request) {
+        String accessToken = BearerTokenResolver.resolve(request);
+        return ApiResponse.success(loginBridgeService.issueTicket(accessToken));
+    }
+
+    /**
+     * Dashboard에서 발급한 일회용 bridge ticket을 Extension용 token pair로 교환합니다.
+     *
+     * @param request 일회용 bridge ticket 교환 요청
+     * @return Extension 클라이언트 유형으로 발급된 access/refresh token pair
+     */
+    @Operation(summary = "로그인 브릿지 token 교환")
+    @PostMapping("/bridge/token")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<TokenResponse> exchangeLoginBridgeToken(@Valid @RequestBody LoginBridgeTokenRequest request) {
+        return ApiResponse.success(loginBridgeService.exchangeToken(request));
     }
 
     @Operation(summary = "회원탈퇴")

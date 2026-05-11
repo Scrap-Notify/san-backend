@@ -1,6 +1,7 @@
 package com.san.api.global.external.s3.config;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -15,7 +16,7 @@ public record S3Properties(
         @NotBlank String region,
         @Positive long presignedUrlExpirationMinutes,
         @Positive long maxFileSizeBytes,
-        Set<@NotBlank String> allowedExtensions,
-        Set<@NotBlank String> allowedContentTypes
+        @NotEmpty Set<@NotBlank String> allowedExtensions,
+        @NotEmpty Set<@NotBlank String> allowedContentTypes
 ) {
 }

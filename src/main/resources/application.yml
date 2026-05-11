@@ -48,3 +48,9 @@ oauth:
 ai:
   server:
     base-url: ${AI_SERVER_URL:http://localhost:8001}
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET}
+    region: ${AWS_S3_REGION:us-east-1}
+    presigned-url-expiration-minutes: ${AWS_S3_PRESIGNED_URL_EXPIRATION_MINUTES:5}

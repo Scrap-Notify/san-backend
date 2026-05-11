@@ -34,7 +34,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** 일반 인증 서비스의 클라이언트별 세션 처리 동작을 검증합니다. */
+/**
+ * AuthService의 일반 로그인, 토큰 재발급, 로그아웃, 회원탈퇴 동작을 검증하는 테스트입니다.
+ *
+ * 특히 Dashboard/Extension clientType별 refresh token 세션 분리와
+ * refresh token hash/familyId 기반 재사용 탐지 흐름을 함께 확인합니다.
+ */
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 

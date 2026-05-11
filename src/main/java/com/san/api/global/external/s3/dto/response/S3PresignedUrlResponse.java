@@ -4,7 +4,6 @@ package com.san.api.global.external.s3.dto.response;
 public record S3PresignedUrlResponse(
         String uploadUrl,
         String objectKey,
-        String fileUrl,
         long expiresInSeconds
 ) {
 }

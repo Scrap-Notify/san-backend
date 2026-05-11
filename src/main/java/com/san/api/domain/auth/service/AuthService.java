@@ -12,6 +12,7 @@ import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.security.jwt.JwtProvider;
+import com.san.api.global.security.jwt.JwtSessionClaims;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -43,6 +45,7 @@ public class AuthService {
     private final JwtProvider        jwtProvider;
     private final StringRedisTemplate redisTemplate;
     private final TokenIssueService tokenIssueService;
+    private final AuthSessionKeyService authSessionKeyService;
 
     @Value("${auth.login.max-fail-count}")
     private int maxFailCount;
@@ -103,7 +106,7 @@ public class AuthService {
 
         resetFailCount(user.getUsername());
 
-        return tokenIssueService.issueTokenPair(user.getUserId().toString());
+        return tokenIssueService.issueTokenPair(user.getUserId().toString(), request.clientType());
     }
 
     // ──────────────────────────── Access Token 재발급 (Rotation) ──────────────
@@ -115,21 +118,23 @@ public class AuthService {
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        String userId    = jwtProvider.getUserId(refreshToken);
-        String redisKey  = AuthRedisKeyPrefix.REFRESH + userId;
-        String stored    = redisTemplate.opsForValue().get(redisKey);
+        String userId = jwtProvider.getUserId(refreshToken);
+        JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(refreshToken);
+        String sessionId = requireSessionId(sessionClaims.sessionId(), AuthErrorCode.INVALID_REFRESH_TOKEN);
+        String redisKey = authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId);
+        String stored = redisTemplate.opsForValue().get(redisKey);
 
         // Redis에 없거나 값이 다르면 → 탈취 감지 or 만료
         if (stored == null || !stored.equals(refreshToken)) {
             // 재사용 감지 시 해당 사용자 세션 전체 무효화
-            redisTemplate.delete(redisKey);
+            deleteRefreshSession(userId, redisKey);
             log.warn("[Auth] Refresh Token 재사용 감지 - userId={}", userId);
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         // 기존 토큰 삭제 후 새 토큰 발급 (Rotation)
-        redisTemplate.delete(redisKey);
-        TokenResponse tokens = tokenIssueService.issueTokenPair(userId);
+        deleteRefreshSession(userId, redisKey);
+        TokenResponse tokens = tokenIssueService.issueTokenPair(userId, sessionClaims.clientType(), sessionId);
 
         log.info("[Auth] 토큰 재발급 - userId={}", userId);
         return tokens;
@@ -143,9 +148,11 @@ public class AuthService {
         }
 
         String userId = jwtProvider.getUserId(accessToken);
+        JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(accessToken);
+        String sessionId = requireSessionId(sessionClaims.sessionId(), AuthErrorCode.INVALID_ACCESS_TOKEN);
 
         // Refresh Token 삭제
-        redisTemplate.delete(AuthRedisKeyPrefix.REFRESH + userId);
+        deleteRefreshSession(userId, authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId));
 
         // Access Token 블랙리스트 등록 (남은 유효시간만큼 TTL)
         long remainingMs = jwtProvider.getRemainingExpiration(accessToken);
@@ -174,7 +181,7 @@ public class AuthService {
         user.withdraw();
 
         // 세션 완전 정리
-        redisTemplate.delete(AuthRedisKeyPrefix.REFRESH + userId);
+        deleteUserRefreshSessions(userId);
 
         log.info("[Auth] 회원탈퇴 - userId={}", userId);
     }
@@ -201,5 +208,26 @@ public class AuthService {
 
     private void resetFailCount(String username) {
         redisTemplate.delete(AuthRedisKeyPrefix.LOGIN_FAIL + username);
+    }
+
+    private String requireSessionId(String sessionId, AuthErrorCode errorCode) {
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new BusinessException(errorCode);
+        }
+        return sessionId;
+    }
+
+    private void deleteUserRefreshSessions(String userId) {
+        String indexKey = authSessionKeyService.userRefreshIndexKey(userId);
+        Set<String> keys = redisTemplate.opsForSet().members(indexKey);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+        redisTemplate.delete(indexKey);
+    }
+
+    private void deleteRefreshSession(String userId, String refreshKey) {
+        redisTemplate.delete(refreshKey);
+        redisTemplate.opsForSet().remove(authSessionKeyService.userRefreshIndexKey(userId), refreshKey);
     }
 }

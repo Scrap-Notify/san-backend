@@ -2,6 +2,7 @@ package com.san.api.domain.github.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.response.TokenResponse;
+import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.auth.service.TokenIssueService;
 import com.san.api.domain.github.dto.request.GithubLoginRequest;
 import com.san.api.domain.github.entity.GithubAccount;
@@ -75,14 +76,14 @@ class GithubAuthServiceTest {
         GithubAccount githubAccount = new GithubAccount(user, "1", "octocat", "encrypted-token");
         GithubAccessTokenResponse githubToken = new GithubAccessTokenResponse("github-token", "bearer", "repo");
         GithubUserProfileResponse profile = new GithubUserProfileResponse(1L, "octocat");
-        TokenResponse tokenResponse = TokenResponse.of("access-token", "refresh-token", 1800);
+        TokenResponse tokenResponse = TokenResponse.of("access-token", "refresh-token", 1800, "session-id");
 
         when(githubApiClient.requestAccessToken("code")).thenReturn(githubToken);
         when(githubApiClient.findUserProfile("github-token")).thenReturn(profile);
         when(githubAccountRepository.findByGithubUserId("1")).thenReturn(Optional.of(githubAccount));
-        when(tokenIssueService.issueTokenPair(user.getUserId().toString())).thenReturn(tokenResponse);
+        when(tokenIssueService.issueTokenPair(user.getUserId().toString(), ClientType.DASHBOARD)).thenReturn(tokenResponse);
 
-        TokenResponse result = githubAuthService.login(new GithubLoginRequest("code"));
+        TokenResponse result = githubAuthService.login(new GithubLoginRequest("code", ClientType.DASHBOARD));
 
         assertThat(result).isEqualTo(tokenResponse);
         verify(githubLinkService).saveGithubAccount(user, profile, "github-token");

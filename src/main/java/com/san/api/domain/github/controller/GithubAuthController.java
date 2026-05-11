@@ -1,6 +1,7 @@
 package com.san.api.domain.github.controller;
 
 import com.san.api.domain.auth.dto.response.TokenResponse;
+import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.github.dto.request.GithubLoginRequest;
 import com.san.api.domain.github.dto.request.GithubTokenExchangeRequest;
 import com.san.api.domain.github.dto.response.GithubAuthorizationUrlResponse;
@@ -32,8 +33,8 @@ public class GithubAuthController {
     )
     @GetMapping("/authorize")
     @ResponseStatus(HttpStatus.FOUND)
-    public RedirectView authorize() {
-        return new RedirectView(githubAuthService.createAuthorizationRedirectUrl());
+    public RedirectView authorize(@RequestParam ClientType clientType) {
+        return new RedirectView(githubAuthService.createAuthorizationRedirectUrl(clientType));
     }
 
     @Operation(
@@ -42,9 +43,9 @@ public class GithubAuthController {
     )
     @GetMapping("/authorize-url")
     @ResponseStatus(HttpStatus.OK)
-    public ApiResponse<GithubAuthorizationUrlResponse> authorizeUrl() {
+    public ApiResponse<GithubAuthorizationUrlResponse> authorizeUrl(@RequestParam ClientType clientType) {
         return ApiResponse.success(
-                new GithubAuthorizationUrlResponse(githubAuthService.createAuthorizationRedirectUrl())
+                new GithubAuthorizationUrlResponse(githubAuthService.createAuthorizationRedirectUrl(clientType))
         );
     }
 

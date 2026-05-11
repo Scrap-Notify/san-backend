@@ -1,5 +1,7 @@
 package com.san.api.global.logging;
 
+import com.san.api.global.audit.context.AuditRequestContext;
+import com.san.api.global.audit.context.AuditRequestContextHolder;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.UUID;
 
 /**
  * 모든 HTTP 요청에 대해 메서드, URI, 처리 시간, 응답 상태를 INFO 레벨로 기록하는 필터.
@@ -19,6 +22,10 @@ import java.io.IOException;
 @Slf4j
 @Component
 public class RequestLoggingFilter extends OncePerRequestFilter {
+
+    private static final String TRACE_ID_HEADER = "X-Request-Id";
+    private static final String FORWARDED_FOR_HEADER = "X-Forwarded-For";
+    private static final String USER_AGENT_HEADER = "User-Agent";
 
     /**
      * 요청을 다음 필터 체인으로 전달하고, 완료 후 소요 시간과 응답 상태를 로깅합니다.
@@ -35,6 +42,12 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
         long start = System.currentTimeMillis();
+        String traceId = resolveTraceId(request);
+        AuditRequestContextHolder.set(new AuditRequestContext(
+                traceId,
+                resolveIpAddress(request),
+                request.getHeader(USER_AGENT_HEADER)
+        ));
         try {
             filterChain.doFilter(request, response);
         } finally {
@@ -44,6 +57,23 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
                     request.getMethod(),
                     request.getRequestURI(),
                     elapsed);
+            AuditRequestContextHolder.clear();
         }
+    }
+
+    private String resolveTraceId(HttpServletRequest request) {
+        String traceId = request.getHeader(TRACE_ID_HEADER);
+        if (traceId == null || traceId.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        return traceId;
+    }
+
+    private String resolveIpAddress(HttpServletRequest request) {
+        String forwardedFor = request.getHeader(FORWARDED_FOR_HEADER);
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

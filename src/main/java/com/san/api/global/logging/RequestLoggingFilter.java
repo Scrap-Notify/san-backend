@@ -43,6 +43,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             FilterChain filterChain) throws ServletException, IOException {
         long start = System.currentTimeMillis();
         String traceId = resolveTraceId(request);
+        response.setHeader(TRACE_ID_HEADER, traceId);
         AuditRequestContextHolder.set(new AuditRequestContext(
                 traceId,
                 resolveIpAddress(request),

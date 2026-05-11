@@ -29,6 +29,7 @@ public enum AuthErrorCode implements ErrorCode {
     GITHUB_ACCOUNT_ALREADY_LINKED(HttpStatus.CONFLICT, "A011", "이미 다른 계정에 연결된 GitHub 계정입니다."),
     GITHUB_ACCOUNT_UNLINK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "A012", "GitHub 로그인 계정은 연동 해제할 수 없습니다."),
     INVALID_CLIENT_TYPE(HttpStatus.BAD_REQUEST, "A013", "지원하지 않는 클라이언트 타입입니다."),
+    INVALID_LOGIN_BRIDGE_TICKET(HttpStatus.UNAUTHORIZED, "A014", "유효하지 않은 로그인 브릿지 티켓입니다."),
     ;
 
     private final HttpStatus status;

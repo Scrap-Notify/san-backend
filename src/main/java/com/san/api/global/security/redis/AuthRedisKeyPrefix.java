@@ -23,6 +23,9 @@ public final class AuthRedisKeyPrefix {
     /** One-time login ticket key prefix for OAuth redirect completion. */
     public static final String GITHUB_LOGIN_TICKET = "github:login:ticket:";
 
+    /** One-time login bridge ticket key prefix between dashboard and extension. */
+    public static final String LOGIN_BRIDGE_TICKET = "auth:bridge:ticket:";
+
     private AuthRedisKeyPrefix() {
     }
 }

@@ -23,6 +23,7 @@ public class JwtProvider {
     private static final String TOKEN_TYPE_CLAIM = "typ";
     private static final String CLIENT_TYPE_CLAIM = "clientType";
     private static final String SESSION_ID_CLAIM = "sessionId";
+    private static final String FAMILY_ID_CLAIM = "familyId";
     private static final String ACCESS_TOKEN_TYPE = "access";
     private static final String REFRESH_TOKEN_TYPE = "refresh";
 
@@ -52,7 +53,12 @@ public class JwtProvider {
     }
 
     public String generateRefreshToken(String userId, ClientType clientType, String sessionId) {
-        return buildToken(userId, refreshExpiration, REFRESH_TOKEN_TYPE, clientType, sessionId);
+        return generateRefreshToken(userId, clientType, sessionId, UUID.randomUUID().toString());
+    }
+
+    public String generateRefreshToken(String userId, ClientType clientType, String sessionId, String familyId) {
+        // familyId는 refresh token rotation 과정에서 같은 로그인 세션 묶음을 추적하는 값입니다.
+        return buildToken(userId, refreshExpiration, REFRESH_TOKEN_TYPE, clientType, sessionId, familyId);
     }
 
     /** 토큰에서 Authentication 객체 추출. principal은 userId(String). */
@@ -69,7 +75,9 @@ public class JwtProvider {
         Claims claims = getClaims(token);
         ClientType clientType = ClientType.from(claims.get(CLIENT_TYPE_CLAIM, String.class));
         String sessionId = claims.get(SESSION_ID_CLAIM, String.class);
-        return new JwtSessionClaims(clientType, sessionId);
+        String familyId = claims.get(FAMILY_ID_CLAIM, String.class);
+        String jti = claims.getId();
+        return new JwtSessionClaims(clientType, sessionId, familyId, jti);
     }
 
     /** 토큰 남은 유효시간(ms). 블랙리스트 TTL 계산에 사용. */
@@ -104,6 +112,10 @@ public class JwtProvider {
     }
 
     private String buildToken(String userId, long expiration, String tokenType, ClientType clientType, String sessionId) {
+        return buildToken(userId, expiration, tokenType, clientType, sessionId, null);
+    }
+
+    private String buildToken(String userId, long expiration, String tokenType, ClientType clientType, String sessionId, String familyId) {
         Date now = new Date();
         var builder = Jwts.builder()
                 .subject(userId)
@@ -118,6 +130,9 @@ public class JwtProvider {
         }
         if (sessionId != null && !sessionId.isBlank()) {
             builder.claim(SESSION_ID_CLAIM, sessionId);
+        }
+        if (familyId != null && !familyId.isBlank()) {
+            builder.claim(FAMILY_ID_CLAIM, familyId);
         }
 
         return builder.compact();

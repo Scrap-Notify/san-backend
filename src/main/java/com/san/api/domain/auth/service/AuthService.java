@@ -1,5 +1,7 @@
 package com.san.api.domain.auth.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.request.LoginRequest;
 import com.san.api.domain.auth.dto.request.ReissueRequest;
 import com.san.api.domain.auth.dto.request.SignupRequest;
@@ -31,21 +33,31 @@ import java.util.UUID;
  * 인증 서비스.
  *
  * Redis 키 구조:
- * - {@code refresh:{userId}}   — 유효한 Refresh Token 값 (TTL = refreshExpiration)
- * - {@code blacklist:{token}}  — 로그아웃된 Access Token (TTL = 토큰 남은 만료시간)
- * - {@code fail:{username}}    — 로그인 연속 실패 횟수 (TTL = failWindowSeconds)
+ * - {@code refresh:{userId}:{clientType}:{sessionId}}
+ *   세션별 Refresh Token 메타데이터 JSON 저장
+ *   (tokenHash, familyId, jti / TTL = refreshExpiration)
+ * - {@code refresh:index:user:{userId}}
+ *   회원 탈퇴, refresh token family 폐기 시 사용할 사용자별 refresh session key 목록
+ * - {@code blacklist:{token}}
+ *   로그아웃된 Access Token 저장
+ *   (TTL = access token 남은 만료 시간)
+ * - {@code fail:{username}}
+ *   로그인 연속 실패 횟수 저장
+ *   (TTL = failWindowSeconds)
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository     userRepository;
-    private final PasswordEncoder    passwordEncoder;
-    private final JwtProvider        jwtProvider;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
     private final TokenIssueService tokenIssueService;
     private final AuthSessionKeyService authSessionKeyService;
+    private final RefreshTokenHashService refreshTokenHashService;
+    private final ObjectMapper objectMapper;
 
     @Value("${auth.login.max-fail-count}")
     private int maxFailCount;
@@ -121,26 +133,27 @@ public class AuthService {
         String userId = jwtProvider.getUserId(refreshToken);
         JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(refreshToken);
         String sessionId = requireSessionId(sessionClaims.sessionId(), AuthErrorCode.INVALID_REFRESH_TOKEN);
-        String redisKey = authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId);
-        String stored = redisTemplate.opsForValue().get(redisKey);
+        String familyId = requireTokenClaim(sessionClaims.familyId(), AuthErrorCode.INVALID_REFRESH_TOKEN);
+        String refreshKey = authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId);
+        RefreshTokenSession storedSession = deserializeSession(redisTemplate.opsForValue().getAndDelete(refreshKey));
+        String requestedHash = refreshTokenHashService.hash(refreshToken);
 
-        // Redis에 없거나 값이 다르면 → 탈취 감지 or 만료
-        if (stored == null || !stored.equals(refreshToken)) {
-            // 재사용 감지 시 해당 사용자 세션 전체 무효화
-            deleteRefreshSession(userId, redisKey);
-            log.warn("[Auth] Refresh Token 재사용 감지 - userId={}", userId);
+        // Redis에는 refresh token 원문이 아니라 HMAC hash가 저장되므로 요청 토큰도 같은 방식으로 hash해서 비교합니다.
+        // 값이 다르면 이미 rotation된 예전 refresh token이 다시 들어온 것으로 보고 재사용 탐지로 처리합니다.
+        if (storedSession == null || !storedSession.tokenHash().equals(requestedHash)) {
+            removeRefreshSessionIndex(userId, refreshKey);
+            revokeRefreshFamily(userId, familyId, refreshKey);
+            log.warn("[Auth] Refresh Token 재사용 감지 - userId={}, familyId={}", userId, familyId);
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 기존 토큰 삭제 후 새 토큰 발급 (Rotation)
-        deleteRefreshSession(userId, redisKey);
-        TokenResponse tokens = tokenIssueService.issueTokenPair(userId, sessionClaims.clientType(), sessionId);
+        // 정상 rotation은 같은 sessionId와 familyId를 유지한 채 refresh token만 새로 발급합니다.
+        removeRefreshSessionIndex(userId, refreshKey);
+        TokenResponse tokens = tokenIssueService.issueTokenPair(userId, sessionClaims.clientType(), sessionId, familyId);
 
         log.info("[Auth] 토큰 재발급 - userId={}", userId);
         return tokens;
     }
-
-    // ──────────────────────────── 로그아웃 ────────────────────────────────────
 
     public void logout(String accessToken) {
         if (!jwtProvider.validateToken(accessToken) || !jwtProvider.isAccessToken(accessToken)) {
@@ -151,10 +164,8 @@ public class AuthService {
         JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(accessToken);
         String sessionId = requireSessionId(sessionClaims.sessionId(), AuthErrorCode.INVALID_ACCESS_TOKEN);
 
-        // Refresh Token 삭제
         deleteRefreshSession(userId, authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId));
 
-        // Access Token 블랙리스트 등록 (남은 유효시간만큼 TTL)
         long remainingMs = jwtProvider.getRemainingExpiration(accessToken);
         if (remainingMs > 0) {
             redisTemplate.opsForValue().set(
@@ -167,8 +178,6 @@ public class AuthService {
         log.info("[Auth] 로그아웃 - userId={}", userId);
     }
 
-    // ──────────────────────────── 회원탈퇴 ────────────────────────────────────
-
     @Transactional
     public void withdraw(String userId, WithdrawRequest request) {
         User user = userRepository.findById(UUID.fromString(userId))
@@ -179,14 +188,10 @@ public class AuthService {
         }
 
         user.withdraw();
-
-        // 세션 완전 정리
         deleteUserRefreshSessions(userId);
 
         log.info("[Auth] 회원탈퇴 - userId={}", userId);
     }
-
-    // ──────────────────────────── 내부 헬퍼 ───────────────────────────────────
 
     private void handleLoginFailure(User user) {
         String failKey = AuthRedisKeyPrefix.LOGIN_FAIL + user.getUsername();
@@ -217,8 +222,16 @@ public class AuthService {
         return sessionId;
     }
 
+    private String requireTokenClaim(String value, AuthErrorCode errorCode) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(errorCode);
+        }
+        return value;
+    }
+
     private void deleteUserRefreshSessions(String userId) {
         String indexKey = authSessionKeyService.userRefreshIndexKey(userId);
+        // KEYS 명령 대신 사용자별 세션 인덱스 Set을 사용해 운영 환경의 Redis 블로킹 위험을 줄입니다.
         Set<String> keys = redisTemplate.opsForSet().members(indexKey);
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
@@ -228,6 +241,41 @@ public class AuthService {
 
     private void deleteRefreshSession(String userId, String refreshKey) {
         redisTemplate.delete(refreshKey);
+        removeRefreshSessionIndex(userId, refreshKey);
+    }
+
+    private void removeRefreshSessionIndex(String userId, String refreshKey) {
+        // 개별 세션 삭제 시 인덱스에서도 제거해 이후 전체 삭제/조회 대상에 남지 않게 합니다.
         redisTemplate.opsForSet().remove(authSessionKeyService.userRefreshIndexKey(userId), refreshKey);
+    }
+
+    private void revokeRefreshFamily(String userId, String familyId, String currentRefreshKey) {
+        Set<String> keys = redisTemplate.opsForSet().members(authSessionKeyService.userRefreshIndexKey(userId));
+        if (keys == null || keys.isEmpty()) {
+            return;
+        }
+
+        // 같은 familyId에서 나온 refresh token들을 모두 폐기해 탈취된 token 연쇄 사용을 막습니다.
+        for (String key : keys) {
+            if (key.equals(currentRefreshKey)) {
+                continue;
+            }
+            RefreshTokenSession session = deserializeSession(redisTemplate.opsForValue().get(key));
+            if (session != null && familyId.equals(session.familyId())) {
+                deleteRefreshSession(userId, key);
+            }
+        }
+    }
+
+    private RefreshTokenSession deserializeSession(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return objectMapper.readValue(value, RefreshTokenSession.class);
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
     }
 }

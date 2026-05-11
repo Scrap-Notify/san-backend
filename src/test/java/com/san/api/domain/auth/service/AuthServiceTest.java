@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,6 +49,9 @@ class AuthServiceTest {
 
     @Mock
     private ValueOperations<String, String> valueOperations;
+
+    @Mock
+    private SetOperations<String, String> setOperations;
 
     @Mock
     private TokenIssueService tokenIssueService;
@@ -100,6 +104,7 @@ class AuthServiceTest {
         when(jwtProvider.getSessionClaims(refreshToken))
                 .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForSet()).thenReturn(setOperations);
         when(valueOperations.get(redisKey)).thenReturn(refreshToken);
         when(tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId))
                 .thenReturn(tokenResponse);
@@ -108,6 +113,7 @@ class AuthServiceTest {
 
         assertThat(result).isEqualTo(tokenResponse);
         verify(redisTemplate).delete(redisKey);
+        verify(setOperations).remove(AuthRedisKeyPrefix.REFRESH + "index:user:" + userId, redisKey);
     }
 
     @Test
@@ -124,10 +130,12 @@ class AuthServiceTest {
                 .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, sessionId));
         when(jwtProvider.getRemainingExpiration(accessToken)).thenReturn(1000L);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForSet()).thenReturn(setOperations);
 
         authService.logout(accessToken);
 
         verify(redisTemplate).delete(redisKey);
+        verify(setOperations).remove(AuthRedisKeyPrefix.REFRESH + "index:user:" + userId, redisKey);
         verify(valueOperations).set(AuthRedisKeyPrefix.BLACKLIST + accessToken, "1", Duration.ofMillis(1000L));
     }
 
@@ -142,11 +150,13 @@ class AuthServiceTest {
 
         when(userRepository.findById(user.getUserId())).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password", user.getPasswordHash())).thenReturn(true);
-        when(redisTemplate.keys(AuthRedisKeyPrefix.REFRESH + userId + ":*")).thenReturn(sessionKeys);
+        when(redisTemplate.opsForSet()).thenReturn(setOperations);
+        when(setOperations.members(AuthRedisKeyPrefix.REFRESH + "index:user:" + userId)).thenReturn(sessionKeys);
 
         authService.withdraw(userId, new WithdrawRequest("password"));
 
         verify(redisTemplate).delete(sessionKeys);
+        verify(redisTemplate).delete(AuthRedisKeyPrefix.REFRESH + "index:user:" + userId);
     }
 
     private User localUser() {

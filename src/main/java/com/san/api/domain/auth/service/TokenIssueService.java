@@ -39,11 +39,16 @@ public class TokenIssueService {
         String accessToken = jwtProvider.generateAccessToken(userId, clientType, sessionId);
         String refreshToken = jwtProvider.generateRefreshToken(userId, clientType, sessionId);
 
+        String refreshKey = authSessionKeyService.refreshKey(userId, clientType, sessionId);
+        String indexKey = authSessionKeyService.userRefreshIndexKey(userId);
+
         redisTemplate.opsForValue().set(
-                authSessionKeyService.refreshKey(userId, clientType, sessionId),
+                refreshKey,
                 refreshToken,
                 Duration.ofMillis(refreshExpiration)
         );
+        redisTemplate.opsForSet().add(indexKey, refreshKey);
+        redisTemplate.expire(indexKey, Duration.ofMillis(refreshExpiration));
 
         return TokenResponse.of(accessToken, refreshToken, accessExpiration / 1000, sessionId);
     }

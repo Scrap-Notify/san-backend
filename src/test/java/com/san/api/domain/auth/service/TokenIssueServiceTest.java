@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -32,6 +33,9 @@ class TokenIssueServiceTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
+    @Mock
+    private SetOperations<String, String> setOperations;
+
     private TokenIssueService tokenIssueService;
     private AuthSessionKeyService authSessionKeyService;
 
@@ -50,6 +54,7 @@ class TokenIssueServiceTest {
         when(jwtProvider.generateAccessToken(userId, ClientType.DASHBOARD, sessionId)).thenReturn("access-token");
         when(jwtProvider.generateRefreshToken(userId, ClientType.DASHBOARD, sessionId)).thenReturn("refresh-token");
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForSet()).thenReturn(setOperations);
 
         TokenResponse response = tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId);
 
@@ -61,6 +66,14 @@ class TokenIssueServiceTest {
         verify(valueOperations).set(
                 AuthRedisKeyPrefix.REFRESH + userId + ":DASHBOARD:" + sessionId,
                 "refresh-token",
+                Duration.ofMillis(604800000L)
+        );
+        verify(setOperations).add(
+                AuthRedisKeyPrefix.REFRESH + "index:user:" + userId,
+                AuthRedisKeyPrefix.REFRESH + userId + ":DASHBOARD:" + sessionId
+        );
+        verify(redisTemplate).expire(
+                AuthRedisKeyPrefix.REFRESH + "index:user:" + userId,
                 Duration.ofMillis(604800000L)
         );
     }

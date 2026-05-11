@@ -13,7 +13,7 @@ public class AuthSessionKeyService {
         return AuthRedisKeyPrefix.REFRESH + userId + ":" + clientType.name() + ":" + sessionId;
     }
 
-    public String userRefreshKeyPattern(String userId) {
-        return AuthRedisKeyPrefix.REFRESH + userId + ":*";
+    public String userRefreshIndexKey(String userId) {
+        return AuthRedisKeyPrefix.REFRESH + "index:user:" + userId;
     }
 }

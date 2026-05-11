@@ -127,13 +127,13 @@ public class AuthService {
         // Redis에 없거나 값이 다르면 → 탈취 감지 or 만료
         if (stored == null || !stored.equals(refreshToken)) {
             // 재사용 감지 시 해당 사용자 세션 전체 무효화
-            redisTemplate.delete(redisKey);
+            deleteRefreshSession(userId, redisKey);
             log.warn("[Auth] Refresh Token 재사용 감지 - userId={}", userId);
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         // 기존 토큰 삭제 후 새 토큰 발급 (Rotation)
-        redisTemplate.delete(redisKey);
+        deleteRefreshSession(userId, redisKey);
         TokenResponse tokens = tokenIssueService.issueTokenPair(userId, sessionClaims.clientType(), sessionId);
 
         log.info("[Auth] 토큰 재발급 - userId={}", userId);
@@ -152,7 +152,7 @@ public class AuthService {
         String sessionId = requireSessionId(sessionClaims.sessionId(), AuthErrorCode.INVALID_ACCESS_TOKEN);
 
         // Refresh Token 삭제
-        redisTemplate.delete(authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId));
+        deleteRefreshSession(userId, authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId));
 
         // Access Token 블랙리스트 등록 (남은 유효시간만큼 TTL)
         long remainingMs = jwtProvider.getRemainingExpiration(accessToken);
@@ -218,9 +218,16 @@ public class AuthService {
     }
 
     private void deleteUserRefreshSessions(String userId) {
-        Set<String> keys = redisTemplate.keys(authSessionKeyService.userRefreshKeyPattern(userId));
+        String indexKey = authSessionKeyService.userRefreshIndexKey(userId);
+        Set<String> keys = redisTemplate.opsForSet().members(indexKey);
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
         }
+        redisTemplate.delete(indexKey);
+    }
+
+    private void deleteRefreshSession(String userId, String refreshKey) {
+        redisTemplate.delete(refreshKey);
+        redisTemplate.opsForSet().remove(authSessionKeyService.userRefreshIndexKey(userId), refreshKey);
     }
 }

@@ -7,7 +7,11 @@ import com.san.api.global.external.ai.dto.response.AiTilResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -29,24 +33,39 @@ public class AiTilClient {
      * @param request AI TIL 생성 요청
      * @return AI TIL 생성 응답
      */
+    @Retryable(
+            retryFor = {RestClientException.class},
+            noRetryFor = {BusinessException.class, HttpClientErrorException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 2000, multiplier = 2.0)
+    )
     public AiTilResponse generateTil(AiTilRequest request) {
-        try {
-            AiTilResponse response = restClient.post()
-                    .uri("/ai/til")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .body(request)
-                    .retrieve()
-                    .body(AiTilResponse.class);
+        AiTilResponse response = restClient.post()
+                .uri("/ai/til")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(AiTilResponse.class);
 
-            validateResponse(response);
-            return response;
-        } catch (BusinessException e) {
-            throw e;
-        } catch (RestClientException e) {
-            log.error("AI TIL generation request failed: {}", e.getMessage(), e);
-            throw new BusinessException(AiErrorCode.AI_TIL_GENERATION_FAILED);
+        validateResponse(response);
+        return response;
+    }
+
+    /**
+     * 재시도 소진 후 호출되는 복구 메서드.
+     * BusinessException(응답 검증 실패)은 그대로 전파하고, RestClientException은 도메인 예외로 변환한다.
+     *
+     * @param e 마지막 시도에서 발생한 예외
+     * @param request 원본 요청 (시그니처 매칭용)
+     */
+    @Recover
+    public AiTilResponse recoverGenerateTil(Exception e, AiTilRequest request) {
+        if (e instanceof BusinessException be) {
+            throw be;
         }
+        log.error("AI TIL generation failed after all retries: {}", e.getMessage(), e);
+        throw new BusinessException(AiErrorCode.AI_TIL_GENERATION_FAILED);
     }
 
     /**

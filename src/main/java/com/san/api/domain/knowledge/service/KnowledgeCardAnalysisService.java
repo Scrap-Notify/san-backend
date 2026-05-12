@@ -121,7 +121,7 @@ public class KnowledgeCardAnalysisService {
         return switch (scrap.getSourceType()) {
             case LINK -> firstNotBlank(scrap.getSourceUrl(), scrap.getRawContent());
             case TEXT -> scrap.getRawContent();
-            case IMAGE -> firstNotBlank(scrap.getImageUrl(), scrap.getRawContent());
+            case IMAGE -> firstNotBlank(scrap.getImageObjectKey(), scrap.getRawContent());
         };
     }
 

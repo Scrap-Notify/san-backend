@@ -47,17 +47,18 @@ public class Scrap extends BaseEntity {
     @Column(name = "content_hash", length = 64)
     private String contentHash;
 
-    @Column(name = "image_url", columnDefinition = "text")
-    private String imageUrl;
+    // S3에 저장된 이미지 object key
+    @Column(name = "image_object_key", length = 1024)
+    private String imageObjectKey;
 
     @Builder
-    public Scrap(User user, SourceType sourceType, String sourceUrl, String rawContent, String contentHash, String imageUrl) {
+    public Scrap(User user, SourceType sourceType, String sourceUrl, String rawContent, String contentHash, String imageObjectKey) {
         this.scrapId = UUID.randomUUID();
         this.user = user;
         this.sourceType = sourceType;
         this.sourceUrl = sourceUrl;
         this.rawContent = rawContent;
         this.contentHash = contentHash;
-        this.imageUrl = imageUrl;
+        this.imageObjectKey = imageObjectKey;
     }
 }

@@ -68,7 +68,7 @@ public class ScrapService {
                 .sourceUrl(blankToNull(request.sourceUrl()))
                 .rawContent(normalizedRawContent)
                 .contentHash(contentHash)
-                .imageUrl(null)
+                .imageObjectKey(blankToNull(request.imageObjectKey()))
                 .build();
 
         Scrap savedScrap = saveScrap(scrap, userId, sourceType, contentHash);

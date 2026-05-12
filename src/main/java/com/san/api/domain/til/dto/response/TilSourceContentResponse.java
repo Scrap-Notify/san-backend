@@ -15,7 +15,7 @@ public record TilSourceContentResponse(
         SourceType sourceType,
         String rawContent,
         String sourceUrl,
-        String imageUrl,
+        String imageObjectKey,
         CategoryResponse category,
 
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")

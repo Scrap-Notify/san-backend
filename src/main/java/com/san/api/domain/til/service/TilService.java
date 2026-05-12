@@ -145,7 +145,7 @@ public class TilService {
                 scrap.getSourceType(),
                 scrap.getRawContent(),
                 scrap.getSourceUrl(),
-                scrap.getImageUrl(),
+                scrap.getImageObjectKey(),
                 new CategoryResponse(
                         card.getCategory().getCategoryId(),
                         card.getCategory().getCategoryName()

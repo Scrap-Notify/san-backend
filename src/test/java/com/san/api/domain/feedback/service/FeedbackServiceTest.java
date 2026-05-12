@@ -21,9 +21,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class FeedbackServiceTest {
@@ -60,8 +60,7 @@ class FeedbackServiceTest {
                 FeedbackType.BUG,
                 "저장 버튼을 누르면 멈춰요",
                 "user@example.com",
-                "https://san.example/cards",
-                ClientType.DASHBOARD
+                "https://san.example/cards"
         );
         AuditRequestContextHolder.set(new AuditRequestContext(
                 "trace-1",
@@ -72,7 +71,7 @@ class FeedbackServiceTest {
         when(feedbackRepository.save(org.mockito.ArgumentMatchers.any(Feedback.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        UUID feedbackId = feedbackService.createFeedback(userId, request);
+        UUID feedbackId = feedbackService.createFeedback(userId, ClientType.DASHBOARD, request);
 
         ArgumentCaptor<Feedback> captor = ArgumentCaptor.forClass(Feedback.class);
         verify(feedbackRepository).save(captor.capture());

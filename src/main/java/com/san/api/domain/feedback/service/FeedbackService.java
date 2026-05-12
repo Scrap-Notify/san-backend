@@ -1,5 +1,6 @@
 package com.san.api.domain.feedback.service;
 
+import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.feedback.dto.request.FeedbackCreateRequest;
 import com.san.api.domain.feedback.entity.Feedback;
 import com.san.api.domain.feedback.repository.FeedbackRepository;
@@ -29,7 +30,7 @@ public class FeedbackService {
      * 저장 후 Mattermost 알림을 전송합니다.
      */
     @Transactional
-    public UUID createFeedback(UUID userId, FeedbackCreateRequest request) {
+    public UUID createFeedback(UUID userId, ClientType clientType, FeedbackCreateRequest request) {
         AuditRequestContext context = AuditRequestContextHolder.get().orElse(null);
         Feedback feedback = Feedback.builder()
                 .user(entityManager.getReference(User.class, userId))
@@ -37,7 +38,7 @@ public class FeedbackService {
                 .content(request.content())
                 .contact(blankToNull(request.contact()))
                 .pageUrl(blankToNull(request.pageUrl()))
-                .clientType(request.clientType())
+                .clientType(clientType)
                 .traceId(context == null ? null : context.traceId())
                 .ipAddress(context == null ? null : context.ipAddress())
                 .userAgent(context == null ? null : context.userAgent())

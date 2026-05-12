@@ -1,6 +1,5 @@
 package com.san.api.domain.feedback.dto.request;
 
-import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.feedback.entity.FeedbackType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,9 +22,6 @@ public record FeedbackCreateRequest(
 
         /** 피드백이 발생한 프론트엔드 화면 URL. */
         @Size(max = 1000)
-        String pageUrl,
-
-        /** 피드백을 보낸 클라이언트 유형. */
-        ClientType clientType
+        String pageUrl
 ) {
 }

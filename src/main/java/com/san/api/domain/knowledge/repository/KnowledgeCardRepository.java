@@ -212,5 +212,20 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
             @Param("toDate") LocalDate toDate,
             @Param("threshold") double threshold
     );
-
+    
+    /**
+     * 특정 기간에 스크랩이 생성된 지식카드의 소유자 userId 목록 조회 (중복 제거).
+     * TIL 자동 생성 스케줄러에서 전날 활동한 사용자를 찾을 때 사용한다.
+     */
+    @Query("""
+            SELECT DISTINCT s.user.userId
+            FROM KnowledgeCard kc
+            JOIN kc.scrap s
+            WHERE s.createdAt >= :startAt AND s.createdAt < :endAt
+            """)
+    List<UUID> findDistinctUserIdsByScrapCreatedBetween(
+            @Param("startAt") LocalDateTime startAt,
+            @Param("endAt") LocalDateTime endAt
+    );
+    
 }

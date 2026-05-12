@@ -78,7 +78,7 @@ class ScrapServiceTest {
     void createScrap_savesNormalizedRawContentAndContentHash() {
         UUID userId = UUID.randomUUID();
         User user = buildUser(userId);
-        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello\r\nworld \n");
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello\r\nworld \n", null);
         String contentHash = contentHashPolicy.createContentHash("hello\nworld");
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -105,6 +105,33 @@ class ScrapServiceTest {
     }
 
     @Test
+    void createScrap_savesTrimmedImageObjectKey() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId);
+        String imageObjectKey = "scrap/images/%s/image.png".formatted(userId);
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " image memo ", " " + imageObjectKey + " ");
+        String normalizedRawContent = contentHashPolicy.normalize(" image memo ");
+        String contentHash = contentHashPolicy.createContentHash(normalizedRawContent);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
+                .thenReturn(Optional.empty());
+        when(scrapRepository.save(any(Scrap.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(knowledgeCardRepository.findByScrapIdWithCategory(any(UUID.class))).thenReturn(Optional.empty());
+        when(asyncJobRepository.findByTargetIdAndJobType(any(UUID.class), eq(JobType.CARD_ANALYSIS)))
+                .thenReturn(List.of());
+        when(asyncJobManager.enqueue(eq(JobType.CARD_ANALYSIS), any(UUID.class))).thenReturn(UUID.randomUUID());
+
+        ScrapResponse response = scrapService.createScrap(userId, request);
+
+        ArgumentCaptor<Scrap> captor = ArgumentCaptor.forClass(Scrap.class);
+        verify(scrapRepository).save(captor.capture());
+        assertThat(captor.getValue().getImageObjectKey()).isEqualTo(imageObjectKey);
+        assertThat(response.imageObjectKey()).isEqualTo(imageObjectKey);
+    }
+
+    @Test
     void createScrap_returnsExistingScrapWithNewJobWhenSameSourceExists() {
         UUID userId = UUID.randomUUID();
         User user = buildUser(userId);
@@ -115,7 +142,7 @@ class ScrapServiceTest {
                 .rawContent("hello")
                 .contentHash(contentHash)
                 .build();
-        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
@@ -146,7 +173,7 @@ class ScrapServiceTest {
                 .build();
         UUID jobId = UUID.randomUUID();
         AsyncJob activeJob = buildJob(jobId, JobType.CARD_ANALYSIS, JobStatus.PROCESSING, existingScrap.getScrapId());
-        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
@@ -174,7 +201,7 @@ class ScrapServiceTest {
                 .build();
         UUID cardId = UUID.randomUUID();
         KnowledgeCard card = buildCard(cardId, existingScrap, user);
-        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
@@ -201,7 +228,7 @@ class ScrapServiceTest {
                 .contentHash(contentHash)
                 .build();
         UUID jobId = UUID.randomUUID();
-        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
@@ -231,7 +258,7 @@ class ScrapServiceTest {
                 .build();
         UUID jobId = UUID.randomUUID();
         AsyncJob activeJob = buildJob(jobId, JobType.CARD_ANALYSIS, JobStatus.PENDING, savedScrap.getScrapId());
-        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ");
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))

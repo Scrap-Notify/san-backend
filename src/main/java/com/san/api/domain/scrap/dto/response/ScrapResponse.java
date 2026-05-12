@@ -16,7 +16,7 @@ public record ScrapResponse(
         SourceType sourceType,
         String sourceUrl,
         String rawContent,
-        String imageUrl,
+        String imageObjectKey,
 
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         LocalDateTime createdAt
@@ -29,7 +29,7 @@ public record ScrapResponse(
                 scrap.getSourceType(),
                 scrap.getSourceUrl(),
                 scrap.getRawContent(),
-                scrap.getImageUrl(),
+                scrap.getImageObjectKey(),
                 scrap.getCreatedAt()
         );
     }

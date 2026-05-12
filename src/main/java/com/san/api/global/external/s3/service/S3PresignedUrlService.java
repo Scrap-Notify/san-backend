@@ -5,8 +5,11 @@ import com.san.api.global.external.s3.dto.request.S3PresignedUrlRequest;
 import com.san.api.global.external.s3.dto.response.S3PresignedUrlResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
@@ -53,6 +56,27 @@ public class S3PresignedUrlService {
                 objectKey,
                 signatureDuration.toSeconds()
         );
+    }
+
+    /**
+     * S3 객체 조회용 Presigned URL 발급
+     *
+     * @param objectKey S3 object key
+     * @return 조회용 Presigned URL
+     */
+    public String createDownloadPresignedUrl(String objectKey) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(s3Properties.bucket())
+                .key(objectKey)
+                .build();
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes()))
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+
+        return presignedRequest.url().toString();
     }
 
     private String createObjectKey(UUID userId, String fileName) {

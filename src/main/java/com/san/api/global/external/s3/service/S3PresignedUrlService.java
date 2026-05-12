@@ -39,6 +39,7 @@ public class S3PresignedUrlService {
                 .bucket(s3Properties.bucket())
                 .key(objectKey)
                 .contentType(request.contentType())
+                .contentLength(request.fileSize())
                 .build();
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(signatureDuration)

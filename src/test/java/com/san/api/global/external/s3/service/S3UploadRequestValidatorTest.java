@@ -39,6 +39,18 @@ class S3UploadRequestValidatorTest {
     }
 
     @Test
+    void validImageUploadRequestWithOuterSpacesPassesAfterTrim() {
+        S3PresignedUrlRequest request = new S3PresignedUrlRequest(
+                " capture.WEBP ",
+                " image/webp ",
+                MAX_FILE_SIZE_BYTES
+        );
+
+        assertThatCode(() -> validator.validate(request))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void invalidFileNameThrowsException() {
         S3PresignedUrlRequest request = new S3PresignedUrlRequest(
                 "images/capture.png",

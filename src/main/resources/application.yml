@@ -61,3 +61,4 @@ aws:
 feedback:
   mattermost:
     webhook-url: ${FEEDBACK_MM_WEBHOOK_URL:}
+    max-attempts: ${FEEDBACK_MM_MAX_ATTEMPTS:3}

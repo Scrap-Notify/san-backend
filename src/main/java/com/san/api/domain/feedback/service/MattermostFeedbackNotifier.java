@@ -16,12 +16,15 @@ public class MattermostFeedbackNotifier {
 
     private final RestClient restClient;
     private final String webhookUrl;
+    private final int maxAttempts;
 
     public MattermostFeedbackNotifier(
             RestClient.Builder restClientBuilder,
-            @Value("${feedback.mattermost.webhook-url:}") String webhookUrl) {
+            @Value("${feedback.mattermost.webhook-url:}") String webhookUrl,
+            @Value("${feedback.mattermost.max-attempts:3}") int maxAttempts) {
         this.restClient = restClientBuilder.build();
         this.webhookUrl = webhookUrl;
+        this.maxAttempts = Math.max(1, maxAttempts);
     }
 
     /**
@@ -33,15 +36,18 @@ public class MattermostFeedbackNotifier {
             return;
         }
 
-        try {
-            restClient.post()
-                    .uri(webhookUrl)
-                    .body(Map.of("text", createMessage(payload)))
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RestClientException e) {
-            log.warn("Failed to send feedback notification to Mattermost. feedbackId={}",
-                    payload.feedbackId(), e);
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                restClient.post()
+                        .uri(webhookUrl)
+                        .body(Map.of("text", createMessage(payload)))
+                        .retrieve()
+                        .toBodilessEntity();
+                return;
+            } catch (RestClientException e) {
+                log.warn("Failed to send feedback notification to Mattermost. feedbackId={}, attempt={}/{}",
+                        payload.feedbackId(), attempt, maxAttempts, e);
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-package com.san.api.global.scheduler;
+package com.san.api.global.scheduler.service;
 
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.repository.ScrapRepository;

@@ -1,4 +1,4 @@
-package com.san.api.global.scheduler;
+package com.san.api.global.scheduler.service;
 
 import com.san.api.global.async.entity.AsyncJob;
 import com.san.api.global.async.entity.JobStatus;

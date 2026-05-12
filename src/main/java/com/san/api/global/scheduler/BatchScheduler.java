@@ -4,6 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.san.api.global.scheduler.service.GhostJobRecoveryService;
+import com.san.api.global.scheduler.service.OrphanScrapRecoveryService;
+import com.san.api.global.scheduler.service.TilAutoGenerationScheduleService;
+
 /** 배치 스케줄러 진입점. 비즈니스 로직 없이 각 서비스의 배치 메서드를 호출한다. */
 @Component
 @RequiredArgsConstructor

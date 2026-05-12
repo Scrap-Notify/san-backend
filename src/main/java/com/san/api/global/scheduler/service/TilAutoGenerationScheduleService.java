@@ -1,4 +1,4 @@
-package com.san.api.global.scheduler;
+package com.san.api.global.scheduler.service;
 
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.til.entity.DailySummary;

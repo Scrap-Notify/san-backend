@@ -10,6 +10,7 @@ import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.security.jwt.JwtProvider;
 import com.san.api.global.security.jwt.JwtSessionClaims;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
@@ -35,10 +36,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * AuthService의 일반 로그인, 토큰 재발급, 로그아웃, 회원탈퇴 동작을 검증하는 테스트입니다.
+ * AuthService의 로그인, 토큰 재발급, 로그아웃, 회원탈퇴 흐름을 검증하는 테스트.
  *
- * 특히 Dashboard/Extension clientType별 refresh token 세션 분리와
- * refresh token hash/familyId 기반 재사용 탐지 흐름을 함께 확인합니다.
+ * Dashboard/Extension clientType별 refresh token 세션 분리와
+ * refresh token hash/familyId 기반 재사용 탐지 흐름도 함께 확인한다.
  */
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -64,6 +65,9 @@ class AuthServiceTest {
     @Mock
     private TokenIssueService tokenIssueService;
 
+    @Mock
+    private AuthAuditService authAuditService;
+
     private AuthSessionKeyService authSessionKeyService;
     private RefreshTokenHashService refreshTokenHashService;
     private ObjectMapper objectMapper;
@@ -82,7 +86,8 @@ class AuthServiceTest {
                 tokenIssueService,
                 authSessionKeyService,
                 refreshTokenHashService,
-                objectMapper
+                objectMapper,
+                authAuditService
         );
         ReflectionTestUtils.setField(authService, "maxFailCount", 5);
         ReflectionTestUtils.setField(authService, "failWindowSeconds", 300L);
@@ -102,6 +107,16 @@ class AuthServiceTest {
 
         assertThat(result).isEqualTo(tokenResponse);
         verify(redisTemplate).delete(AuthRedisKeyPrefix.LOGIN_FAIL + "dahyeon");
+
+        verify(authAuditService).recordSuccess(
+                org.mockito.ArgumentMatchers.eq(user.getUserId()),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.LOGIN_SUCCESS),
+                org.mockito.ArgumentMatchers.eq(user.getUserId()),
+                org.mockito.ArgumentMatchers.argThat(metadata ->
+                        "dahyeon".equals(metadata.get("username"))
+                                && "EXTENSION".equals(metadata.get("clientType"))
+                                && "session-id".equals(metadata.get("sessionId")))
+        );
     }
 
     @Test
@@ -127,6 +142,12 @@ class AuthServiceTest {
 
         assertThat(result).isEqualTo(tokenResponse);
         verify(setOperations).remove(AuthRedisKeyPrefix.REFRESH + "index:user:" + userId, redisKey);
+        verify(authAuditService).recordSuccess(
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.TOKEN_REISSUE_SUCCESS),
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.argThat(metadata -> "family-id".equals(metadata.get("familyId")))
+        );
     }
 
     @Test

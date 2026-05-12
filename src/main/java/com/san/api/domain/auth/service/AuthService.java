@@ -11,6 +11,7 @@ import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.security.jwt.JwtProvider;
@@ -26,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -58,6 +61,7 @@ public class AuthService {
     private final AuthSessionKeyService authSessionKeyService;
     private final RefreshTokenHashService refreshTokenHashService;
     private final ObjectMapper objectMapper;
+    private final AuthAuditService authAuditService;
 
     @Value("${auth.login.max-fail-count}")
     private int maxFailCount;
@@ -82,6 +86,12 @@ public class AuthService {
     @Transactional
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByUsername(request.username())) {
+            authAuditService.recordFailure(
+                    null,
+                    AuditEventType.SIGNUP,
+                    AuthErrorCode.USERNAME_ALREADY_EXISTS,
+                    Map.of("username", request.username())
+            );
             throw new BusinessException(AuthErrorCode.USERNAME_ALREADY_EXISTS);
         }
 
@@ -91,34 +101,84 @@ public class AuthService {
                 .provider(AuthProvider.LOCAL)
                 .build();
 
-        return SignupResponse.from(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+        authAuditService.recordSuccess(
+                null,
+                AuditEventType.SIGNUP,
+                savedUser.getUserId(),
+                Map.of(
+                        "username", savedUser.getUsername(),
+                        "provider", savedUser.getProvider().name()
+                )
+        );
+
+        return SignupResponse.from(savedUser);
     }
 
     // ──────────────────────────── 로그인 ──────────────────────────────────────
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.username())
-                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
+        User user = userRepository.findByUsername(request.username()).orElse(null);
+
+        if (user == null) {
+            authAuditService.recordFailure(
+                    null,
+                    AuditEventType.LOGIN_FAILURE,
+                    AuthErrorCode.INVALID_CREDENTIALS,
+                    loginMetadata(request, null)
+            );
+            throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
+        }
 
         if (user.isWithdrawn()) {
+            authAuditService.recordFailure(
+                    user.getUserId(),
+                    AuditEventType.LOGIN_FAILURE,
+                    AuthErrorCode.ACCOUNT_WITHDRAWN,
+                    loginMetadata(request, user)
+            );
             throw new BusinessException(AuthErrorCode.ACCOUNT_WITHDRAWN);
         }
 
         // 잠금 만료 자동 해제
         user.unlockIfExpired();
         if (user.isLocked()) {
+            authAuditService.recordFailure(
+                    user.getUserId(),
+                    AuditEventType.LOGIN_FAILURE,
+                    AuthErrorCode.ACCOUNT_LOCKED,
+                    loginMetadata(request, user)
+            );
             throw new BusinessException(AuthErrorCode.ACCOUNT_LOCKED);
         }
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            handleLoginFailure(user);
+            Long failCount = handleLoginFailure(user);
+            authAuditService.recordFailure(
+                    user.getUserId(),
+                    AuditEventType.LOGIN_FAILURE,
+                    AuthErrorCode.INVALID_CREDENTIALS,
+                    loginMetadata(request, user, failCount)
+            );
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
         }
 
         resetFailCount(user.getUsername());
 
-        return tokenIssueService.issueTokenPair(user.getUserId().toString(), request.clientType());
+        TokenResponse tokens = tokenIssueService.issueTokenPair(user.getUserId().toString(), request.clientType());
+        authAuditService.recordSuccess(
+                user.getUserId(),
+                AuditEventType.LOGIN_SUCCESS,
+                user.getUserId(),
+                Map.of(
+                        "username", user.getUsername(),
+                        "clientType", request.clientType().name(),
+                        "sessionId", tokens.sessionId()
+                )
+        );
+
+        return tokens;
     }
 
     // ──────────────────────────── Access Token 재발급 (Rotation) ──────────────
@@ -127,10 +187,17 @@ public class AuthService {
         String refreshToken = request.refreshToken();
 
         if (!jwtProvider.validateToken(refreshToken) || !jwtProvider.isRefreshToken(refreshToken)) {
+            authAuditService.recordFailure(
+                    null,
+                    AuditEventType.TOKEN_REISSUE_FAILURE,
+                    AuthErrorCode.INVALID_REFRESH_TOKEN,
+                    Map.of()
+            );
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         String userId = jwtProvider.getUserId(refreshToken);
+        UUID userUuid = UUID.fromString(userId);
         JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(refreshToken);
         String sessionId = requireSessionId(sessionClaims.sessionId(), AuthErrorCode.INVALID_REFRESH_TOKEN);
         String familyId = requireTokenClaim(sessionClaims.familyId(), AuthErrorCode.INVALID_REFRESH_TOKEN);
@@ -144,6 +211,12 @@ public class AuthService {
             removeRefreshSessionIndex(userId, refreshKey);
             revokeRefreshFamily(userId, familyId, refreshKey);
             log.warn("[Auth] Refresh Token 재사용 감지 - userId={}, familyId={}", userId, familyId);
+            authAuditService.recordFailure(
+                    userUuid,
+                    AuditEventType.TOKEN_REISSUE_FAILURE,
+                    AuthErrorCode.INVALID_REFRESH_TOKEN,
+                    reissueMetadata(sessionClaims, sessionId, familyId)
+            );
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
@@ -152,15 +225,28 @@ public class AuthService {
         TokenResponse tokens = tokenIssueService.issueTokenPair(userId, sessionClaims.clientType(), sessionId, familyId);
 
         log.info("[Auth] 토큰 재발급 - userId={}", userId);
+        authAuditService.recordSuccess(
+                userUuid,
+                AuditEventType.TOKEN_REISSUE_SUCCESS,
+                userUuid,
+                reissueMetadata(sessionClaims, sessionId, familyId)
+        );
         return tokens;
     }
 
     public void logout(String accessToken) {
         if (!jwtProvider.validateToken(accessToken) || !jwtProvider.isAccessToken(accessToken)) {
+            authAuditService.recordFailure(
+                    null,
+                    AuditEventType.LOGOUT_FAILURE,
+                    AuthErrorCode.INVALID_ACCESS_TOKEN,
+                    Map.of()
+            );
             throw new BusinessException(AuthErrorCode.INVALID_ACCESS_TOKEN);
         }
 
         String userId = jwtProvider.getUserId(accessToken);
+        UUID userUuid = UUID.fromString(userId);
         JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(accessToken);
         String sessionId = requireSessionId(sessionClaims.sessionId(), AuthErrorCode.INVALID_ACCESS_TOKEN);
 
@@ -176,6 +262,15 @@ public class AuthService {
         }
 
         log.info("[Auth] 로그아웃 - userId={}", userId);
+        authAuditService.recordSuccess(
+                userUuid,
+                AuditEventType.LOGOUT_SUCCESS,
+                userUuid,
+                Map.of(
+                        "clientType", sessionClaims.clientType().name(),
+                        "sessionId", sessionId
+                )
+        );
     }
 
     @Transactional
@@ -184,6 +279,12 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            authAuditService.recordFailure(
+                    user.getUserId(),
+                    AuditEventType.WITHDRAW,
+                    AuthErrorCode.INVALID_CREDENTIALS,
+                    Map.of("username", user.getUsername())
+            );
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
         }
 
@@ -191,9 +292,15 @@ public class AuthService {
         deleteUserRefreshSessions(userId);
 
         log.info("[Auth] 회원탈퇴 - userId={}", userId);
+        authAuditService.recordSuccess(
+                user.getUserId(),
+                AuditEventType.WITHDRAW,
+                user.getUserId(),
+                Map.of("username", user.getUsername())
+        );
     }
 
-    private void handleLoginFailure(User user) {
+    private Long handleLoginFailure(User user) {
         String failKey = AuthRedisKeyPrefix.LOGIN_FAIL + user.getUsername();
         Long count = redisTemplate.opsForValue().increment(failKey);
 
@@ -209,6 +316,7 @@ public class AuthService {
             redisTemplate.delete(failKey);
             log.warn("[Auth] 계정 잠금 - username={}, lockedUntil={}", user.getUsername(), lockUntil);
         }
+        return count;
     }
 
     private void resetFailCount(String username) {
@@ -278,4 +386,30 @@ public class AuthService {
             throw new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
     }
+
+    private Map<String, Object> loginMetadata(LoginRequest request, User user) {
+        return loginMetadata(request, user, null);
+    }
+
+    private Map<String, Object> loginMetadata(LoginRequest request, User user, Long failCount) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("username", request.username());
+        metadata.put("clientType", request.clientType().name());
+        if (user != null) {
+            metadata.put("provider", user.getProvider().name());
+        }
+        if (failCount != null) {
+            metadata.put("failCount", failCount);
+        }
+        return metadata;
+    }
+
+    private Map<String, Object> reissueMetadata(JwtSessionClaims sessionClaims, String sessionId, String familyId) {
+        return Map.of(
+                "clientType", sessionClaims.clientType().name(),
+                "sessionId", sessionId,
+                "familyId", familyId
+        );
+    }
+
 }

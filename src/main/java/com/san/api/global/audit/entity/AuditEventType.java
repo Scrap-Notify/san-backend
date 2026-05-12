@@ -14,6 +14,10 @@ import lombok.RequiredArgsConstructor;
 public enum AuditEventType {
     LOGIN_SUCCESS("로그인 성공"),
     LOGIN_FAILURE("로그인 실패"),
+    LOGOUT_SUCCESS("로그아웃 성공"),
+    LOGOUT_FAILURE("로그아웃 실패"),
+    TOKEN_REISSUE_SUCCESS("토큰 재발급 성공"),
+    TOKEN_REISSUE_FAILURE("토큰 재발급 실패"),
     SIGNUP("회원가입"),
     WITHDRAW("회원탈퇴"),
 

@@ -7,20 +7,14 @@ import com.san.api.domain.feedback.service.FeedbackService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.response.ApiResponse;
-import com.san.api.global.security.jwt.JwtProvider;
-import com.san.api.global.security.token.BearerTokenResolver;
+import com.san.api.global.security.jwt.JwtSessionClaims;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -32,13 +26,11 @@ import java.util.UUID;
 public class FeedbackController {
 
     private final FeedbackService feedbackService;
-    private final JwtProvider jwtProvider;
 
     /**
      * 로그인한 사용자의 서비스 피드백을 등록합니다.
      *
      * @param authentication 인증 정보
-     * @param httpRequest Bearer access token을 포함한 HTTP 요청
      * @param request 피드백 등록 요청
      * @return 등록된 피드백 ID
      */
@@ -47,23 +39,21 @@ public class FeedbackController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<FeedbackCreateResponse> createFeedback(
             Authentication authentication,
-            HttpServletRequest httpRequest,
             @Valid @RequestBody FeedbackCreateRequest request) {
         UUID feedbackId = feedbackService.createFeedback(
                 currentUserId(authentication),
-                resolveClientType(httpRequest),
+                currentClientType(authentication),
                 request
         );
-        return ApiResponse.success(FeedbackCreateResponse.of(feedbackId));
+        return ApiResponse.success(new FeedbackCreateResponse(feedbackId));
     }
 
-    /** access token의 세션 클레임에서 클라이언트 유형을 추출합니다. */
-    private ClientType resolveClientType(HttpServletRequest request) {
-        String accessToken = BearerTokenResolver.resolve(request);
-        if (accessToken == null || accessToken.isBlank()) {
+    /** 인증 details에 저장된 세션 클레임에서 클라이언트 유형을 추출합니다. */
+    private ClientType currentClientType(Authentication authentication) {
+        if (authentication == null || !(authentication.getDetails() instanceof JwtSessionClaims sessionClaims)) {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
         }
-        return jwtProvider.getSessionClaims(accessToken).clientType();
+        return sessionClaims.clientType();
     }
 
     /** 인증 정보에서 로그인 사용자 ID를 추출합니다. */

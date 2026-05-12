@@ -1,8 +1,8 @@
 package com.san.api.domain.feedback.service;
 
-import com.san.api.domain.feedback.entity.Feedback;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -31,6 +31,7 @@ public class MattermostFeedbackNotifier {
      * Mattermost webhook URL이 설정된 경우 피드백 알림을 전송합니다.
      * 알림 실패가 피드백 저장 흐름을 막지 않도록 예외는 경고 로그로만 남깁니다.
      */
+    @Async("asyncJobExecutor")
     public void notify(FeedbackNotificationPayload payload) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             return;

@@ -71,8 +71,9 @@ class JwtAuthenticationFilterTest {
         when(jwtProvider.isAccessToken(token)).thenReturn(true);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(AuthRedisKeyPrefix.BLACKLIST + token)).thenReturn(null);
+        JwtSessionClaims sessionClaims = new JwtSessionClaims(ClientType.DASHBOARD, sessionId, null, null);
         when(jwtProvider.getSessionClaims(token))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, null, null));
+                .thenReturn(sessionClaims);
         when(jwtProvider.getUserId(token)).thenReturn(userId);
         when(redisTemplate.hasKey(refreshKey)).thenReturn(true);
         when(jwtProvider.getAuthentication(token)).thenReturn(authentication);
@@ -81,6 +82,7 @@ class JwtAuthenticationFilterTest {
         });
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isEqualTo(authentication);
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getDetails()).isEqualTo(sessionClaims);
         assertThat(request.getAttribute(SecurityErrorAttribute.ERROR_CODE)).isNull();
     }
 

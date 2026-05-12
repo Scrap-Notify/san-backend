@@ -22,6 +22,7 @@ public class S3PresignedUrlService {
 
     private final S3Presigner s3Presigner;
     private final S3Properties s3Properties;
+    private final S3UploadRequestValidator s3UploadRequestValidator;
 
     /**
      * S3 업로드용 Presigned URL 발급
@@ -30,12 +31,15 @@ public class S3PresignedUrlService {
      * @return Presigned URL 발급 응답
      */
     public S3PresignedUrlResponse createPresignedUrl(UUID userId, S3PresignedUrlRequest request) {
+        s3UploadRequestValidator.validate(request);
+
         String objectKey = createObjectKey(userId, request.fileName());
         Duration signatureDuration = Duration.ofMinutes(s3Properties.presignedUrlExpirationMinutes());
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(s3Properties.bucket())
                 .key(objectKey)
                 .contentType(request.contentType())
+                .contentLength(request.fileSize())
                 .build();
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(signatureDuration)

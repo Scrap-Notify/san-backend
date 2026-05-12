@@ -6,4 +6,12 @@ public record S3PresignedUrlRequest(
         String contentType,
         Long fileSize
 ) {
+    public S3PresignedUrlRequest {
+        fileName = trim(fileName);
+        contentType = trim(contentType);
+    }
+
+    private static String trim(String value) {
+        return value == null ? null : value.trim();
+    }
 }

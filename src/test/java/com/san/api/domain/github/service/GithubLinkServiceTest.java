@@ -102,6 +102,51 @@ class GithubLinkServiceTest {
     }
 
     @Test
+    void getLinkStatusWithoutGithubAccountReturnsNotLinked() {
+        UUID userId = UUID.randomUUID();
+        when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.empty());
+
+        var result = githubLinkService.getLinkStatus(userId);
+
+        assertThat(result.linked()).isFalse();
+        assertThat(result.githubUsername()).isNull();
+        assertThat(result.repositoryConnected()).isFalse();
+        assertThat(result.connectedRepository()).isNull();
+    }
+
+    @Test
+    void getLinkStatusWithGithubAccountAndRepositoryReturnsConnectedRepository() {
+        User user = User.builder()
+                .username("localuser")
+                .passwordHash("password")
+                .provider(AuthProvider.LOCAL)
+                .build();
+        UUID userId = user.getUserId();
+        GithubAccount githubAccount = new GithubAccount(user, "1", "octocat", "encrypted-token");
+        var repositoryConnection = new com.san.api.domain.github.entity.GithubRepositoryConnection(
+                user,
+                new com.san.api.global.external.github.dto.response.ExternalGithubRepositoryResponse(
+                        100L,
+                        "til",
+                        "octocat/til",
+                        false,
+                        "main",
+                        "https://github.com/octocat/til"
+                )
+        );
+        when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.of(githubAccount));
+        when(connectionRepository.findByUser_UserId(userId)).thenReturn(Optional.of(repositoryConnection));
+
+        var result = githubLinkService.getLinkStatus(userId);
+
+        assertThat(result.linked()).isTrue();
+        assertThat(result.githubUsername()).isEqualTo("octocat");
+        assertThat(result.repositoryConnected()).isTrue();
+        assertThat(result.connectedRepository().githubRepositoryId()).isEqualTo(100L);
+        assertThat(result.connectedRepository().fullName()).isEqualTo("octocat/til");
+    }
+
+    @Test
     void saveGithubAccountRejectsAlreadyLinkedGithubAccount() {
         User currentUser = User.builder()
                 .username("localuser")

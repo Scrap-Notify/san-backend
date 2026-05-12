@@ -19,8 +19,8 @@ import java.util.UUID;
         },
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_github_repo_connections_user_repo",
-                        columnNames = {"user_id", "github_repository_id"}
+                        name = "uk_github_repo_connections_user",
+                        columnNames = "user_id"
                 )
         }
 )
@@ -62,6 +62,7 @@ public class GithubRepositoryConnection extends BaseEntity {
     }
 
     public void update(ExternalGithubRepositoryResponse repository) {
+        this.githubRepositoryId = repository.id();
         this.name = repository.name();
         this.fullName = repository.fullName();
         this.defaultBranch = repository.defaultBranch();

@@ -41,7 +41,7 @@ public class GithubRepositoryService {
     }
 
     /**
-     * 사용자가 선택한 GitHub 저장소를 서비스 계정에 연결합니다.
+     * 사용자가 선택한 GitHub 저장소를 서비스 계정의 단일 TIL 커밋 저장소로 연결합니다.
      *
      * 클라이언트를 통해 받은 저장소 ID를 신뢰하지 않고 GitHub API 목록에서 다시 조회해,
      * 사용자가 실제 접근 가능한 저장소만 연결합니다.
@@ -56,8 +56,7 @@ public class GithubRepositoryService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_REPOSITORY_NOT_FOUND));
 
-        GithubRepositoryConnection connection = connectionRepository
-                .findByUser_UserIdAndGithubRepositoryId(userId, repository.id())
+        GithubRepositoryConnection connection = connectionRepository.findByUser_UserId(userId)
                 .map(existing -> {
                     existing.update(repository);
                     return existing;
@@ -65,14 +64,6 @@ public class GithubRepositoryService {
                 .orElseGet(() -> connectionRepository.save(new GithubRepositoryConnection(user, repository)));
 
         return GithubRepositoryResponse.from(connection);
-    }
-
-    /** 서비스에 연결된 GitHub 저장소 목록을 조회합니다. */
-    @Transactional(readOnly = true)
-    public List<GithubRepositoryResponse> findConnectedRepositories(UUID userId) {
-        return connectionRepository.findAllByUser_UserId(userId).stream()
-                .map(GithubRepositoryResponse::from)
-                .toList();
     }
 
     /** 서비스에 연결된 GitHub 저장소를 해제합니다. */

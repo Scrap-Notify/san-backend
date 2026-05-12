@@ -47,16 +47,6 @@ public class GithubRepositoryController {
     }
 
     @Operation(
-            summary = "연결된 GitHub 레포 조회",
-            description = "현재 서비스 계정에 연결된 GitHub 레포 목록을 조회합니다."
-    )
-    @GetMapping("/connected")
-    @ResponseStatus(HttpStatus.OK)
-    public ApiResponse<List<GithubRepositoryResponse>> connectedRepositories(Authentication authentication) {
-        return ApiResponse.success(githubRepositoryService.findConnectedRepositories(currentUserId(authentication)));
-    }
-
-    @Operation(
             summary = "GitHub 레포 연결 해제",
             description = "현재 서비스 계정에 연결된 GitHub 레포를 연결 해제합니다."
     )

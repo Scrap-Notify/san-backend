@@ -24,7 +24,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -195,30 +194,7 @@ class TilGithubCommitServiceTest {
     void requestCommit_withoutConnectedRepository_fails() {
         when(dailySummaryService.getSummary(summaryId)).thenReturn(summary);
         when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.of(githubAccount));
-        when(githubRepositoryConnectionRepository.findAllByUser_UserId(userId)).thenReturn(List.of());
-
-        assertThatThrownBy(() -> service.requestCommit(userId, summaryId))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(TilErrorCode.TIL_GITHUB_REPOSITORY_NOT_CONNECTED);
-
-        verify(tilGithubCommitRepository, never()).save(any());
-    }
-
-    @Test
-    void requestCommit_withMultipleConnectedRepositories_fails() {
-        GithubRepositoryConnection anotherConnection = new GithubRepositoryConnection(user, new ExternalGithubRepositoryResponse(
-                200L,
-                "second-til",
-                "octocat/second-til",
-                false,
-                "main",
-                "https://github.com/octocat/second-til"
-        ));
-        when(dailySummaryService.getSummary(summaryId)).thenReturn(summary);
-        when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.of(githubAccount));
-        when(githubRepositoryConnectionRepository.findAllByUser_UserId(userId))
-                .thenReturn(List.of(repositoryConnection, anotherConnection));
+        when(githubRepositoryConnectionRepository.findByUser_UserId(userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.requestCommit(userId, summaryId))
                 .isInstanceOf(BusinessException.class)
@@ -231,7 +207,7 @@ class TilGithubCommitServiceTest {
     private void mockValidSummaryAndGithub() {
         when(dailySummaryService.getSummary(summaryId)).thenReturn(summary);
         when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.of(githubAccount));
-        when(githubRepositoryConnectionRepository.findAllByUser_UserId(userId))
-                .thenReturn(List.of(repositoryConnection));
+        when(githubRepositoryConnectionRepository.findByUser_UserId(userId))
+                .thenReturn(Optional.of(repositoryConnection));
     }
 }

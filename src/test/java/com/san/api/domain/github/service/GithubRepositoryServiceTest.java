@@ -27,6 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -97,8 +98,7 @@ class GithubRepositoryServiceTest {
     void connectRepositoryStoresOnlyRepositoryAccessibleFromGithub() {
         mockGithubRepositoryLookup();
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(connectionRepository.findByUser_UserIdAndGithubRepositoryId(userId, 100L))
-                .thenReturn(Optional.empty());
+        when(connectionRepository.findByUser_UserId(userId)).thenReturn(Optional.empty());
         when(connectionRepository.save(any(GithubRepositoryConnection.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -110,7 +110,33 @@ class GithubRepositoryServiceTest {
         assertThat(response.githubRepositoryId()).isEqualTo(100L);
         assertThat(response.name()).isEqualTo("algorithm");
         assertThat(response.defaultBranch()).isEqualTo("main");
+        verify(connectionRepository, never()).deleteAllByUser_UserId(userId);
         verify(connectionRepository).save(any(GithubRepositoryConnection.class));
+    }
+
+    @Test
+    void connectRepositoryUpdatesExistingConnection() {
+        mockGithubRepositoryLookup();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        GithubRepositoryConnection existingConnection = new GithubRepositoryConnection(user, new ExternalGithubRepositoryResponse(
+                200L,
+                "old",
+                "octocat/old",
+                false,
+                "develop",
+                "https://github.com/octocat/old"
+        ));
+        when(connectionRepository.findByUser_UserId(userId)).thenReturn(Optional.of(existingConnection));
+
+        GithubRepositoryResponse response = githubRepositoryService.connectRepository(
+                userId,
+                new GithubRepositoryConnectRequest(100L)
+        );
+
+        assertThat(response.githubRepositoryId()).isEqualTo(100L);
+        assertThat(response.fullName()).isEqualTo("octocat/algorithm");
+        verify(connectionRepository, never()).deleteAllByUser_UserId(userId);
+        verify(connectionRepository, never()).save(any(GithubRepositoryConnection.class));
     }
 
     @Test

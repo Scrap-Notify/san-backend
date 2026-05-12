@@ -11,6 +11,7 @@ import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -34,7 +35,7 @@ public class AiTilClient {
      */
     @Retryable(
             retryFor = {RestClientException.class},
-            noRetryFor = {BusinessException.class},
+            noRetryFor = {BusinessException.class, HttpClientErrorException.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 2000, multiplier = 2.0)
     )

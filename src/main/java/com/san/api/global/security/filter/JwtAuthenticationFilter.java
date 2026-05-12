@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -57,11 +58,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 setSecurityError(request, AuthErrorCode.INVALID_ACCESS_TOKEN);
             } else if (isBlacklisted(token)) {
                 setSecurityError(request, AuthErrorCode.TOKEN_BLACKLISTED);
-            } else if (!hasActiveSession(token)) {
-                setSecurityError(request, AuthErrorCode.SESSION_REVOKED);
             } else {
-                Authentication auth = jwtProvider.getAuthentication(token);
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(token);
+                if (!hasActiveSession(token, sessionClaims)) {
+                    setSecurityError(request, AuthErrorCode.SESSION_REVOKED);
+                } else {
+                    Authentication auth = jwtProvider.getAuthentication(token);
+                    setSessionClaims(auth, sessionClaims);
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
             }
         }
 
@@ -82,8 +87,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * Access token의 sessionId가 Redis에 남아있는 refresh 세션과 연결되어 있는지 확인합니다.
      * 세션 폐기 API가 refresh key를 삭제하면, 같은 sessionId의 access token도 다음 요청부터 거부됩니다.
      */
-    private boolean hasActiveSession(String token) {
-        JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(token);
+    private boolean hasActiveSession(String token, JwtSessionClaims sessionClaims) {
         String sessionId = sessionClaims.sessionId();
         if (sessionId == null || sessionId.isBlank()) {
             return false;
@@ -92,6 +96,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String userId = jwtProvider.getUserId(token);
         String refreshKey = authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId);
         return Boolean.TRUE.equals(redisTemplate.hasKey(refreshKey));
+    }
+
+    /** 컨트롤러가 access token을 다시 파싱하지 않도록 인증 details에 세션 클레임을 담습니다. */
+    private void setSessionClaims(Authentication authentication, JwtSessionClaims sessionClaims) {
+        if (authentication instanceof AbstractAuthenticationToken token) {
+            token.setDetails(sessionClaims);
+        }
     }
 
     /**

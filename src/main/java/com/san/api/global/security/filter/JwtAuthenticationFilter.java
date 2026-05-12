@@ -1,9 +1,11 @@
 package com.san.api.global.security.filter;
 
+import com.san.api.domain.auth.service.AuthSessionKeyService;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.ErrorCode;
 import com.san.api.global.security.handler.SecurityErrorAttribute;
 import com.san.api.global.security.jwt.JwtProvider;
+import com.san.api.global.security.jwt.JwtSessionClaims;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import com.san.api.global.security.token.BearerTokenResolver;
 import jakarta.servlet.FilterChain;
@@ -33,6 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
+    private final AuthSessionKeyService authSessionKeyService;
 
     /**
      * 요청마다 한 번 실행되어 Bearer access token을 인증 처리합니다.
@@ -54,6 +57,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 setSecurityError(request, AuthErrorCode.INVALID_ACCESS_TOKEN);
             } else if (isBlacklisted(token)) {
                 setSecurityError(request, AuthErrorCode.TOKEN_BLACKLISTED);
+            } else if (!hasActiveSession(token)) {
+                setSecurityError(request, AuthErrorCode.INVALID_ACCESS_TOKEN);
             } else {
                 Authentication auth = jwtProvider.getAuthentication(token);
                 SecurityContextHolder.getContext().setAuthentication(auth);
@@ -71,6 +76,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     private boolean isBlacklisted(String token) {
         return redisTemplate.opsForValue().get(AuthRedisKeyPrefix.BLACKLIST + token) != null;
+    }
+
+    /**
+     * Access token의 sessionId가 Redis에 남아있는 refresh 세션과 연결되어 있는지 확인합니다.
+     * 세션 폐기 API가 refresh key를 삭제하면, 같은 sessionId의 access token도 다음 요청부터 거부됩니다.
+     */
+    private boolean hasActiveSession(String token) {
+        JwtSessionClaims sessionClaims = jwtProvider.getSessionClaims(token);
+        String sessionId = sessionClaims.sessionId();
+        if (sessionId == null || sessionId.isBlank()) {
+            return false;
+        }
+
+        String userId = jwtProvider.getUserId(token);
+        String refreshKey = authSessionKeyService.refreshKey(userId, sessionClaims.clientType(), sessionId);
+        return Boolean.TRUE.equals(redisTemplate.hasKey(refreshKey));
     }
 
     /**

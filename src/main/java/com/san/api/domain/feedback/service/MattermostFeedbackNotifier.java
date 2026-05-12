@@ -28,7 +28,7 @@ public class MattermostFeedbackNotifier {
      * Mattermost webhook URL이 설정된 경우 피드백 알림을 전송합니다.
      * 알림 실패가 피드백 저장 흐름을 막지 않도록 예외는 경고 로그로만 남깁니다.
      */
-    public void notify(Feedback feedback) {
+    public void notify(FeedbackNotificationPayload payload) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             return;
         }
@@ -36,17 +36,17 @@ public class MattermostFeedbackNotifier {
         try {
             restClient.post()
                     .uri(webhookUrl)
-                    .body(Map.of("text", createMessage(feedback)))
+                    .body(Map.of("text", createMessage(payload)))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException e) {
             log.warn("Failed to send feedback notification to Mattermost. feedbackId={}",
-                    feedback.getFeedbackId(), e);
+                    payload.feedbackId(), e);
         }
     }
 
     /** Mattermost 채널에 표시할 피드백 메시지를 생성합니다. */
-    private String createMessage(Feedback feedback) {
+    private String createMessage(FeedbackNotificationPayload payload) {
         return """
                 ### 새 피드백이 도착했습니다
                 - feedbackId: %s
@@ -61,14 +61,14 @@ public class MattermostFeedbackNotifier {
                 %s
                 ```
                 """.formatted(
-                feedback.getFeedbackId(),
-                feedback.getType(),
-                feedback.getUser() == null ? "-" : feedback.getUser().getUserId(),
-                valueOrDash(feedback.getClientType()),
-                valueOrDash(feedback.getPageUrl()),
-                valueOrDash(feedback.getTraceId()),
-                valueOrDash(feedback.getContact()),
-                feedback.getContent()
+                payload.feedbackId(),
+                payload.type(),
+                valueOrDash(payload.userId()),
+                valueOrDash(payload.clientType()),
+                valueOrDash(payload.pageUrl()),
+                valueOrDash(payload.traceId()),
+                valueOrDash(payload.contact()),
+                payload.content()
         );
     }
 

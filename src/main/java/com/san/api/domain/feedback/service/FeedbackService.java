@@ -10,6 +10,8 @@ import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.UUID;
 
@@ -42,8 +44,37 @@ public class FeedbackService {
                 .build();
 
         Feedback saved = feedbackRepository.save(feedback);
-        mattermostFeedbackNotifier.notify(saved);
+        notifyAfterCommit(createNotificationPayload(saved, userId));
         return saved.getFeedbackId();
+    }
+
+    /** 트랜잭션 커밋 이후 Mattermost 알림을 전송합니다. */
+    private void notifyAfterCommit(FeedbackNotificationPayload payload) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            mattermostFeedbackNotifier.notify(payload);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                mattermostFeedbackNotifier.notify(payload);
+            }
+        });
+    }
+
+    /** 영속성 컨텍스트 밖에서도 사용할 수 있도록 알림에 필요한 값만 복사합니다. */
+    private FeedbackNotificationPayload createNotificationPayload(Feedback feedback, UUID userId) {
+        return new FeedbackNotificationPayload(
+                feedback.getFeedbackId(),
+                feedback.getType(),
+                userId,
+                feedback.getClientType(),
+                feedback.getPageUrl(),
+                feedback.getTraceId(),
+                feedback.getContact(),
+                feedback.getContent()
+        );
     }
 
     /** 빈 문자열은 DB에 null로 저장합니다. */

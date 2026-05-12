@@ -23,6 +23,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class FeedbackServiceTest {
@@ -87,6 +88,6 @@ class FeedbackServiceTest {
         assertThat(saved.getIpAddress()).isEqualTo("203.0.113.10");
         assertThat(saved.getUserAgent()).isEqualTo("Mozilla/5.0");
         assertThat(saved.getStatus()).isEqualTo(FeedbackStatus.NEW);
-        verify(mattermostFeedbackNotifier).notify(saved);
+        verify(mattermostFeedbackNotifier).notify(any(FeedbackNotificationPayload.class));
     }
 }

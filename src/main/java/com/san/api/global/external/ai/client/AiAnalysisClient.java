@@ -7,6 +7,9 @@ import com.san.api.global.external.ai.dto.response.AiAnalyzeResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -29,24 +32,39 @@ public class AiAnalysisClient {
      * @param request AI 분석 요청
      * @return AI 분석 응답
      */
+    @Retryable(
+            retryFor = {RestClientException.class},
+            noRetryFor = {BusinessException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 2000, multiplier = 2.0)
+    )
     public AiAnalyzeResponse analyze(AiAnalyzeRequest request) {
-        try {
-            AiAnalyzeResponse response = restClient.post()
-                    .uri("/ai/analyze")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .body(request)
-                    .retrieve()
-                    .body(AiAnalyzeResponse.class);
+        AiAnalyzeResponse response = restClient.post()
+                .uri("/ai/analyze")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(AiAnalyzeResponse.class);
 
-            validateResponse(response);
-            return response;
-        } catch (BusinessException e) {
-            throw e;
-        } catch (RestClientException e) {
-            log.error("AI analysis request failed: {}", e.getMessage(), e);
-            throw new BusinessException(AiErrorCode.AI_ANALYSIS_FAILED);
+        validateResponse(response);
+        return response;
+    }
+
+    /**
+     * 재시도 소진 후 호출되는 복구 메서드.
+     * BusinessException(응답 검증 실패)은 그대로 전파하고, RestClientException은 도메인 예외로 변환한다.
+     *
+     * @param e 마지막 시도에서 발생한 예외
+     * @param request 원본 요청 (시그니처 매칭용)
+     */
+    @Recover
+    public AiAnalyzeResponse recoverAnalyze(Exception e, AiAnalyzeRequest request) {
+        if (e instanceof BusinessException be) {
+            throw be;
         }
+        log.error("AI analysis failed after all retries: {}", e.getMessage(), e);
+        throw new BusinessException(AiErrorCode.AI_ANALYSIS_FAILED);
     }
 
     /**

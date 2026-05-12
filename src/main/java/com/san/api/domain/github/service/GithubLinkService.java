@@ -1,6 +1,8 @@
 package com.san.api.domain.github.service;
 
+import com.san.api.domain.github.dto.response.GithubLinkStatusResponse;
 import com.san.api.domain.github.entity.GithubAccount;
+import com.san.api.domain.github.entity.GithubRepositoryConnection;
 import com.san.api.domain.github.repository.GithubAccountRepository;
 import com.san.api.domain.github.repository.GithubRepositoryConnectionRepository;
 import com.san.api.domain.user.entity.AuthProvider;
@@ -63,6 +65,18 @@ public class GithubLinkService {
 
         redisTemplate.delete(key);
         return Optional.of(UUID.fromString(userId));
+    }
+
+    @Transactional(readOnly = true)
+    public GithubLinkStatusResponse getLinkStatus(UUID userId) {
+        Optional<GithubAccount> githubAccount = githubAccountRepository.findByUser_UserId(userId);
+        if (githubAccount.isEmpty()) {
+            return GithubLinkStatusResponse.notLinked();
+        }
+
+        GithubRepositoryConnection repositoryConnection = connectionRepository.findByUser_UserId(userId)
+                .orElse(null);
+        return GithubLinkStatusResponse.from(githubAccount.get(), repositoryConnection);
     }
 
     @Transactional

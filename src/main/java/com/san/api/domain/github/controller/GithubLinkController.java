@@ -1,6 +1,7 @@
 package com.san.api.domain.github.controller;
 
 import com.san.api.domain.github.dto.response.GithubAuthorizationUrlResponse;
+import com.san.api.domain.github.dto.response.GithubLinkStatusResponse;
 import com.san.api.domain.github.service.GithubLinkService;
 import com.san.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,6 +45,16 @@ public class GithubLinkController {
                         githubLinkService.createLinkAuthorizationRedirectUrl(currentUserId(authentication))
                 )
         );
+    }
+
+    @Operation(
+            summary = "GitHub 연결 status",
+            description = "현재 서비스 계정의 GitHub 계정 연결 여부와 선택된 레포지토리 정보를 조회합니다."
+    )
+    @GetMapping("/status")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<GithubLinkStatusResponse> status(Authentication authentication) {
+        return ApiResponse.success(githubLinkService.getLinkStatus(currentUserId(authentication)));
     }
 
     @Operation(

@@ -122,14 +122,8 @@ public class TilGithubCommitService {
     }
 
     private GithubRepositoryConnection findSingleRepositoryConnection(UUID userId) {
-        List<GithubRepositoryConnection> connections = githubRepositoryConnectionRepository.findAllByUser_UserId(userId);
-        if (connections.isEmpty()) {
-            throw new BusinessException(TilErrorCode.TIL_GITHUB_REPOSITORY_NOT_CONNECTED);
-        }
-        if (connections.size() > 1) {
-            throw new BusinessException(TilErrorCode.TIL_GITHUB_REPOSITORY_NOT_CONNECTED);
-        }
-        return connections.get(0);
+        return githubRepositoryConnectionRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new BusinessException(TilErrorCode.TIL_GITHUB_REPOSITORY_NOT_CONNECTED));
     }
 
     private boolean isBlank(String value) {

@@ -10,9 +10,14 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -26,6 +31,7 @@ import java.util.List;
  * 외부 API 실패는 도메인 예외로 변환해 상위 계층이 GitHub 응답 구조에
  * 직접 의존하지 않도록 합니다.
  */
+@Slf4j
 @Component
 public class GithubApiClient {
 
@@ -145,6 +151,12 @@ public class GithubApiClient {
     }
 
     /** GitHub 저장소에 새 파일을 생성하고 해당 변경을 커밋합니다. */
+    @Retryable(
+            retryFor = {RestClientException.class},
+            noRetryFor = {BusinessException.class, HttpClientErrorException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 2000, multiplier = 2.0)
+    )
     public GithubCreateContentResponse createContent(
             String accessToken,
             String owner,
@@ -156,29 +168,42 @@ public class GithubApiClient {
     ) {
         GithubCreateContentRequest request = new GithubCreateContentRequest(message, base64Content, branch);
 
-        try {
-            GithubCreateContentResponse response = restClient.put()
-                    .uri(uriBuilder -> uriBuilder
-                            .scheme("https")
-                            .host("api.github.com")
-                            .pathSegment("repos", owner, repo, "contents")
-                            .path("/" + path)
-                            .build())
-                    .headers(headers -> setGithubHeaders(headers, accessToken))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(request)
-                    .retrieve()
-                    .body(GithubCreateContentResponse.class);
+        GithubCreateContentResponse response = restClient.put()
+                .uri(uriBuilder -> uriBuilder
+                        .scheme("https")
+                        .host("api.github.com")
+                        .pathSegment("repos", owner, repo, "contents")
+                        .path("/" + path)
+                        .build())
+                .headers(headers -> setGithubHeaders(headers, accessToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(GithubCreateContentResponse.class);
 
-            if (response == null || response.commit() == null || response.commit().sha() == null) {
-                throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
-            }
-            return response;
-        } catch (BusinessException e) {
-            throw e;
-        } catch (RestClientException e) {
+        if (response == null || response.commit() == null || response.commit().sha() == null) {
             throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
         }
+        return response;
+    }
+
+    /**
+     * 재시도 소진 후 호출되는 복구 메서드.
+     * BusinessException은 그대로 전파하고, RestClientException은 도메인 예외로 변환한다.
+     *
+     * @param e 마지막 시도에서 발생한 예외
+     */
+    @Recover
+    public GithubCreateContentResponse recoverCreateContent(
+            Exception e,
+            String accessToken, String owner, String repo, String path,
+            String branch, String message, String base64Content
+    ) {
+        if (e instanceof BusinessException be) {
+            throw be;
+        }
+        log.error("GitHub createContent failed after all retries: {}", e.getMessage(), e);
+        throw new BusinessException(CommonErrorCode.EXTERNAL_API_ERROR);
     }
 
     private void setGithubHeaders(HttpHeaders headers, String accessToken) {

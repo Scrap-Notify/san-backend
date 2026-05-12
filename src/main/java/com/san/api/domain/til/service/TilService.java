@@ -20,6 +20,7 @@ import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.TilErrorCode;
+import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class TilService {
     private final VectorSearchService vectorSearchService;
     private final CardTagRepository cardTagRepository;
     private final KnowledgeCardRepository knowledgeCardRepository;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
     /**
      * TIL 생성 비동기 작업 등록
@@ -145,13 +147,21 @@ public class TilService {
                 scrap.getSourceType(),
                 scrap.getRawContent(),
                 scrap.getSourceUrl(),
-                scrap.getImageObjectKey(),
+                createImageUrl(scrap.getImageObjectKey()),
                 new CategoryResponse(
                         card.getCategory().getCategoryId(),
                         card.getCategory().getCategoryName()
                 ),
                 card.getCreatedAt()
         );
+    }
+
+    private String createImageUrl(String imageObjectKey) {
+        if (imageObjectKey == null || imageObjectKey.trim().isEmpty()) {
+            return null;
+        }
+
+        return s3PresignedUrlService.createDownloadPresignedUrl(imageObjectKey);
     }
 
     /**

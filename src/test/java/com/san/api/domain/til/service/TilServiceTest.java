@@ -4,6 +4,7 @@ import com.san.api.domain.knowledge.entity.CardTag;
 import com.san.api.domain.knowledge.entity.Category;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.knowledge.repository.CardTagRepository;
+import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.knowledge.service.VectorSearchService;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.entity.SourceType;
@@ -19,6 +20,7 @@ import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
+import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,11 +30,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -49,6 +54,10 @@ class TilServiceTest {
     private VectorSearchService vectorSearchService;
     @Mock
     private CardTagRepository cardTagRepository;
+    @Mock
+    private KnowledgeCardRepository knowledgeCardRepository;
+    @Mock
+    private S3PresignedUrlService s3PresignedUrlService;
 
     @InjectMocks
     private TilService tilService;
@@ -123,6 +132,42 @@ class TilServiceTest {
         List<TilResponse> response = tilService.getTil(userId, targetDate);
 
         assertThat(response).isEmpty();
+    }
+
+    @Test
+    void getSources_convertsImageObjectKeyToImageUrl() {
+        LocalDate targetDate = LocalDate.of(2026, 5, 6);
+        DailySummary summary = buildSummary(summaryId, user, targetDate, "TIL", "content");
+        String imageObjectKey = "scrap/images/%s/image.png".formatted(userId);
+        String imageUrl = "https://bucket.s3.us-east-1.amazonaws.com/scrap/images/image.png?signature=test";
+        KnowledgeCard card = buildImageCard(UUID.randomUUID(), user, imageObjectKey);
+
+        when(dailySummaryRepository.findBySummaryIdWithUser(summaryId)).thenReturn(Optional.of(summary));
+        when(knowledgeCardRepository.findTilSourceCards(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(card));
+        when(s3PresignedUrlService.createDownloadPresignedUrl(imageObjectKey)).thenReturn(imageUrl);
+
+        var response = tilService.getSources(summaryId, userId);
+
+        assertThat(response.sources()).hasSize(1);
+        assertThat(response.sources().get(0).imageUrl()).isEqualTo(imageUrl);
+    }
+
+    @Test
+    void getSources_returnsNullImageUrlWhenImageObjectKeyIsBlank() {
+        LocalDate targetDate = LocalDate.of(2026, 5, 6);
+        DailySummary summary = buildSummary(summaryId, user, targetDate, "TIL", "content");
+        KnowledgeCard card = buildImageCard(UUID.randomUUID(), user, "   ");
+
+        when(dailySummaryRepository.findBySummaryIdWithUser(summaryId)).thenReturn(Optional.of(summary));
+        when(knowledgeCardRepository.findTilSourceCards(eq(userId), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(card));
+
+        var response = tilService.getSources(summaryId, userId);
+
+        assertThat(response.sources()).hasSize(1);
+        assertThat(response.sources().get(0).imageUrl()).isNull();
+        verifyNoInteractions(s3PresignedUrlService);
     }
 
     @Test
@@ -204,6 +249,28 @@ class TilServiceTest {
                 .category(category)
                 .title("테스트 카드")
                 .summary("요약")
+                .embedding(new float[]{0.1f, 0.2f})
+                .build();
+        ReflectionTestUtils.setField(card, "cardId", cardId);
+        return card;
+    }
+
+    private KnowledgeCard buildImageCard(UUID cardId, User owner, String imageObjectKey) {
+        Scrap scrap = Scrap.builder()
+                .user(owner)
+                .sourceType(SourceType.IMAGE)
+                .rawContent("image")
+                .imageObjectKey(imageObjectKey)
+                .build();
+        Category category = Category.builder()
+                .user(owner)
+                .categoryName("image")
+                .build();
+        KnowledgeCard card = KnowledgeCard.builder()
+                .scrap(scrap)
+                .category(category)
+                .title("image card")
+                .summary("summary")
                 .embedding(new float[]{0.1f, 0.2f})
                 .build();
         ReflectionTestUtils.setField(card, "cardId", cardId);

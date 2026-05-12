@@ -8,6 +8,7 @@ import com.san.api.domain.til.dto.response.TilGenerationSourceContentResponse;
 import com.san.api.domain.til.dto.response.TilGenerationSourceResponse;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.TilErrorCode;
+import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class TilSourceService {
 
     private final KnowledgeCardRepository knowledgeCardRepository;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
     /**
      * TIL 생성에 사용할 지식카드 원본 목록 구성
@@ -87,8 +89,18 @@ public class TilSourceService {
         return switch (scrap.getSourceType()) {
             case LINK -> firstNotBlank(scrap.getSourceUrl(), scrap.getRawContent());
             case TEXT -> scrap.getRawContent();
-            case IMAGE -> firstNotBlank(scrap.getImageObjectKey(), scrap.getRawContent());
+            case IMAGE -> resolveImageContent(scrap);
         };
+    }
+
+    private String resolveImageContent(Scrap scrap) {
+        String imageObjectKey = scrap.getImageObjectKey();
+        if (isBlank(imageObjectKey)) {
+            return scrap.getRawContent();
+        }
+
+        // AI 입력용 조회 URL로 변환
+        return s3PresignedUrlService.createDownloadPresignedUrl(imageObjectKey);
     }
 
     /**

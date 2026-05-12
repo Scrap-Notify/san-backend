@@ -17,6 +17,7 @@ import com.san.api.global.exception.errorcode.KnowledgeErrorCode;
 import com.san.api.global.external.ai.client.AiAnalysisClient;
 import com.san.api.global.external.ai.dto.request.AiAnalyzeRequest;
 import com.san.api.global.external.ai.dto.response.AiAnalyzeResponse;
+import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class KnowledgeCardAnalysisService {
     private final TagRepository tagRepository;
     private final CardTagRepository cardTagRepository;
     private final AiAnalysisClient aiAnalysisClient;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
     /**
      * 수집 원본 기반 지식카드 생성
@@ -121,8 +123,18 @@ public class KnowledgeCardAnalysisService {
         return switch (scrap.getSourceType()) {
             case LINK -> firstNotBlank(scrap.getSourceUrl(), scrap.getRawContent());
             case TEXT -> scrap.getRawContent();
-            case IMAGE -> firstNotBlank(scrap.getImageObjectKey(), scrap.getRawContent());
+            case IMAGE -> resolveImageContent(scrap);
         };
+    }
+
+    private String resolveImageContent(Scrap scrap) {
+        String imageObjectKey = scrap.getImageObjectKey();
+        if (isBlank(imageObjectKey)) {
+            return scrap.getRawContent();
+        }
+
+        // AI 입력용 조회 URL로 변환
+        return s3PresignedUrlService.createDownloadPresignedUrl(imageObjectKey);
     }
 
     /**

@@ -58,7 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } else if (isBlacklisted(token)) {
                 setSecurityError(request, AuthErrorCode.TOKEN_BLACKLISTED);
             } else if (!hasActiveSession(token)) {
-                setSecurityError(request, AuthErrorCode.INVALID_ACCESS_TOKEN);
+                setSecurityError(request, AuthErrorCode.SESSION_REVOKED);
             } else {
                 Authentication auth = jwtProvider.getAuthentication(token);
                 SecurityContextHolder.getContext().setAuthentication(auth);

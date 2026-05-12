@@ -107,7 +107,7 @@ class JwtAuthenticationFilterTest {
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         assertThat(request.getAttribute(SecurityErrorAttribute.ERROR_CODE))
-                .isEqualTo(AuthErrorCode.INVALID_ACCESS_TOKEN);
+                .isEqualTo(AuthErrorCode.SESSION_REVOKED);
         verify(jwtProvider, never()).getAuthentication(token);
     }
 

@@ -105,7 +105,7 @@ class ScrapServiceTest {
     }
 
     @Test
-    void createScrap_savesTrimmedImageObjectKey() {
+    void createScrap_savesImageScrapWhenImageObjectKeyExists() {
         UUID userId = UUID.randomUUID();
         User user = buildUser(userId);
         String imageObjectKey = "scrap/images/%s/image.png".formatted(userId);
@@ -114,7 +114,7 @@ class ScrapServiceTest {
         String contentHash = contentHashPolicy.createContentHash(normalizedRawContent);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.IMAGE, contentHash))
                 .thenReturn(Optional.empty());
         when(scrapRepository.save(any(Scrap.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -127,7 +127,9 @@ class ScrapServiceTest {
 
         ArgumentCaptor<Scrap> captor = ArgumentCaptor.forClass(Scrap.class);
         verify(scrapRepository).save(captor.capture());
+        assertThat(captor.getValue().getSourceType()).isEqualTo(SourceType.IMAGE);
         assertThat(captor.getValue().getImageObjectKey()).isEqualTo(imageObjectKey);
+        assertThat(response.sourceType()).isEqualTo(SourceType.IMAGE);
         assertThat(response.imageObjectKey()).isEqualTo(imageObjectKey);
     }
 

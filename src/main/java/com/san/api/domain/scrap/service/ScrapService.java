@@ -51,7 +51,8 @@ public class ScrapService {
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
         String normalizedRawContent = contentHashPolicy.normalize(request.rawContent());
         String contentHash = contentHashPolicy.createContentHash(normalizedRawContent);
-        SourceType sourceType = sourceTypeDetector.detect(normalizedRawContent);
+        String imageObjectKey = blankToNull(request.imageObjectKey());
+        SourceType sourceType = detectSourceType(normalizedRawContent, imageObjectKey);
 
         Optional<Scrap> existingScrap = scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(
                 userId,
@@ -68,7 +69,7 @@ public class ScrapService {
                 .sourceUrl(blankToNull(request.sourceUrl()))
                 .rawContent(normalizedRawContent)
                 .contentHash(contentHash)
-                .imageObjectKey(blankToNull(request.imageObjectKey()))
+                .imageObjectKey(imageObjectKey)
                 .build();
 
         Scrap savedScrap = saveScrap(scrap, userId, sourceType, contentHash);
@@ -96,6 +97,14 @@ public class ScrapService {
                 .orElseGet(() -> enqueueCardAnalysisJob(scrap.getScrapId()));
 
         return ScrapResponse.from(scrap, jobId, null);
+    }
+
+    private SourceType detectSourceType(String normalizedRawContent, String imageObjectKey) {
+        if (!isBlank(imageObjectKey)) {
+            return SourceType.IMAGE;
+        }
+
+        return sourceTypeDetector.detect(normalizedRawContent);
     }
 
     /** 지식카드 분석 작업 등록 중 중복 충돌이 발생하면 활성 작업을 재조회 */

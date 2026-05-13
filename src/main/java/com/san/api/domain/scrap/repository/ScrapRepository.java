@@ -2,6 +2,8 @@ package com.san.api.domain.scrap.repository;
 
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.entity.SourceType;
+import com.san.api.global.async.entity.JobStatus;
+import com.san.api.global.async.entity.JobType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,4 +36,27 @@ public interface ScrapRepository extends JpaRepository<Scrap, UUID> {
             @Param("userId") UUID userId,
             @Param("targetDate") LocalDate targetDate
     );
+
+    /** 
+     * 지식카드가 없고 활성 CARD_ANALYSIS 잡도 없는 고아 스크랩 조회.
+     * Ghost Job 복구 대상(PENDING/PROCESSING 잡 존재)과 겹치지 않도록 활성 잡 조건으로 제외한다.
+     */
+    @Query("""
+            SELECT s FROM Scrap s
+            WHERE s.isDeleted = false
+            AND NOT EXISTS (
+                SELECT kc FROM KnowledgeCard kc WHERE kc.scrap = s
+            )
+            AND NOT EXISTS (
+                SELECT aj FROM AsyncJob aj
+                WHERE aj.targetId = s.scrapId
+                  AND aj.jobType = :jobType
+                  AND aj.status IN :activeStatuses
+            )
+            """)
+    List<Scrap> findOrphanScraps(
+            @Param("jobType") JobType jobType,
+            @Param("activeStatuses") List<JobStatus> activeStatuses
+    );
+
 }

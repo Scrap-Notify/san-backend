@@ -43,7 +43,8 @@ public interface ScrapRepository extends JpaRepository<Scrap, UUID> {
      */
     @Query("""
             SELECT s FROM Scrap s
-            WHERE NOT EXISTS (
+            WHERE s.isDeleted = false
+            AND NOT EXISTS (
                 SELECT kc FROM KnowledgeCard kc WHERE kc.scrap = s
             )
             AND NOT EXISTS (

@@ -183,13 +183,13 @@ class HybridSearchServiceTest {
 
     private void stubVector(List<KnowledgeCard> result) {
         when(knowledgeCardRepository.searchByVectorWithFilters(
-                anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d), eq(200), eq(0)))
+                anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d), anyInt(), eq(0)))
                 .thenReturn(result);
     }
 
     private void stubKeyword(List<KnowledgeCard> result) {
         when(knowledgeCardRepository.searchByKeyword(
-                anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(200)))
+                anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), anyInt()))
                 .thenReturn(result);
     }
 

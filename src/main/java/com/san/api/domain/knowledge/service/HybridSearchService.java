@@ -39,17 +39,20 @@ public class HybridSearchService {
      */
     public SearchResponse search(String keyword, UUID userId, String tag, String category,
                                  LocalDate fromDate, LocalDate toDate, int page, int size) {
+        // 현재 페이지의 hasNext 판단에 필요한 최소 후보 수를 보장
+        int fetchLimit = Math.max(HYBRID_FETCH_LIMIT, (page + 1) * size + 1);
+
         // 벡터 검색
         float[] vector = aiEmbeddingClient.embed(keyword);
         String queryVector = toVectorString(vector);
         List<KnowledgeCard> vectorCards = knowledgeCardRepository.searchByVectorWithFilters(
                 queryVector, userId, tag, category, fromDate, toDate,
-                RECALL_THRESHOLD, HYBRID_FETCH_LIMIT, 0);
+                RECALL_THRESHOLD, fetchLimit, 0);
 
         // 키워드 검색
         String pattern = "%" + keyword + "%";
         List<KnowledgeCard> keywordCards = knowledgeCardRepository.searchByKeyword(
-                pattern, userId, tag, category, fromDate, toDate, HYBRID_FETCH_LIMIT);
+                pattern, userId, tag, category, fromDate, toDate, fetchLimit);
 
         // 병합
         List<KnowledgeCard> merged = merge(vectorCards, keywordCards);

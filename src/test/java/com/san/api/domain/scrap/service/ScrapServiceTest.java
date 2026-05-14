@@ -284,6 +284,42 @@ class ScrapServiceTest {
         assertThat(response.jobId()).isEqualTo(jobId);
     }
 
+    @Test
+    void createScrap_ignoresScrapRefineDuplicateWhenActiveJobExists() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId);
+        String contentHash = contentHashPolicy.createContentHash("hello");
+        Scrap savedScrap = Scrap.builder()
+                .user(user)
+                .sourceType(SourceType.TEXT)
+                .rawContent("hello")
+                .contentHash(contentHash)
+                .build();
+        UUID cardAnalysisJobId = UUID.randomUUID();
+        UUID refineJobId = UUID.randomUUID();
+        AsyncJob activeRefineJob = buildJob(refineJobId, JobType.SCRAP_REFINE, JobStatus.PENDING, savedScrap.getScrapId());
+        ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
+                .thenReturn(Optional.empty());
+        when(scrapRepository.save(any(Scrap.class))).thenReturn(savedScrap);
+        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, savedScrap.getScrapId()))
+                .thenThrow(new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE));
+        when(asyncJobRepository.findByTargetIdAndJobType(savedScrap.getScrapId(), JobType.SCRAP_REFINE))
+                .thenReturn(List.of(activeRefineJob));
+        when(knowledgeCardRepository.findByScrapIdWithCategory(savedScrap.getScrapId())).thenReturn(Optional.empty());
+        when(asyncJobRepository.findByTargetIdAndJobType(savedScrap.getScrapId(), JobType.CARD_ANALYSIS))
+                .thenReturn(List.of());
+        when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, savedScrap.getScrapId()))
+                .thenReturn(cardAnalysisJobId);
+
+        ScrapResponse response = scrapService.createScrap(userId, request);
+
+        assertThat(response.scrapId()).isEqualTo(savedScrap.getScrapId());
+        assertThat(response.jobId()).isEqualTo(cardAnalysisJobId);
+    }
+
     private User buildUser(UUID userId) {
         User user = User.builder()
                 .username("testuser")

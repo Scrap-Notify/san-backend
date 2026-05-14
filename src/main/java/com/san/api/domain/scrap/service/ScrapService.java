@@ -17,6 +17,8 @@ import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.ScrapErrorCode;
+import com.san.api.global.external.ai.client.AiScrapRefineClient;
+import com.san.api.global.external.ai.dto.request.AiScrapRefineRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ public class ScrapService {
     private final AsyncJobManager asyncJobManager;
     private final AsyncJobRepository asyncJobRepository;
     private final KnowledgeCardRepository knowledgeCardRepository;
+    private final AiScrapRefineClient aiScrapRefineClient;
 
     /**
      * 수집 원본 저장 후 지식카드 분석 작업 등록
@@ -63,11 +66,13 @@ public class ScrapService {
             return createResponseWithJob(existingScrap.get());
         }
 
+        String refinedContent = refineContent(sourceType, normalizedRawContent);
         Scrap scrap = Scrap.builder()
                 .user(user)
                 .sourceType(sourceType)
                 .sourceUrl(blankToNull(request.sourceUrl()))
                 .rawContent(normalizedRawContent)
+                .refinedContent(refinedContent)
                 .contentHash(contentHash)
                 .imageObjectKey(imageObjectKey)
                 .build();
@@ -105,6 +110,18 @@ public class ScrapService {
         }
 
         return sourceTypeDetector.detect(normalizedRawContent);
+    }
+
+    /**
+     * AI 서버를 통해 원본 내용을 정제
+     *
+     * @param sourceType 원본 유형
+     * @param rawContent 정규화된 원본 내용
+     * @return 정제된 원본 내용
+     */
+    private String refineContent(SourceType sourceType, String rawContent) {
+        return aiScrapRefineClient.refine(new AiScrapRefineRequest(sourceType.name(), rawContent))
+                .refinedContent();
     }
 
     /** 지식카드 분석 작업 등록 중 중복 충돌이 발생하면 활성 작업을 재조회 */

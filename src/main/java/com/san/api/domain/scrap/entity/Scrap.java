@@ -73,4 +73,13 @@ public class Scrap extends BaseEntity {
         this.contentHash = contentHash;
         this.imageObjectKey = imageObjectKey;
     }
+
+    /**
+     * 원본 정제 내용 저장
+     *
+     * @param refinedContent AI가 정제한 원본 내용
+     */
+    public void updateRefinedContent(String refinedContent) {
+        this.refinedContent = refinedContent;
+    }
 }

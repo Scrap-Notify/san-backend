@@ -2,6 +2,7 @@ package com.san.api.domain.knowledge.service;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardDetailResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardIdResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardResponse;
@@ -109,6 +110,23 @@ public class KnowledgeCardService {
         return new KnowledgeCardSimilarCardsResponse(
                 toKnowledgeCardResponses(similarCards)
         );
+    }
+
+    /**
+     * 지식카드 상세 조회
+     *
+     * @param userId 로그인 사용자 ID
+     * @param cardId 지식카드 ID
+     * @return 지식카드 상세 조회 응답
+     */
+    @Transactional(readOnly = true)
+    public KnowledgeCardDetailResponse getCardDetail(UUID userId, UUID cardId) {
+        KnowledgeCard card = knowledgeCardRepository.findByCardIdWithScrapAndCategory(cardId)
+                .orElseThrow(() -> new BusinessException(KnowledgeErrorCode.CARD_NOT_FOUND));
+        validateScrapOwner(card.getScrap(), userId);
+
+        List<CardTag> cardTags = cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card));
+        return KnowledgeCardDetailResponse.from(card, cardTags);
     }
 
     /** 수집 원본 기준 생성된 지식카드 조회 */

@@ -90,6 +90,17 @@ public class DailySummary extends BaseEntity {
      * @param embedding 생성된 TIL 임베딩
      */
     public void updateGeneratedResult(String title, String content, float[] embedding) {
+        update(title, content, embedding);
+    }
+
+    /**
+     * TIL 제목과 내용 수정
+     *
+     * @param title 수정할 TIL 제목
+     * @param content 수정할 TIL 내용
+     * @param embedding 수정된 TIL 임베딩
+     */
+    public void update(String title, String content, float[] embedding) {
         this.title = title;
         this.content = content;
         this.embedding = embedding;

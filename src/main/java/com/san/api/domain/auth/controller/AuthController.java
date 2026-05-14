@@ -116,7 +116,7 @@ public class AuthController {
      * @param request Dashboard access token을 포함한 HTTP 요청
      * @return Extension token 교환에 사용할 일회용 bridge ticket
      */
-    @Operation(summary = "로그인 브릿지 ticket 발급")
+    @Operation(summary = "익스텐션 로그인 브릿지 ticket 발급")
     @PostMapping("/bridge/ticket")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<LoginBridgeTicketResponse> issueExtensionBridgeTicket(HttpServletRequest request) {
@@ -130,7 +130,7 @@ public class AuthController {
      * @param request 일회용 bridge ticket 교환 요청
      * @return Extension 클라이언트 유형으로 발급된 access/refresh token pair
      */
-    @Operation(summary = "로그인 브릿지 token 교환")
+    @Operation(summary = "익스텐션 로그인 브릿지 token 교환")
     @PostMapping("/bridge/token")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<TokenResponse> exchangeExtensionBridgeToken(@Valid @RequestBody ExtensionBridgeTokenRequest request) {

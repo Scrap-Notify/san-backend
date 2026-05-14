@@ -106,4 +106,9 @@ public class DailySummary extends BaseEntity {
         this.embedding = embedding;
     }
 
+    /** TIL을 삭제 처리 */
+    public void deleteSummary() {
+        delete();
+    }
+
 }

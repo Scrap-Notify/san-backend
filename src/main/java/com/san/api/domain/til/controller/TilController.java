@@ -52,6 +52,25 @@ public class TilController {
     }
 
     /**
+     * TIL 삭제
+     *
+     * @param authentication 인증 정보
+     * @param summaryId      TIL ID
+     * @return 삭제 성공 응답
+     */
+    @Operation(summary = "TIL 삭제", description = "TIL을 삭제 처리")
+    @DeleteMapping("/{summaryId}")
+    public ApiResponse<Void> deleteTil(
+            Authentication authentication,
+            @PathVariable UUID summaryId) {
+
+        UUID userId = currentUserId(authentication);
+        tilService.deleteTil(summaryId, userId);
+
+        return ApiResponse.success(null);
+    }
+
+    /**
      * 날짜 기준 TIL 조회
      *
      * @param authentication 인증 정보

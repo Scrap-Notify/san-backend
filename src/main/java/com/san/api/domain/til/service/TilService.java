@@ -66,6 +66,21 @@ public class TilService {
     }
 
     /**
+     * TIL 삭제
+     *
+     * @param summaryId TIL ID
+     * @param userId    로그인 사용자 ID
+     */
+    @Transactional
+    public void deleteTil(UUID summaryId, UUID userId) {
+        DailySummary summary = dailySummaryRepository.findBySummaryIdWithUser(summaryId)
+                .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
+        validateSummaryOwner(summary, userId);
+
+        summary.deleteSummary();
+    }
+
+    /**
      * TIL 제목과 내용을 수정
      *
      * @param summaryId TIL ID

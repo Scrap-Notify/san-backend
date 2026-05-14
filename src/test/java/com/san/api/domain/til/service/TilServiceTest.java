@@ -184,6 +184,39 @@ class TilServiceTest {
     }
 
     @Test
+    void deleteTil_deletesSummary() {
+        DailySummary summary = buildSummary(summaryId, user, LocalDate.of(2026, 5, 6), "TIL", "content");
+
+        when(dailySummaryRepository.findBySummaryIdWithUser(summaryId)).thenReturn(Optional.of(summary));
+
+        tilService.deleteTil(summaryId, userId);
+
+        assertThat(summary.isDeleted()).isTrue();
+    }
+
+    @Test
+    void deleteTil_notFound_throwsException() {
+        when(dailySummaryRepository.findBySummaryIdWithUser(summaryId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> tilService.deleteTil(summaryId, userId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", TilErrorCode.SUMMARY_NOT_FOUND);
+    }
+
+    @Test
+    void deleteTil_otherUser_throwsException() {
+        UUID otherUserId = UUID.randomUUID();
+        DailySummary summary = buildSummary(summaryId, user, LocalDate.of(2026, 5, 6), "TIL", "content");
+
+        when(dailySummaryRepository.findBySummaryIdWithUser(summaryId)).thenReturn(Optional.of(summary));
+
+        assertThatThrownBy(() -> tilService.deleteTil(summaryId, otherUserId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", TilErrorCode.SUMMARY_ACCESS_DENIED);
+        assertThat(summary.isDeleted()).isFalse();
+    }
+
+    @Test
     void getSources_convertsImageObjectKeyToImageUrl() {
         LocalDate targetDate = LocalDate.of(2026, 5, 6);
         DailySummary summary = buildSummary(summaryId, user, targetDate, "TIL", "content");

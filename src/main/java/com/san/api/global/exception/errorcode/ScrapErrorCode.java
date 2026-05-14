@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 public enum ScrapErrorCode implements ErrorCode {
 
     EMPTY_SOURCE(HttpStatus.BAD_REQUEST, "S001", "저장할 수집 원본이 비어 있습니다."),
+    SCRAP_ACCESS_DENIED(HttpStatus.FORBIDDEN, "S002", "해당 원본에 대한 접근 권한이 없습니다."),
     ;
 
     private final HttpStatus status;

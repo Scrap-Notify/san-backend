@@ -2,6 +2,7 @@ package com.san.api.domain.knowledge.controller;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardDetailResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardIdResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardSimilarCardsResponse;
@@ -69,6 +70,25 @@ public class KnowledgeCardController {
 
         UUID userId = currentUserId(authentication);
         KnowledgeCardIdResponse response = knowledgeCardService.getCardIdByScrap(userId, scrapId);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 지식카드 상세 조회
+     *
+     * @param authentication 인증 정보
+     * @param cardId 지식카드 ID
+     * @return 지식카드 상세 조회 응답
+     */
+    @Operation(summary = "지식카드 상세 조회", description = "지식카드 ID를 기반으로 원본, 정제 내용, 요약, 태그, 카테고리를 조회")
+    @GetMapping("/{cardId}/detail")
+    public ApiResponse<KnowledgeCardDetailResponse> getCardDetail(
+            Authentication authentication,
+            @PathVariable UUID cardId) {
+
+        UUID userId = currentUserId(authentication);
+        KnowledgeCardDetailResponse response = knowledgeCardService.getCardDetail(userId, cardId);
 
         return ApiResponse.success(response);
     }

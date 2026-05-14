@@ -2,6 +2,7 @@ package com.san.api.domain.knowledge.service;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
+import com.san.api.domain.knowledge.dto.response.KnowledgeCardDetailResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardIdResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardListResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardResponse;
@@ -17,6 +18,7 @@ import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.KnowledgeErrorCode;
+import com.san.api.global.exception.errorcode.ScrapErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -111,6 +113,23 @@ public class KnowledgeCardService {
         );
     }
 
+    /**
+     * 지식카드 상세 조회
+     *
+     * @param userId 로그인 사용자 ID
+     * @param cardId 지식카드 ID
+     * @return 지식카드 상세 조회 응답
+     */
+    @Transactional(readOnly = true)
+    public KnowledgeCardDetailResponse getCardDetail(UUID userId, UUID cardId) {
+        KnowledgeCard card = knowledgeCardRepository.findByCardIdWithScrapAndCategory(cardId)
+                .orElseThrow(() -> new BusinessException(KnowledgeErrorCode.CARD_NOT_FOUND));
+        validateCardOwner(card, userId);
+
+        List<CardTag> cardTags = cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card));
+        return KnowledgeCardDetailResponse.from(card, cardTags);
+    }
+
     /** 수집 원본 기준 생성된 지식카드 조회 */
     private KnowledgeCard getCreatedCard(UUID scrapId) {
         return knowledgeCardRepository.findByScrapIdWithCategory(scrapId)
@@ -142,7 +161,14 @@ public class KnowledgeCardService {
      */
     private void validateScrapOwner(Scrap scrap, UUID userId) {
         if (!scrap.getUser().getUserId().equals(userId)) {
-            throw new BusinessException(CommonErrorCode.FORBIDDEN);
+            throw new BusinessException(ScrapErrorCode.SCRAP_ACCESS_DENIED);
+        }
+    }
+
+    /** 지식카드 소유자 검증 */
+    private void validateCardOwner(KnowledgeCard card, UUID userId) {
+        if (!card.getScrap().getUser().getUserId().equals(userId)) {
+            throw new BusinessException(KnowledgeErrorCode.CARD_ACCESS_DENIED);
         }
     }
 

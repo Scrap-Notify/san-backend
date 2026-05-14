@@ -9,6 +9,7 @@ import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.knowledge.service.VectorSearchService;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.til.dto.request.TilGenerateRequest;
+import com.san.api.domain.til.dto.request.TilUpdateRequest;
 import com.san.api.domain.til.dto.response.TilGenerationJobResponse;
 import com.san.api.domain.til.dto.response.TilRecallCardsResponse;
 import com.san.api.domain.til.dto.response.TilResponse;
@@ -20,6 +21,7 @@ import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.TilErrorCode;
+import com.san.api.global.external.ai.client.AiEmbeddingClient;
 import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,7 @@ public class TilService {
     private final CardTagRepository cardTagRepository;
     private final KnowledgeCardRepository knowledgeCardRepository;
     private final S3PresignedUrlService s3PresignedUrlService;
+    private final AiEmbeddingClient aiEmbeddingClient;
 
     /**
      * TIL 생성 비동기 작업 등록
@@ -60,6 +63,26 @@ public class TilService {
                 jobId,
                 summary.getTargetDate()
         );
+    }
+
+    /**
+     * TIL 제목과 내용을 수정
+     *
+     * @param summaryId TIL ID
+     * @param userId    로그인 사용자 ID
+     * @param request   TIL 수정 요청
+     * @return 수정된 TIL 응답
+     */
+    @Transactional
+    public TilResponse updateTil(UUID summaryId, UUID userId, TilUpdateRequest request) {
+        DailySummary summary = dailySummaryRepository.findBySummaryIdWithUser(summaryId)
+                .orElseThrow(() -> new BusinessException(TilErrorCode.SUMMARY_NOT_FOUND));
+        validateSummaryOwner(summary, userId);
+
+        float[] embedding = aiEmbeddingClient.embed(request.content());
+        summary.update(request.title(), request.content(), embedding);
+
+        return TilResponse.from(summary);
     }
 
     /**

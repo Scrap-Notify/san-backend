@@ -37,19 +37,19 @@ public class HybridSearchService {
      * 키워드를 벡터 검색과 ILIKE 검색으로 동시에 조회하고 결과를 병합하여 반환한다.
      * tag, categoryId, fromDate, toDate는 null 전달 시 필터 미적용.
      */
-    public SearchResponse search(String keyword, UUID userId, String tag, UUID categoryId,
+    public SearchResponse search(String keyword, UUID userId, String tag, String category,
                                  LocalDate fromDate, LocalDate toDate, int page, int size) {
         // 벡터 검색
         float[] vector = aiEmbeddingClient.embed(keyword);
         String queryVector = toVectorString(vector);
         List<KnowledgeCard> vectorCards = knowledgeCardRepository.searchByVectorWithFilters(
-                queryVector, userId, tag, categoryId, fromDate, toDate,
+                queryVector, userId, tag, category, fromDate, toDate,
                 RECALL_THRESHOLD, HYBRID_FETCH_LIMIT, 0);
 
         // 키워드 검색
         String pattern = "%" + keyword + "%";
         List<KnowledgeCard> keywordCards = knowledgeCardRepository.searchByKeyword(
-                pattern, userId, tag, categoryId, fromDate, toDate, HYBRID_FETCH_LIMIT);
+                pattern, userId, tag, category, fromDate, toDate, HYBRID_FETCH_LIMIT);
 
         // 병합
         List<KnowledgeCard> merged = merge(vectorCards, keywordCards);

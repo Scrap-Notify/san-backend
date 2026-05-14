@@ -42,7 +42,7 @@ public class SearchController {
     ) {
         UUID userId = currentUserId(authentication);
         SearchResponse response = hybridSearchService.search(
-                request.keyword(), userId, request.tag(), request.categoryId(),
+                request.keyword(), userId, request.tag(), request.category(),
                 request.fromDate(), request.toDate(), request.page(), request.size());
         return ApiResponse.success(response);
     }

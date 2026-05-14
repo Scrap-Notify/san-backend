@@ -218,6 +218,39 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     );
     
     /**
+     * 키워드 기반 지식 카드 검색 (title·summary ILIKE).
+     * tag, categoryId, fromDate, toDate는 null 전달 시 필터 미적용.
+     * Hybrid 검색에서 벡터 결과와 병합하기 위해 limit만 적용하고 offset은 서비스에서 처리한다.
+     */
+    @Query(value = """
+            SELECT kc.card_id, kc.scrap_id, kc.category_id, kc.title, kc.summary,
+                   kc.embedding, kc.created_at, kc.updated_at, kc.is_deleted
+            FROM knowledge_cards kc
+            JOIN scraps s ON kc.scrap_id = s.scrap_id
+            WHERE s.user_id = :userId
+              AND kc.is_deleted = false
+              AND (kc.title ILIKE :pattern OR kc.summary ILIKE :pattern)
+              AND (:tag IS NULL OR EXISTS (
+                  SELECT 1 FROM card_tags ct JOIN tags t ON ct.tag_id = t.tag_id
+                  WHERE ct.card_id = kc.card_id AND t.tag_name = :tag
+              ))
+              AND (:categoryId IS NULL OR kc.category_id = CAST(:categoryId AS uuid))
+              AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
+              AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
+            ORDER BY kc.created_at DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<KnowledgeCard> searchByKeyword(
+            @Param("pattern") String pattern,
+            @Param("userId") UUID userId,
+            @Param("tag") String tag,
+            @Param("categoryId") UUID categoryId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("limit") int limit
+    );
+
+    /**
      * 특정 기간에 스크랩이 생성된 지식카드의 소유자 userId 목록 조회 (중복 제거).
      * TIL 자동 생성 스케줄러에서 전날 활동한 사용자를 찾을 때 사용한다.
      */

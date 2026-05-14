@@ -60,7 +60,9 @@ public class ScrapService {
                 contentHash
         );
         if (existingScrap.isPresent()) {
-            return createResponseWithJob(existingScrap.get());
+            Scrap scrap = existingScrap.get();
+            enqueueScrapRefineJobIfNeeded(scrap);
+            return createResponseWithJob(scrap);
         }
 
         Scrap scrap = Scrap.builder()
@@ -131,6 +133,13 @@ public class ScrapService {
             }
             findActiveScrapRefineJobId(scrapId)
                     .orElseThrow(() -> e);
+        }
+    }
+
+    /** 원본 정제 내용이 없으면 정제 작업 등록 */
+    private void enqueueScrapRefineJobIfNeeded(Scrap scrap) {
+        if (isBlank(scrap.getRefinedContent())) {
+            enqueueScrapRefineJob(scrap.getScrapId());
         }
     }
 

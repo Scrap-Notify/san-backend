@@ -79,8 +79,8 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     );
 
     /**
-     * 벡터 유사도 기반 지식 카드 검색 (태그·날짜 필터 + 유사도 threshold 포함).
-     * tag, fromDate, toDate는 null 전달 시 필터 미적용.
+     * 벡터 유사도 기반 지식 카드 검색 (태그·카테고리·날짜 필터 + 유사도 threshold 포함).
+     * tag, categoryId, fromDate, toDate는 null 전달 시 필터 미적용.
      * threshold는 pgvector 코사인 거리 상한값 (거리 < threshold인 카드만 반환).
      */
     @Query(value = """
@@ -95,6 +95,7 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
                   SELECT 1 FROM card_tags ct JOIN tags t ON ct.tag_id = t.tag_id
                   WHERE ct.card_id = kc.card_id AND t.tag_name = :tag
               ))
+              AND (:categoryId IS NULL OR kc.category_id = CAST(:categoryId AS uuid))
               AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
               AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
               AND kc.embedding <=> CAST(:queryVector AS vector) < :threshold
@@ -105,6 +106,7 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
             @Param("queryVector") String queryVector,
             @Param("userId") UUID userId,
             @Param("tag") String tag,
+            @Param("categoryId") UUID categoryId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate,
             @Param("threshold") double threshold,
@@ -186,7 +188,7 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     );
 
     /**
-     * 태그·날짜 필터 + 유사도 threshold 조건에 맞는 전체 카드 수 조회 (페이지네이션 totalCount용).
+     * 태그·카테고리·날짜 필터 + 유사도 threshold 조건에 맞는 전체 카드 수 조회 (페이지네이션 totalCount용).
      * searchByVectorWithFilters와 동일 조건을 적용해야 hasNext 계산이 정확함.
      */
     @Query(value = """
@@ -200,6 +202,7 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
                   SELECT 1 FROM card_tags ct JOIN tags t ON ct.tag_id = t.tag_id
                   WHERE ct.card_id = kc.card_id AND t.tag_name = :tag
               ))
+              AND (:categoryId IS NULL OR kc.category_id = CAST(:categoryId AS uuid))
               AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
               AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
               AND kc.embedding <=> CAST(:queryVector AS vector) < :threshold
@@ -208,6 +211,7 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
             @Param("queryVector") String queryVector,
             @Param("userId") UUID userId,
             @Param("tag") String tag,
+            @Param("categoryId") UUID categoryId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate,
             @Param("threshold") double threshold

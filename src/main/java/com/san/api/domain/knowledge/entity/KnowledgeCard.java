@@ -72,4 +72,9 @@ public class KnowledgeCard extends BaseEntity {
         this.summary = summary;
         this.embedding = embedding;
     }
+
+    /** 지식카드 삭제 처리 */
+    public void deleteCard() {
+        delete();
+    }
 }

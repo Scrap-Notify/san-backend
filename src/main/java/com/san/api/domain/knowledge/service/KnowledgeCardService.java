@@ -130,6 +130,21 @@ public class KnowledgeCardService {
         return KnowledgeCardDetailResponse.from(card, cardTags);
     }
 
+    /**
+     * 지식카드 삭제
+     *
+     * @param userId 로그인 사용자 ID
+     * @param cardId 지식카드 ID
+     */
+    @Transactional
+    public void deleteCard(UUID userId, UUID cardId) {
+        KnowledgeCard card = knowledgeCardRepository.findByCardIdWithScrapAndCategory(cardId)
+                .orElseThrow(() -> new BusinessException(KnowledgeErrorCode.CARD_NOT_FOUND));
+        validateCardOwner(card, userId);
+
+        card.deleteCard();
+    }
+
     /** 수집 원본 기준 생성된 지식카드 조회 */
     private KnowledgeCard getCreatedCard(UUID scrapId) {
         return knowledgeCardRepository.findByScrapIdWithCategory(scrapId)

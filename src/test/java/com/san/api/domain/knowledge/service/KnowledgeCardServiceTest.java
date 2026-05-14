@@ -120,6 +120,43 @@ class KnowledgeCardServiceTest {
         verifyNoInteractions(cardTagRepository);
     }
 
+    @Test
+    void deleteCard_deletesCard() {
+        KnowledgeCard card = buildCard(user);
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(card.getCardId()))
+                .thenReturn(Optional.of(card));
+
+        knowledgeCardService.deleteCard(userId, card.getCardId());
+
+        assertThat(card.isDeleted()).isTrue();
+        verifyNoInteractions(cardTagRepository);
+    }
+
+    @Test
+    void deleteCard_throwsCardNotFoundWhenCardDoesNotExist() {
+        UUID cardId = UUID.randomUUID();
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(cardId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> knowledgeCardService.deleteCard(userId, cardId))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", KnowledgeErrorCode.CARD_NOT_FOUND);
+        verifyNoInteractions(cardTagRepository);
+    }
+
+    @Test
+    void deleteCard_throwsCardAccessDeniedWhenUserIsNotOwner() {
+        KnowledgeCard card = buildCard(otherUser);
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(card.getCardId()))
+                .thenReturn(Optional.of(card));
+
+        assertThatThrownBy(() -> knowledgeCardService.deleteCard(userId, card.getCardId()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", KnowledgeErrorCode.CARD_ACCESS_DENIED);
+        assertThat(card.isDeleted()).isFalse();
+        verifyNoInteractions(cardTagRepository);
+    }
+
     private User buildUser(UUID id) {
         User user = User.builder()
                 .username("user_" + id.toString().substring(0, 8))

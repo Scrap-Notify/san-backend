@@ -40,27 +40,28 @@ public class VectorSearchService {
     /**
      * 자연어 검색어 기반 지식 카드 유사도 검색.
      * 검색어를 AI 서버에서 벡터로 변환한 뒤 pgvector로 검색한다.
-     * tag, fromDate, toDate는 null 전달 시 필터 미적용.
+     * tag, categoryId, fromDate, toDate는 null 전달 시 필터 미적용.
      *
-     * @param keyword  사용자 검색어
-     * @param userId   요청자 ID (권한 필터)
-     * @param tag      태그명 필터 (null = 미적용)
-     * @param fromDate 시작일 필터 (null = 미적용)
-     * @param toDate   종료일 필터 (null = 미적용)
-     * @param page     페이지 번호 (0-based)
-     * @param size     페이지 크기
+     * @param keyword    사용자 검색어
+     * @param userId     요청자 ID (권한 필터)
+     * @param tag        태그명 필터 (null = 미적용)
+     * @param categoryId 카테고리 ID 필터 (null = 미적용)
+     * @param fromDate   시작일 필터 (null = 미적용)
+     * @param toDate     종료일 필터 (null = 미적용)
+     * @param page       페이지 번호 (0-based)
+     * @param size       페이지 크기
      * @return 검색 결과 및 페이지 정보 (totalCount, hasNext 포함)
      */
-    public SearchResponse search(String keyword, UUID userId, String tag,
+    public SearchResponse search(String keyword, UUID userId, String tag, UUID categoryId,
                                  LocalDate fromDate, LocalDate toDate, int page, int size) {
         float[] vector = aiEmbeddingClient.embed(keyword);
         String queryVector = toVectorString(vector);
 
         int offset = page * size;
         List<KnowledgeCard> cards = knowledgeCardRepository.searchByVectorWithFilters(
-                queryVector, userId, tag, fromDate, toDate, RECALL_THRESHOLD, size, offset);
+                queryVector, userId, tag, categoryId, fromDate, toDate, RECALL_THRESHOLD, size, offset);
         long totalCount = knowledgeCardRepository.countByVectorFiltersWithThreshold(
-                queryVector, userId, tag, fromDate, toDate, RECALL_THRESHOLD);
+                queryVector, userId, tag, categoryId, fromDate, toDate, RECALL_THRESHOLD);
 
         return SearchResponse.of(keyword, page, size, totalCount, cards);
     }
@@ -113,6 +114,11 @@ public class VectorSearchService {
 
         String queryVector = toVectorString(summary.getEmbedding());
         List<UUID> excludeIds = scrapRepository.findCardIdsByUserAndDate(userId, summary.getTargetDate());
+
+        // NOT IN () 은 SQL 오류 유발 — 원본 카드가 없으면 리콜 대상도 없음
+        if (excludeIds.isEmpty()) {
+            return List.of();
+        }
 
         return knowledgeCardRepository.searchByVectorExcludingWithThreshold(
                 queryVector, userId, excludeIds, RECALL_THRESHOLD);

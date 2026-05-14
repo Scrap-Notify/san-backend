@@ -87,10 +87,11 @@ class ScrapServiceTest {
         when(scrapRepository.save(any(Scrap.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         UUID jobId = UUID.randomUUID();
+        UUID refineJobId = UUID.randomUUID();
         when(knowledgeCardRepository.findByScrapIdWithCategory(any(UUID.class))).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(any(UUID.class), eq(JobType.CARD_ANALYSIS)))
                 .thenReturn(List.of());
-        when(asyncJobManager.enqueue(eq(JobType.SCRAP_REFINE), any(UUID.class))).thenReturn(UUID.randomUUID());
+        when(asyncJobManager.enqueue(eq(JobType.SCRAP_REFINE), any(UUID.class))).thenReturn(refineJobId);
         when(asyncJobManager.enqueue(eq(JobType.CARD_ANALYSIS), any(UUID.class))).thenReturn(jobId);
 
         ScrapResponse response = scrapService.createScrap(userId, request);
@@ -102,7 +103,8 @@ class ScrapServiceTest {
         assertThat(saved.getSourceType()).isEqualTo(SourceType.TEXT);
         assertThat(saved.getRawContent()).isEqualTo("hello\nworld");
         assertThat(saved.getContentHash()).isEqualTo(contentHash);
-        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.analysisJobId()).isEqualTo(jobId);
+        assertThat(response.refineJobId()).isEqualTo(refineJobId);
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, saved.getScrapId());
     }
 
@@ -123,8 +125,10 @@ class ScrapServiceTest {
         when(knowledgeCardRepository.findByScrapIdWithCategory(any(UUID.class))).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(any(UUID.class), eq(JobType.CARD_ANALYSIS)))
                 .thenReturn(List.of());
-        when(asyncJobManager.enqueue(eq(JobType.SCRAP_REFINE), any(UUID.class))).thenReturn(UUID.randomUUID());
-        when(asyncJobManager.enqueue(eq(JobType.CARD_ANALYSIS), any(UUID.class))).thenReturn(UUID.randomUUID());
+        UUID refineJobId = UUID.randomUUID();
+        UUID analysisJobId = UUID.randomUUID();
+        when(asyncJobManager.enqueue(eq(JobType.SCRAP_REFINE), any(UUID.class))).thenReturn(refineJobId);
+        when(asyncJobManager.enqueue(eq(JobType.CARD_ANALYSIS), any(UUID.class))).thenReturn(analysisJobId);
 
         ScrapResponse response = scrapService.createScrap(userId, request);
 
@@ -134,6 +138,8 @@ class ScrapServiceTest {
         assertThat(captor.getValue().getImageObjectKey()).isEqualTo(imageObjectKey);
         assertThat(response.sourceType()).isEqualTo(SourceType.IMAGE);
         assertThat(response.imageObjectKey()).isEqualTo(imageObjectKey);
+        assertThat(response.analysisJobId()).isEqualTo(analysisJobId);
+        assertThat(response.refineJobId()).isEqualTo(refineJobId);
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, captor.getValue().getScrapId());
     }
 
@@ -154,10 +160,11 @@ class ScrapServiceTest {
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
                 .thenReturn(Optional.of(existingScrap));
         UUID jobId = UUID.randomUUID();
+        UUID refineJobId = UUID.randomUUID();
         when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId())).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(existingScrap.getScrapId(), JobType.CARD_ANALYSIS))
                 .thenReturn(List.of());
-        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId())).thenReturn(UUID.randomUUID());
+        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId())).thenReturn(refineJobId);
         when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, existingScrap.getScrapId())).thenReturn(jobId);
 
         ScrapResponse response = scrapService.createScrap(userId, request);
@@ -165,7 +172,8 @@ class ScrapServiceTest {
         verify(scrapRepository, never()).save(any(Scrap.class));
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId());
         assertThat(response.scrapId()).isEqualTo(existingScrap.getScrapId());
-        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.analysisJobId()).isEqualTo(jobId);
+        assertThat(response.refineJobId()).isEqualTo(refineJobId);
     }
 
     @Test
@@ -194,7 +202,8 @@ class ScrapServiceTest {
         ScrapResponse response = scrapService.createScrap(userId, request);
 
         verify(asyncJobManager, never()).enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId());
-        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.analysisJobId()).isEqualTo(jobId);
+        assertThat(response.refineJobId()).isNull();
     }
 
     @Test
@@ -211,6 +220,7 @@ class ScrapServiceTest {
         UUID jobId = UUID.randomUUID();
         AsyncJob activeJob = buildJob(jobId, JobType.CARD_ANALYSIS, JobStatus.PROCESSING, existingScrap.getScrapId());
         ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
+        UUID refineJobId = UUID.randomUUID();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(userId, SourceType.TEXT, contentHash))
@@ -218,12 +228,14 @@ class ScrapServiceTest {
         when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId())).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(existingScrap.getScrapId(), JobType.CARD_ANALYSIS))
                 .thenReturn(List.of(activeJob));
+        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId())).thenReturn(refineJobId);
 
         ScrapResponse response = scrapService.createScrap(userId, request);
 
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId());
         verify(asyncJobManager, never()).enqueue(JobType.CARD_ANALYSIS, existingScrap.getScrapId());
-        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.analysisJobId()).isEqualTo(jobId);
+        assertThat(response.refineJobId()).isEqualTo(refineJobId);
     }
 
     @Test
@@ -238,6 +250,7 @@ class ScrapServiceTest {
                 .contentHash(contentHash)
                 .build();
         UUID cardId = UUID.randomUUID();
+        UUID refineJobId = UUID.randomUUID();
         KnowledgeCard card = buildCard(cardId, existingScrap, user);
         ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
 
@@ -246,12 +259,14 @@ class ScrapServiceTest {
                 .thenReturn(Optional.of(existingScrap));
         when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId()))
                 .thenReturn(Optional.of(card));
+        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId())).thenReturn(refineJobId);
 
         ScrapResponse response = scrapService.createScrap(userId, request);
 
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId());
         verify(asyncJobManager, never()).enqueue(JobType.CARD_ANALYSIS, existingScrap.getScrapId());
-        assertThat(response.jobId()).isNull();
+        assertThat(response.analysisJobId()).isNull();
+        assertThat(response.refineJobId()).isEqualTo(refineJobId);
         assertThat(response.cardId()).isEqualTo(cardId);
     }
 
@@ -267,6 +282,7 @@ class ScrapServiceTest {
                 .contentHash(contentHash)
                 .build();
         UUID jobId = UUID.randomUUID();
+        UUID refineJobId = UUID.randomUUID();
         ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -276,13 +292,14 @@ class ScrapServiceTest {
         when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId())).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(existingScrap.getScrapId(), JobType.CARD_ANALYSIS))
                 .thenReturn(List.of());
-        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId())).thenReturn(UUID.randomUUID());
+        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId())).thenReturn(refineJobId);
         when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, existingScrap.getScrapId())).thenReturn(jobId);
 
         ScrapResponse response = scrapService.createScrap(userId, request);
 
         assertThat(response.scrapId()).isEqualTo(existingScrap.getScrapId());
-        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.analysisJobId()).isEqualTo(jobId);
+        assertThat(response.refineJobId()).isEqualTo(refineJobId);
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId());
     }
 
@@ -298,6 +315,7 @@ class ScrapServiceTest {
                 .contentHash(contentHash)
                 .build();
         UUID jobId = UUID.randomUUID();
+        UUID refineJobId = UUID.randomUUID();
         AsyncJob activeJob = buildJob(jobId, JobType.CARD_ANALYSIS, JobStatus.PENDING, savedScrap.getScrapId());
         ScrapCreateRequest request = new ScrapCreateRequest(null, " hello ", null);
 
@@ -308,13 +326,14 @@ class ScrapServiceTest {
         when(knowledgeCardRepository.findByScrapIdWithCategory(savedScrap.getScrapId())).thenReturn(Optional.empty());
         when(asyncJobRepository.findByTargetIdAndJobType(savedScrap.getScrapId(), JobType.CARD_ANALYSIS))
                 .thenReturn(List.of(), List.of(activeJob));
-        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, savedScrap.getScrapId())).thenReturn(UUID.randomUUID());
+        when(asyncJobManager.enqueue(JobType.SCRAP_REFINE, savedScrap.getScrapId())).thenReturn(refineJobId);
         when(asyncJobManager.enqueue(JobType.CARD_ANALYSIS, savedScrap.getScrapId()))
                 .thenThrow(new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE));
 
         ScrapResponse response = scrapService.createScrap(userId, request);
 
-        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.analysisJobId()).isEqualTo(jobId);
+        assertThat(response.refineJobId()).isEqualTo(refineJobId);
     }
 
     @Test
@@ -350,7 +369,8 @@ class ScrapServiceTest {
         ScrapResponse response = scrapService.createScrap(userId, request);
 
         assertThat(response.scrapId()).isEqualTo(savedScrap.getScrapId());
-        assertThat(response.jobId()).isEqualTo(cardAnalysisJobId);
+        assertThat(response.analysisJobId()).isEqualTo(cardAnalysisJobId);
+        assertThat(response.refineJobId()).isEqualTo(refineJobId);
     }
 
     private User buildUser(UUID userId) {

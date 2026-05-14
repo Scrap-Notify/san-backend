@@ -60,7 +60,9 @@ public class ScrapService {
                 contentHash
         );
         if (existingScrap.isPresent()) {
-            return createResponseWithJob(existingScrap.get());
+            Scrap scrap = existingScrap.get();
+            enqueueScrapRefineJobIfNeeded(scrap);
+            return createResponseWithJob(scrap);
         }
 
         Scrap scrap = Scrap.builder()
@@ -73,6 +75,7 @@ public class ScrapService {
                 .build();
 
         Scrap savedScrap = saveScrap(scrap, userId, sourceType, contentHash);
+        enqueueScrapRefineJob(savedScrap.getScrapId());
 
         return createResponseWithJob(savedScrap);
     }
@@ -120,9 +123,38 @@ public class ScrapService {
         }
     }
 
+    /** 원본 정제 작업 등록 */
+    private void enqueueScrapRefineJob(UUID scrapId) {
+        try {
+            asyncJobManager.enqueue(JobType.SCRAP_REFINE, scrapId);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() != CommonErrorCode.DUPLICATE_RESOURCE) {
+                throw e;
+            }
+            findActiveScrapRefineJobId(scrapId)
+                    .orElseThrow(() -> e);
+        }
+    }
+
+    /** 원본 정제 내용이 없으면 정제 작업 등록 */
+    private void enqueueScrapRefineJobIfNeeded(Scrap scrap) {
+        if (isBlank(scrap.getRefinedContent())) {
+            enqueueScrapRefineJob(scrap.getScrapId());
+        }
+    }
+
     /** 진행 중인 지식카드 분석 작업 ID 조회 */
     private Optional<UUID> findActiveCardAnalysisJobId(UUID scrapId) {
         return asyncJobRepository.findByTargetIdAndJobType(scrapId, JobType.CARD_ANALYSIS)
+                .stream()
+                .filter(this::isActiveJob)
+                .map(AsyncJob::getJobId)
+                .findFirst();
+    }
+
+    /** 진행 중인 원본 정제 작업 ID 조회 */
+    private Optional<UUID> findActiveScrapRefineJobId(UUID scrapId) {
+        return asyncJobRepository.findByTargetIdAndJobType(scrapId, JobType.SCRAP_REFINE)
                 .stream()
                 .filter(this::isActiveJob)
                 .map(AsyncJob::getJobId)

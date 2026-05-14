@@ -13,6 +13,8 @@ public enum AiErrorCode implements ErrorCode {
     AI_ANALYSIS_INVALID_RESPONSE(HttpStatus.BAD_GATEWAY, "AI002", "AI 분석 응답이 올바르지 않습니다."),
     AI_TIL_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "AI003", "AI TIL 생성 요청에 실패했습니다."),
     AI_TIL_INVALID_RESPONSE(HttpStatus.BAD_GATEWAY, "AI004", "AI TIL 생성 응답이 올바르지 않습니다."),
+    AI_SCRAP_REFINE_FAILED(HttpStatus.BAD_GATEWAY, "AI005", "AI 원본 정제 요청에 실패했습니다."),
+    AI_SCRAP_REFINE_INVALID_RESPONSE(HttpStatus.BAD_GATEWAY, "AI006", "AI 원본 정제 응답이 올바르지 않습니다."),
     ;
 
     private final HttpStatus status;

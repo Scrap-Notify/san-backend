@@ -26,9 +26,6 @@ public final class AuthRedisKeyPrefix {
     /** 대시보드에서 익스텐션으로 전달하는 일회성 로그인 브릿지 ticket key prefix. */
     public static final String LOGIN_BRIDGE_EXTENSION_TICKET = "auth:bridge:extension:ticket:";
 
-    /** 기존 로그인 브릿지 ticket key prefix. */
-    public static final String LOGIN_BRIDGE_TICKET = LOGIN_BRIDGE_EXTENSION_TICKET;
-
     /** 익스텐션에서 대시보드로 전달하는 일회성 로그인 브릿지 ticket key prefix. */
     public static final String LOGIN_BRIDGE_DASHBOARD_TICKET = "auth:bridge:dashboard:ticket:";
 

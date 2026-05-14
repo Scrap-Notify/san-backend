@@ -15,6 +15,8 @@ public record SearchRequest(
 
         String tag,
 
+        java.util.UUID categoryId,
+
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
         LocalDate fromDate,
 

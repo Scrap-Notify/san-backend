@@ -9,6 +9,7 @@ import com.san.api.domain.knowledge.service.VectorSearchService;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.til.dto.request.TilGenerateRequest;
+import com.san.api.domain.til.dto.request.TilUpdateRequest;
 import com.san.api.domain.til.dto.response.TilGenerationJobResponse;
 import com.san.api.domain.til.dto.response.TilRecallCardsResponse;
 import com.san.api.domain.til.dto.response.TilResponse;
@@ -20,6 +21,8 @@ import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
+import com.san.api.global.exception.errorcode.TilErrorCode;
+import com.san.api.global.external.ai.client.AiEmbeddingClient;
 import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +61,8 @@ class TilServiceTest {
     private KnowledgeCardRepository knowledgeCardRepository;
     @Mock
     private S3PresignedUrlService s3PresignedUrlService;
+    @Mock
+    private AiEmbeddingClient aiEmbeddingClient;
 
     @InjectMocks
     private TilService tilService;
@@ -132,6 +137,50 @@ class TilServiceTest {
         List<TilResponse> response = tilService.getTil(userId, targetDate);
 
         assertThat(response).isEmpty();
+    }
+
+    @Test
+    void updateTil_updatesTitleContentAndEmbedding() {
+        DailySummary summary = buildSummary(summaryId, user, LocalDate.of(2026, 5, 6), "old title", "old content");
+        TilUpdateRequest request = new TilUpdateRequest("new title", "new content");
+        float[] embedding = new float[]{0.3f, 0.4f};
+
+        when(dailySummaryRepository.findBySummaryIdWithUser(summaryId)).thenReturn(Optional.of(summary));
+        when(aiEmbeddingClient.embed(request.content())).thenReturn(embedding);
+
+        TilResponse response = tilService.updateTil(summaryId, userId, request);
+
+        assertThat(response.summaryId()).isEqualTo(summaryId);
+        assertThat(response.title()).isEqualTo("new title");
+        assertThat(response.content()).isEqualTo("new content");
+        assertThat(summary.getEmbedding()).isEqualTo(embedding);
+        verify(aiEmbeddingClient).embed("new content");
+    }
+
+    @Test
+    void updateTil_notFound_throwsException() {
+        TilUpdateRequest request = new TilUpdateRequest("new title", "new content");
+
+        when(dailySummaryRepository.findBySummaryIdWithUser(summaryId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> tilService.updateTil(summaryId, userId, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", TilErrorCode.SUMMARY_NOT_FOUND);
+        verifyNoInteractions(aiEmbeddingClient);
+    }
+
+    @Test
+    void updateTil_otherUser_throwsException() {
+        UUID otherUserId = UUID.randomUUID();
+        DailySummary summary = buildSummary(summaryId, user, LocalDate.of(2026, 5, 6), "old title", "old content");
+        TilUpdateRequest request = new TilUpdateRequest("new title", "new content");
+
+        when(dailySummaryRepository.findBySummaryIdWithUser(summaryId)).thenReturn(Optional.of(summary));
+
+        assertThatThrownBy(() -> tilService.updateTil(summaryId, otherUserId, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", TilErrorCode.SUMMARY_ACCESS_DENIED);
+        verifyNoInteractions(aiEmbeddingClient);
     }
 
     @Test

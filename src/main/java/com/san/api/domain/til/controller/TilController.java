@@ -1,6 +1,7 @@
 package com.san.api.domain.til.controller;
 
 import com.san.api.domain.til.dto.request.TilGenerateRequest;
+import com.san.api.domain.til.dto.request.TilUpdateRequest;
 import com.san.api.domain.til.dto.response.TilGenerationJobResponse;
 import com.san.api.domain.til.dto.response.TilRecallCardsResponse;
 import com.san.api.domain.til.dto.response.TilResponse;
@@ -65,6 +66,27 @@ public class TilController {
 
         UUID userId = currentUserId(authentication);
         List<TilResponse> response = tilService.getTil(userId, date);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * TIL 제목과 내용 수정
+     *
+     * @param authentication 인증 정보
+     * @param summaryId      TIL ID
+     * @param request        TIL 수정 요청
+     * @return 수정된 TIL 응답
+     */
+    @Operation(summary = "TIL 수정", description = "TIL 제목과 내용을 수정")
+    @PatchMapping("/{summaryId}")
+    public ApiResponse<TilResponse> updateTil(
+            Authentication authentication,
+            @PathVariable UUID summaryId,
+            @Valid @RequestBody TilUpdateRequest request) {
+
+        UUID userId = currentUserId(authentication);
+        TilResponse response = tilService.updateTil(summaryId, userId, request);
 
         return ApiResponse.success(response);
     }

@@ -70,12 +70,12 @@ class VectorSearchServiceTest {
     void search_필터없음_결과반환() {
         KnowledgeCard card = buildCard(UUID.randomUUID(), user, new float[]{0.1f, 0.2f});
         when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f, 0.2f});
-        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
                 .thenReturn(List.of(card));
-        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(0.3d)))
+        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d)))
                 .thenReturn(1L);
 
-        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, 0, 10);
+        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, null, 0, 10);
 
         assertThat(response.keyword()).isEqualTo("AOP");
         assertThat(response.totalCount()).isEqualTo(1L);
@@ -87,14 +87,43 @@ class VectorSearchServiceTest {
     void search_태그필터_적용() {
         KnowledgeCard card = buildCard(UUID.randomUUID(), user, new float[]{0.1f, 0.2f});
         when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f, 0.2f});
-        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), eq("Spring"), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), eq("Spring"), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
                 .thenReturn(List.of(card));
-        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), eq("Spring"), isNull(), isNull(), eq(0.3d)))
+        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), eq("Spring"), isNull(), isNull(), isNull(), eq(0.3d)))
                 .thenReturn(1L);
 
-        SearchResponse response = vectorSearchService.search("AOP", userId, "Spring", null, null, 0, 10);
+        SearchResponse response = vectorSearchService.search("AOP", userId, "Spring", null, null, null, 0, 10);
 
         assertThat(response.results()).hasSize(1);
+    }
+
+    @Test
+    void search_카테고리필터_적용() {
+        UUID categoryId = UUID.randomUUID();
+        KnowledgeCard card = buildCard(UUID.randomUUID(), user, new float[]{0.1f, 0.2f});
+        when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f, 0.2f});
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), eq(categoryId), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
+                .thenReturn(List.of(card));
+        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), eq(categoryId), isNull(), isNull(), eq(0.3d)))
+                .thenReturn(1L);
+
+        SearchResponse response = vectorSearchService.search("AOP", userId, null, categoryId, null, null, 0, 10);
+
+        assertThat(response.results()).hasSize(1);
+    }
+
+    @Test
+    void search_카테고리필터_null이면_미적용() {
+        when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f, 0.2f});
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
+                .thenReturn(List.of());
+        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d)))
+                .thenReturn(0L);
+
+        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, null, 0, 10);
+
+        verify(knowledgeCardRepository).searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0));
+        assertThat(response.results()).isEmpty();
     }
 
     @Test
@@ -104,12 +133,12 @@ class VectorSearchServiceTest {
                 buildCard(UUID.randomUUID(), user, new float[]{0.2f})
         );
         when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f});
-        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(0.3d), eq(2), eq(0)))
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d), eq(2), eq(0)))
                 .thenReturn(cards);
-        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(0.3d)))
+        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d)))
                 .thenReturn(5L);
 
-        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, 0, 2);
+        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, null, 0, 2);
 
         assertThat(response.hasNext()).isTrue();
     }
@@ -117,12 +146,12 @@ class VectorSearchServiceTest {
     @Test
     void search_threshold_미달_카드없으면_빈결과반환() {
         when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f, 0.2f});
-        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
                 .thenReturn(List.of());
-        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(0.3d)))
+        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d)))
                 .thenReturn(0L);
 
-        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, 0, 10);
+        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, null, 0, 10);
 
         assertThat(response.results()).isEmpty();
         assertThat(response.totalCount()).isZero();
@@ -133,13 +162,12 @@ class VectorSearchServiceTest {
     void search_threshold_이상_카드만_포함() {
         KnowledgeCard aboveThreshold = buildCard(UUID.randomUUID(), user, new float[]{0.1f, 0.2f});
         when(aiEmbeddingClient.embed("AOP")).thenReturn(new float[]{0.1f, 0.2f});
-        // threshold 조건은 Repository 쿼리에서 처리되므로 mock은 조건 통과한 카드만 반환
-        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
+        when(knowledgeCardRepository.searchByVectorWithFilters(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d), eq(10), eq(0)))
                 .thenReturn(List.of(aboveThreshold));
-        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), eq(0.3d)))
+        when(knowledgeCardRepository.countByVectorFiltersWithThreshold(anyString(), eq(userId), isNull(), isNull(), isNull(), isNull(), eq(0.3d)))
                 .thenReturn(1L);
 
-        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, 0, 10);
+        SearchResponse response = vectorSearchService.search("AOP", userId, null, null, null, null, 0, 10);
 
         assertThat(response.results()).hasSize(1);
         assertThat(response.results().get(0).cardId()).isEqualTo(aboveThreshold.getCardId());
@@ -244,6 +272,20 @@ class VectorSearchServiceTest {
         UUID summaryId = UUID.randomUUID();
         DailySummary summary = buildSummary(summaryId, user, null);
         when(dailySummaryRepository.findById(summaryId)).thenReturn(Optional.of(summary));
+
+        List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId);
+
+        assertThat(result).isEmpty();
+        verifyNoInteractions(knowledgeCardRepository);
+    }
+
+    @Test
+    void findRelatedByTil_원본카드없음_빈리스트반환() {
+        UUID summaryId = UUID.randomUUID();
+        DailySummary summary = buildSummary(summaryId, user, new float[]{0.1f, 0.2f});
+        when(dailySummaryRepository.findById(summaryId)).thenReturn(Optional.of(summary));
+        when(scrapRepository.findCardIdsByUserAndDate(eq(userId), any(LocalDate.class)))
+                .thenReturn(List.of());
 
         List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId);
 

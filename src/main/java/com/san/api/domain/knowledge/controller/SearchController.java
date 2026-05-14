@@ -31,7 +31,7 @@ public class SearchController {
      * 키워드 기반 지식카드 Hybrid 검색 (벡터 + 키워드 병합)
      *
      * @param authentication 인증 정보
-     * @param request        검색 조건 (keyword 필수, tag·categoryId·fromDate·toDate 선택, page 기본값 0, size 기본값 10)
+     * @param request        검색 조건 (keyword 필수, tag·category·fromDate·toDate 선택, page 기본값 0, size 기본값 10)
      * @return 검색 결과 및 페이지 정보
      */
     @Operation(summary = "지식카드 Hybrid 검색", description = "벡터 유사도 검색과 키워드 검색을 병합하여 결과를 반환합니다. 태그·카테고리·날짜 필터 지원.")

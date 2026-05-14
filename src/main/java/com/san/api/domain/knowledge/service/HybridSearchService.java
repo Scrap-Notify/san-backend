@@ -35,7 +35,7 @@ public class HybridSearchService {
 
     /**
      * 키워드를 벡터 검색과 ILIKE 검색으로 동시에 조회하고 결과를 병합하여 반환한다.
-     * tag, categoryId, fromDate, toDate는 null 전달 시 필터 미적용.
+     * tag, category, fromDate, toDate는 null 전달 시 필터 미적용.
      */
     public SearchResponse search(String keyword, UUID userId, String tag, String category,
                                  LocalDate fromDate, LocalDate toDate, int page, int size) {

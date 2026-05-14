@@ -1,6 +1,5 @@
 package com.san.api.domain.knowledge.service;
 
-import com.san.api.domain.knowledge.dto.response.SearchResponse;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.repository.ScrapRepository;
@@ -9,18 +8,17 @@ import com.san.api.domain.til.repository.DailySummaryRepository;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.KnowledgeErrorCode;
 import com.san.api.global.exception.errorcode.TilErrorCode;
-import com.san.api.global.external.ai.client.AiEmbeddingClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * pgvector 기반 유사도 검색 서비스.
- * 자연어 통합 검색과 카드 기반 연관 추천 두 유즈케이스를 제공한다.
+ * pgvector 기반 카드 연관 추천 서비스.
+ * 카드 기준 유사 카드 추천과 TIL 기준 리콜 카드 추천을 제공한다.
+ * 자연어 통합 검색은 HybridSearchService가 담당한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,42 +27,11 @@ public class VectorSearchService {
 
     // pgvector <=> 코사인 거리 기준. 0.3 미만 = 유사도 0.7 초과
     private static final double RECALL_THRESHOLD = 0.3;
-    // 카드 기준 유사 카드 조회에서 허용할 최대 cosine distance.
     private static final double SIMILAR_CARD_DISTANCE_THRESHOLD = 0.3;
 
     private final KnowledgeCardRepository knowledgeCardRepository;
     private final ScrapRepository scrapRepository;
     private final DailySummaryRepository dailySummaryRepository;
-    private final AiEmbeddingClient aiEmbeddingClient;
-
-    /**
-     * 자연어 검색어 기반 지식 카드 유사도 검색.
-     * 검색어를 AI 서버에서 벡터로 변환한 뒤 pgvector로 검색한다.
-     * tag, categoryId, fromDate, toDate는 null 전달 시 필터 미적용.
-     *
-     * @param keyword    사용자 검색어
-     * @param userId     요청자 ID (권한 필터)
-     * @param tag        태그명 필터 (null = 미적용)
-     * @param categoryId 카테고리 ID 필터 (null = 미적용)
-     * @param fromDate   시작일 필터 (null = 미적용)
-     * @param toDate     종료일 필터 (null = 미적용)
-     * @param page       페이지 번호 (0-based)
-     * @param size       페이지 크기
-     * @return 검색 결과 및 페이지 정보 (totalCount, hasNext 포함)
-     */
-    public SearchResponse search(String keyword, UUID userId, String tag, UUID categoryId,
-                                 LocalDate fromDate, LocalDate toDate, int page, int size) {
-        float[] vector = aiEmbeddingClient.embed(keyword);
-        String queryVector = toVectorString(vector);
-
-        int offset = page * size;
-        List<KnowledgeCard> cards = knowledgeCardRepository.searchByVectorWithFilters(
-                queryVector, userId, tag, categoryId, fromDate, toDate, RECALL_THRESHOLD, size, offset);
-        long totalCount = knowledgeCardRepository.countByVectorFiltersWithThreshold(
-                queryVector, userId, tag, categoryId, fromDate, toDate, RECALL_THRESHOLD);
-
-        return SearchResponse.of(keyword, page, size, totalCount, cards);
-    }
 
     /**
      * 카드 기반 연관 카드 추천.
@@ -124,7 +91,6 @@ public class VectorSearchService {
                 queryVector, userId, excludeIds, RECALL_THRESHOLD);
     }
 
-    // float[] → "[0.1, 0.2, ...]" 형식 변환 (pgvector CAST용)
     private String toVectorString(float[] vector) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < vector.length; i++) {

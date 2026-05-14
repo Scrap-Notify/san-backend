@@ -57,28 +57,6 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     );
 
     /**
-     * 벡터 유사도 기반 지식 카드 검색.
-     * knowledge_cards에 user_id가 없으므로 scraps JOIN으로 권한 필터링.
-     */
-    @Query(value = """
-            SELECT kc.card_id, kc.scrap_id, kc.category_id, kc.title, kc.summary,
-                   kc.embedding, kc.created_at, kc.updated_at, kc.is_deleted
-            FROM knowledge_cards kc
-            JOIN scraps s ON kc.scrap_id = s.scrap_id
-            WHERE s.user_id = :userId
-              AND kc.is_deleted = false
-              AND kc.embedding IS NOT NULL
-            ORDER BY kc.embedding <=> CAST(:queryVector AS vector)
-            LIMIT :limit OFFSET :offset
-            """, nativeQuery = true)
-    List<KnowledgeCard> searchByVector(
-            @Param("queryVector") String queryVector,
-            @Param("userId") UUID userId,
-            @Param("limit") int limit,
-            @Param("offset") int offset
-    );
-
-    /**
      * 벡터 유사도 기반 지식 카드 검색 (태그·카테고리·날짜 필터 + 유사도 threshold 포함).
      * tag, categoryId, fromDate, toDate는 null 전달 시 필터 미적용.
      * threshold는 pgvector 코사인 거리 상한값 (거리 < threshold인 카드만 반환).
@@ -163,60 +141,6 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
             @Param("limit") int limit
     );
 
-    /**
-     * 태그·날짜 필터 조건에 맞는 전체 카드 수 조회.
-     */
-    @Query(value = """
-            SELECT COUNT(*)
-            FROM knowledge_cards kc
-            JOIN scraps s ON kc.scrap_id = s.scrap_id
-            WHERE s.user_id = :userId
-              AND kc.is_deleted = false
-              AND kc.embedding IS NOT NULL
-              AND (:tag IS NULL OR EXISTS (
-                  SELECT 1 FROM card_tags ct JOIN tags t ON ct.tag_id = t.tag_id
-                  WHERE ct.card_id = kc.card_id AND t.tag_name = :tag
-              ))
-              AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
-              AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
-            """, nativeQuery = true)
-    long countByVectorFilters(
-            @Param("userId") UUID userId,
-            @Param("tag") String tag,
-            @Param("fromDate") LocalDate fromDate,
-            @Param("toDate") LocalDate toDate
-    );
-
-    /**
-     * 태그·카테고리·날짜 필터 + 유사도 threshold 조건에 맞는 전체 카드 수 조회 (페이지네이션 totalCount용).
-     * searchByVectorWithFilters와 동일 조건을 적용해야 hasNext 계산이 정확함.
-     */
-    @Query(value = """
-            SELECT COUNT(*)
-            FROM knowledge_cards kc
-            JOIN scraps s ON kc.scrap_id = s.scrap_id
-            WHERE s.user_id = :userId
-              AND kc.is_deleted = false
-              AND kc.embedding IS NOT NULL
-              AND (:tag IS NULL OR EXISTS (
-                  SELECT 1 FROM card_tags ct JOIN tags t ON ct.tag_id = t.tag_id
-                  WHERE ct.card_id = kc.card_id AND t.tag_name = :tag
-              ))
-              AND (:categoryId IS NULL OR kc.category_id = CAST(:categoryId AS uuid))
-              AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
-              AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
-              AND kc.embedding <=> CAST(:queryVector AS vector) < :threshold
-            """, nativeQuery = true)
-    long countByVectorFiltersWithThreshold(
-            @Param("queryVector") String queryVector,
-            @Param("userId") UUID userId,
-            @Param("tag") String tag,
-            @Param("categoryId") UUID categoryId,
-            @Param("fromDate") LocalDate fromDate,
-            @Param("toDate") LocalDate toDate,
-            @Param("threshold") double threshold
-    );
-    
     /**
      * 키워드 기반 지식 카드 검색 (title·summary ILIKE).
      * tag, categoryId, fromDate, toDate는 null 전달 시 필터 미적용.

@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -72,6 +73,25 @@ public class KnowledgeCardController {
         KnowledgeCardIdResponse response = knowledgeCardService.getCardIdByScrap(userId, scrapId);
 
         return ApiResponse.success(response);
+    }
+
+    /**
+     * 지식카드 삭제
+     *
+     * @param authentication 인증 정보
+     * @param cardId 지식카드 ID
+     * @return 삭제 처리 결과
+     */
+    @Operation(summary = "지식카드 삭제", description = "지식카드 상세 화면에서 지식카드를 삭제")
+    @DeleteMapping("/{cardId}")
+    public ApiResponse<Void> deleteCard(
+            Authentication authentication,
+            @PathVariable UUID cardId) {
+
+        UUID userId = currentUserId(authentication);
+        knowledgeCardService.deleteCard(userId, cardId);
+
+        return ApiResponse.success(null);
     }
 
     /**

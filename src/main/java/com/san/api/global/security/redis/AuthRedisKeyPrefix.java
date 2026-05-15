@@ -23,8 +23,11 @@ public final class AuthRedisKeyPrefix {
     /** One-time login ticket key prefix for OAuth redirect completion. */
     public static final String GITHUB_LOGIN_TICKET = "github:login:ticket:";
 
-    /** One-time login bridge ticket key prefix between dashboard and extension. */
-    public static final String LOGIN_BRIDGE_TICKET = "auth:bridge:ticket:";
+    /** 대시보드에서 익스텐션으로 전달하는 일회성 로그인 브릿지 ticket key prefix. */
+    public static final String LOGIN_BRIDGE_EXTENSION_TICKET = "auth:bridge:extension:ticket:";
+
+    /** 익스텐션에서 대시보드로 전달하는 일회성 로그인 브릿지 ticket key prefix. */
+    public static final String LOGIN_BRIDGE_DASHBOARD_TICKET = "auth:bridge:dashboard:ticket:";
 
     private AuthRedisKeyPrefix() {
     }

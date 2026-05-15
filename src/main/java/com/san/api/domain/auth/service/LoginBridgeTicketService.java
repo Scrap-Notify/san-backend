@@ -1,13 +1,10 @@
 package com.san.api.domain.auth.service;
 
-import com.san.api.domain.auth.dto.request.LoginBridgeTokenRequest;
 import com.san.api.domain.auth.dto.response.LoginBridgeTicketResponse;
-import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.security.jwt.JwtProvider;
-import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -18,54 +15,48 @@ import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
-public class LoginBridgeService {
-
-    private static final Duration BRIDGE_TICKET_TTL = Duration.ofMinutes(2);
+public class LoginBridgeTicketService {
 
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
-    private final TokenIssueService tokenIssueService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
-     * Dashboard access token을 검증하고 Extension 로그인을 위한 일회용 bridge ticket을 발급합니다.
-     *
-     * @param accessToken 현재 Dashboard 요청의 Bearer access token
-     * @return Extension에서 token pair로 교환할 수 있는 일회용 ticket
+     * 요청 출처 clientType을 확인한 뒤 짧은 수명의 일회성 bridge ticket을 Redis에 저장합니다.
      */
-    public LoginBridgeTicketResponse issueTicket(String accessToken) {
+    public LoginBridgeTicketResponse issueTicket(
+            String accessToken,
+            ClientType sourceClientType,
+            String ticketKeyPrefix,
+            Duration ttl) {
         if (!jwtProvider.validateToken(accessToken) || !jwtProvider.isAccessToken(accessToken)) {
             throw new BusinessException(AuthErrorCode.INVALID_ACCESS_TOKEN);
         }
 
-        if (jwtProvider.getSessionClaims(accessToken).clientType() != ClientType.DASHBOARD) {
+        if (jwtProvider.getSessionClaims(accessToken).clientType() != sourceClientType) {
             throw new BusinessException(AuthErrorCode.INVALID_ACCESS_TOKEN);
         }
 
         String ticket = generateUrlSafeToken();
         redisTemplate.opsForValue().set(
-                AuthRedisKeyPrefix.LOGIN_BRIDGE_TICKET + ticket,
+                ticketKeyPrefix + ticket,
                 jwtProvider.getUserId(accessToken),
-                BRIDGE_TICKET_TTL
+                ttl
         );
 
-        return LoginBridgeTicketResponse.of(ticket, BRIDGE_TICKET_TTL.toSeconds());
+        return LoginBridgeTicketResponse.of(ticket, ttl.toSeconds());
     }
 
     /**
-     * 일회용 bridge ticket을 Extension용 서비스 JWT token pair로 교환합니다.
-     *
-     * @param request Dashboard에서 발급받은 일회용 bridge ticket
-     * @return Extension 클라이언트 유형으로 발급된 access/refresh token pair
+     * bridge ticket을 한 번만 사용할 수 있도록 Redis에서 조회와 삭제를 동시에 수행합니다.
      */
-    public TokenResponse exchangeToken(LoginBridgeTokenRequest request) {
-        String key = AuthRedisKeyPrefix.LOGIN_BRIDGE_TICKET + request.ticket();
-        String userId = redisTemplate.opsForValue().getAndDelete(key);
+    public String consumeTicket(String ticket, String ticketKeyPrefix) {
+        String userId = redisTemplate.opsForValue().getAndDelete(ticketKeyPrefix + ticket);
         if (userId == null) {
             throw new BusinessException(AuthErrorCode.INVALID_LOGIN_BRIDGE_TICKET);
         }
 
-        return tokenIssueService.issueTokenPair(userId, ClientType.EXTENSION);
+        return userId;
     }
 
     private String generateUrlSafeToken() {

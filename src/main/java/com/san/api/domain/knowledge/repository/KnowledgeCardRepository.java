@@ -17,6 +17,16 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     // 수집 원본 기준 지식카드 생성 여부 확인
     boolean existsByScrap_ScrapId(UUID scrapId);
 
+    // 사용자 기준 전체 지식카드 개수 조회
+    long countByScrap_User_UserId(UUID userId);
+
+    // 사용자 기준 오늘 생성된 지식카드 개수 조회
+    long countByScrap_User_UserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+            UUID userId,
+            LocalDateTime startAt,
+            LocalDateTime endAt
+    );
+
     // 수집 원본 기준 생성된 지식카드와 카테고리 조회
     @Query("""
             SELECT kc

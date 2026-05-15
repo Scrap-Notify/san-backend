@@ -112,6 +112,30 @@ class TilGithubContributionServiceTest {
     }
 
     @Test
+    void getContributions_withFutureToDate_limitsRangeToToday() {
+        LocalDate from = LocalDate.of(2026, 5, 10);
+        LocalDate today = LocalDate.of(2026, 5, 15);
+        when(tilGithubCommitRepository.findContributions(
+                userId,
+                TilGithubCommitStatus.COMPLETED,
+                from.atStartOfDay(),
+                today.plusDays(1).atStartOfDay(),
+                null
+        )).thenReturn(List.of(completedCommit("Today", LocalDateTime.of(2026, 5, 15, 8, 0), "sha-today")));
+
+        TilGithubContributionResponse response = service.getContributions(
+                userId,
+                from,
+                LocalDate.of(2026, 5, 20),
+                null
+        );
+
+        assertThat(response.to()).isEqualTo(today);
+        assertThat(response.days()).hasSize(6);
+        assertThat(response.currentStreakDays()).isEqualTo(1);
+    }
+
+    @Test
     void getContributions_withInvalidRange_fails() {
         assertThatThrownBy(() -> service.getContributions(
                 userId,

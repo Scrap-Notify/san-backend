@@ -55,7 +55,8 @@ public class TilGithubContributionService {
             LocalDate to,
             Long githubRepositoryId
     ) {
-        LocalDate resolvedTo = to == null ? LocalDate.now(clock) : to;
+        LocalDate today = LocalDate.now(clock);
+        LocalDate resolvedTo = to == null || to.isAfter(today) ? today : to;
         LocalDate resolvedFrom = from == null ? resolvedTo.minusDays(DEFAULT_LOOKBACK_DAYS - 1L) : from;
         validateRange(resolvedFrom, resolvedTo);
 

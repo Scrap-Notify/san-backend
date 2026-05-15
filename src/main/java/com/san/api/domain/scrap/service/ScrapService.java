@@ -61,8 +61,8 @@ public class ScrapService {
         );
         if (existingScrap.isPresent()) {
             Scrap scrap = existingScrap.get();
-            enqueueScrapRefineJobIfNeeded(scrap);
-            return createResponseWithJob(scrap);
+            UUID refineJobId = enqueueScrapRefineJobIfNeeded(scrap);
+            return createResponseWithJob(scrap, refineJobId);
         }
 
         Scrap scrap = Scrap.builder()
@@ -75,9 +75,9 @@ public class ScrapService {
                 .build();
 
         Scrap savedScrap = saveScrap(scrap, userId, sourceType, contentHash);
-        enqueueScrapRefineJob(savedScrap.getScrapId());
+        UUID refineJobId = enqueueScrapRefineJob(savedScrap.getScrapId());
 
-        return createResponseWithJob(savedScrap);
+        return createResponseWithJob(savedScrap, refineJobId);
     }
 
     /** 스크랩 저장 중 유니크 충돌이 발생하면 기존 스크랩을 재조회 */
@@ -90,16 +90,16 @@ public class ScrapService {
     }
 
     /** 스크랩에 연결된 활성 분석 작업을 조회하거나 새로 등록 */
-    private ScrapResponse createResponseWithJob(Scrap scrap) {
+    private ScrapResponse createResponseWithJob(Scrap scrap, UUID refineJobId) {
         Optional<KnowledgeCard> card = knowledgeCardRepository.findByScrapIdWithCategory(scrap.getScrapId());
         if (card.isPresent()) {
-            return ScrapResponse.from(scrap, null, card.get().getCardId());
+            return ScrapResponse.from(scrap, null, refineJobId, card.get().getCardId());
         }
 
-        UUID jobId = findActiveCardAnalysisJobId(scrap.getScrapId())
+        UUID analysisJobId = findActiveCardAnalysisJobId(scrap.getScrapId())
                 .orElseGet(() -> enqueueCardAnalysisJob(scrap.getScrapId()));
 
-        return ScrapResponse.from(scrap, jobId, null);
+        return ScrapResponse.from(scrap, analysisJobId, refineJobId, null);
     }
 
     private SourceType detectSourceType(String normalizedRawContent, String imageObjectKey) {
@@ -124,23 +124,24 @@ public class ScrapService {
     }
 
     /** 원본 정제 작업 등록 */
-    private void enqueueScrapRefineJob(UUID scrapId) {
+    private UUID enqueueScrapRefineJob(UUID scrapId) {
         try {
-            asyncJobManager.enqueue(JobType.SCRAP_REFINE, scrapId);
+            return asyncJobManager.enqueue(JobType.SCRAP_REFINE, scrapId);
         } catch (BusinessException e) {
             if (e.getErrorCode() != CommonErrorCode.DUPLICATE_RESOURCE) {
                 throw e;
             }
-            findActiveScrapRefineJobId(scrapId)
+            return findActiveScrapRefineJobId(scrapId)
                     .orElseThrow(() -> e);
         }
     }
 
     /** 원본 정제 내용이 없으면 정제 작업 등록 */
-    private void enqueueScrapRefineJobIfNeeded(Scrap scrap) {
+    private UUID enqueueScrapRefineJobIfNeeded(Scrap scrap) {
         if (isBlank(scrap.getRefinedContent())) {
-            enqueueScrapRefineJob(scrap.getScrapId());
+            return enqueueScrapRefineJob(scrap.getScrapId());
         }
+        return null;
     }
 
     /** 진행 중인 지식카드 분석 작업 ID 조회 */

@@ -10,6 +10,7 @@ import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.ai.client.AiScrapRefineClient;
 import com.san.api.global.external.ai.dto.request.AiScrapRefineRequest;
 import com.san.api.global.external.ai.dto.response.AiScrapRefineResponse;
+import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -35,13 +36,16 @@ class ScrapRefineServiceTest {
     @Mock
     private AiScrapRefineClient aiScrapRefineClient;
 
+    @Mock
+    private S3PresignedUrlService s3PresignedUrlService;
+
     @InjectMocks
     private ScrapRefineService scrapRefineService;
 
     @Test
-    void refine_updatesRefinedContent() {
+    void refine_textSource_updatesRefinedContent() {
         UUID scrapId = UUID.randomUUID();
-        Scrap scrap = buildScrap("raw content");
+        Scrap scrap = buildScrap(SourceType.TEXT, null, "raw content", null);
 
         when(scrapRepository.findById(scrapId)).thenReturn(Optional.of(scrap));
         when(aiScrapRefineClient.refine(org.mockito.ArgumentMatchers.any(AiScrapRefineRequest.class)))
@@ -51,8 +55,46 @@ class ScrapRefineServiceTest {
 
         ArgumentCaptor<AiScrapRefineRequest> captor = ArgumentCaptor.forClass(AiScrapRefineRequest.class);
         verify(aiScrapRefineClient).refine(captor.capture());
-        assertThat(captor.getValue().inputType()).isEqualTo(SourceType.TEXT.name());
+        assertThat(captor.getValue().inputType()).isEqualTo("text");
         assertThat(captor.getValue().content()).isEqualTo("raw content");
+        assertThat(scrap.getRefinedContent()).isEqualTo("refined content");
+    }
+
+    @Test
+    void refine_linkSource_usesSourceUrlFirst() {
+        UUID scrapId = UUID.randomUUID();
+        Scrap scrap = buildScrap(SourceType.LINK, "https://example.com/article", "raw content", null);
+
+        when(scrapRepository.findById(scrapId)).thenReturn(Optional.of(scrap));
+        when(aiScrapRefineClient.refine(org.mockito.ArgumentMatchers.any(AiScrapRefineRequest.class)))
+                .thenReturn(new AiScrapRefineResponse("refined content"));
+
+        scrapRefineService.refine(scrapId);
+
+        ArgumentCaptor<AiScrapRefineRequest> captor = ArgumentCaptor.forClass(AiScrapRefineRequest.class);
+        verify(aiScrapRefineClient).refine(captor.capture());
+        assertThat(captor.getValue().inputType()).isEqualTo("url");
+        assertThat(captor.getValue().content()).isEqualTo("https://example.com/article");
+        assertThat(scrap.getRefinedContent()).isEqualTo("refined content");
+    }
+
+    @Test
+    void refine_imageSource_usesPresignedUrl() {
+        UUID scrapId = UUID.randomUUID();
+        Scrap scrap = buildScrap(SourceType.IMAGE, null, "raw content", "images/test.png");
+
+        when(scrapRepository.findById(scrapId)).thenReturn(Optional.of(scrap));
+        when(s3PresignedUrlService.createDownloadPresignedUrl("images/test.png"))
+                .thenReturn("https://cdn.example.com/images/test.png");
+        when(aiScrapRefineClient.refine(org.mockito.ArgumentMatchers.any(AiScrapRefineRequest.class)))
+                .thenReturn(new AiScrapRefineResponse("refined content"));
+
+        scrapRefineService.refine(scrapId);
+
+        ArgumentCaptor<AiScrapRefineRequest> captor = ArgumentCaptor.forClass(AiScrapRefineRequest.class);
+        verify(aiScrapRefineClient).refine(captor.capture());
+        assertThat(captor.getValue().inputType()).isEqualTo("image");
+        assertThat(captor.getValue().content()).isEqualTo("https://cdn.example.com/images/test.png");
         assertThat(scrap.getRefinedContent()).isEqualTo("refined content");
     }
 
@@ -67,7 +109,7 @@ class ScrapRefineServiceTest {
         verifyNoInteractions(aiScrapRefineClient);
     }
 
-    private Scrap buildScrap(String rawContent) {
+    private Scrap buildScrap(SourceType sourceType, String sourceUrl, String rawContent, String imageObjectKey) {
         User user = User.builder()
                 .username("testuser")
                 .provider(AuthProvider.LOCAL)
@@ -75,9 +117,11 @@ class ScrapRefineServiceTest {
 
         return Scrap.builder()
                 .user(user)
-                .sourceType(SourceType.TEXT)
+                .sourceType(sourceType)
+                .sourceUrl(sourceUrl)
                 .rawContent(rawContent)
                 .contentHash("hash")
+                .imageObjectKey(imageObjectKey)
                 .build();
     }
 }

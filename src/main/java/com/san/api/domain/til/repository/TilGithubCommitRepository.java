@@ -6,7 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,4 +39,25 @@ public interface TilGithubCommitRepository extends JpaRepository<TilGithubCommit
             WHERE tgc.tilGithubCommitId = :commitId
             """)
     Optional<TilGithubCommit> findByIdWithSummaryAndRepository(@Param("commitId") UUID commitId);
+
+    /** contribution 잔디 집계를 위해 기간 내 완료된 TIL GitHub 커밋 이력을 조회합니다. */
+    @Query("""
+            SELECT tgc
+            FROM TilGithubCommit tgc
+            JOIN FETCH tgc.dailySummary ds
+            JOIN FETCH tgc.githubRepositoryConnection grc
+            WHERE ds.user.userId = :userId
+              AND tgc.status = :status
+              AND tgc.pushedAt >= :from
+              AND tgc.pushedAt < :to
+              AND (:githubRepositoryId IS NULL OR grc.githubRepositoryId = :githubRepositoryId)
+            ORDER BY tgc.pushedAt DESC
+            """)
+    List<TilGithubCommit> findContributions(
+            @Param("userId") UUID userId,
+            @Param("status") TilGithubCommitStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("githubRepositoryId") Long githubRepositoryId
+    );
 }

@@ -13,6 +13,9 @@ import java.util.UUID;
 /** DailySummary Repository */
 public interface DailySummaryRepository extends JpaRepository<DailySummary, UUID> {
 
+    // 사용자 기준 전체 TIL 개수 조회
+    long countByUser_UserId(UUID userId);
+
     /**
      * 사용자와 대상 날짜 기준 DailySummary 조회
      *

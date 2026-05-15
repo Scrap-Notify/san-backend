@@ -11,7 +11,7 @@ public record AiScrapRefineRequest(
     public AiTilRequest toTilRequest() {
         return new AiTilRequest(
                 List.of(new AiTilContentRequest(inputType, content)),
-                false
+                true
         );
     }
 }

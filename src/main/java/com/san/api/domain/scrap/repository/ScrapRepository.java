@@ -59,4 +59,24 @@ public interface ScrapRepository extends JpaRepository<Scrap, UUID> {
             @Param("activeStatuses") List<JobStatus> activeStatuses
     );
 
+    /**
+     * refinedContent가 없고 활성 SCRAP_REFINE 잡도 없는 고아 스크랩 조회.
+     * Ghost Job 복구 대상(PENDING/PROCESSING 잡 존재)과 겹치지 않도록 활성 잡 조건으로 제외한다.
+     */
+    @Query("""
+            SELECT s FROM Scrap s
+            WHERE s.isDeleted = false
+              AND (s.refinedContent IS NULL OR TRIM(s.refinedContent) = '')
+              AND NOT EXISTS (
+                  SELECT aj FROM AsyncJob aj
+                  WHERE aj.targetId = s.scrapId
+                    AND aj.jobType = :jobType
+                    AND aj.status IN :activeStatuses
+              )
+            """)
+    List<Scrap> findOrphanScrapRefines(
+            @Param("jobType") JobType jobType,
+            @Param("activeStatuses") List<JobStatus> activeStatuses
+    );
+
 }

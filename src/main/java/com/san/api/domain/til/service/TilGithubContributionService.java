@@ -16,10 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -75,7 +74,7 @@ public class TilGithubContributionService {
                 resolvedTo,
                 commits.size(),
                 (int) countsByDate.values().stream().filter(count -> count > 0).count(),
-                calculateCurrentStreak(resolvedFrom, resolvedTo, countsByDate),
+                calculateCurrentStreak(resolvedFrom, resolvedTo, today, countsByDate),
                 calculateLongestStreak(resolvedFrom, resolvedTo, countsByDate),
                 days,
                 createRepositoryStats(commits),
@@ -133,9 +132,17 @@ public class TilGithubContributionService {
         return 4;
     }
 
-    private int calculateCurrentStreak(LocalDate from, LocalDate to, Map<LocalDate, Integer> countsByDate) {
+    private int calculateCurrentStreak(
+            LocalDate from,
+            LocalDate to,
+            LocalDate today,
+            Map<LocalDate, Integer> countsByDate
+    ) {
+        LocalDate startDate = to.equals(today) && countsByDate.getOrDefault(today, 0) == 0
+                ? today.minusDays(1)
+                : to;
         int streak = 0;
-        for (LocalDate date = to; !date.isBefore(from); date = date.minusDays(1)) {
+        for (LocalDate date = startDate; !date.isBefore(from); date = date.minusDays(1)) {
             if (countsByDate.getOrDefault(date, 0) == 0) {
                 break;
             }
@@ -159,14 +166,12 @@ public class TilGithubContributionService {
     }
 
     private List<TilGithubContributionRepositoryResponse> createRepositoryStats(List<TilGithubCommit> commits) {
-        Map<Long, RepositoryStat> stats = new LinkedHashMap<>();
-        commits.stream()
-                .sorted(Comparator.comparing(TilGithubCommit::getPushedAt, Comparator.nullsLast(LocalDateTime::compareTo)))
-                .forEach(commit -> {
-                    GithubRepositoryConnection repository = commit.getGithubRepositoryConnection();
-                    stats.computeIfAbsent(repository.getGithubRepositoryId(), ignored -> new RepositoryStat(repository))
-                            .increment();
-                });
+        Map<Long, RepositoryStat> stats = new HashMap<>();
+        commits.forEach(commit -> {
+            GithubRepositoryConnection repository = commit.getGithubRepositoryConnection();
+            stats.computeIfAbsent(repository.getGithubRepositoryId(), ignored -> new RepositoryStat(repository))
+                    .increment();
+        });
 
         return stats.values().stream()
                 .sorted(Comparator.comparingInt(RepositoryStat::count).reversed())

@@ -136,6 +136,27 @@ class TilGithubContributionServiceTest {
     }
 
     @Test
+    void getContributions_withoutTodayCommit_keepsStreakThroughYesterday() {
+        LocalDate from = LocalDate.of(2026, 5, 10);
+        LocalDate today = LocalDate.of(2026, 5, 15);
+        List<TilGithubCommit> commits = List.of(
+                completedCommit("Yesterday", LocalDateTime.of(2026, 5, 14, 8, 0), "sha-yesterday"),
+                completedCommit("BeforeYesterday", LocalDateTime.of(2026, 5, 13, 8, 0), "sha-before-yesterday")
+        );
+        when(tilGithubCommitRepository.findContributions(
+                userId,
+                TilGithubCommitStatus.COMPLETED,
+                from.atStartOfDay(),
+                today.plusDays(1).atStartOfDay(),
+                null
+        )).thenReturn(commits);
+
+        TilGithubContributionResponse response = service.getContributions(userId, from, today, null);
+
+        assertThat(response.currentStreakDays()).isEqualTo(2);
+    }
+
+    @Test
     void getContributions_withInvalidRange_fails() {
         assertThatThrownBy(() -> service.getContributions(
                 userId,

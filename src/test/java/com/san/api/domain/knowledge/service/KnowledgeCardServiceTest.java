@@ -16,6 +16,7 @@ import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.KnowledgeErrorCode;
 import com.san.api.global.exception.errorcode.ScrapErrorCode;
+import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,6 +48,8 @@ class KnowledgeCardServiceTest {
     private AsyncJobManager asyncJobManager;
     @Mock
     private VectorSearchService vectorSearchService;
+    @Mock
+    private S3PresignedUrlService s3PresignedUrlService;
 
     @InjectMocks
     private KnowledgeCardService knowledgeCardService;
@@ -66,6 +70,8 @@ class KnowledgeCardServiceTest {
     @Test
     void getCardDetail_returnsDetailResponse() {
         KnowledgeCard card = buildCard(user);
+        LocalDateTime collectedAt = LocalDateTime.of(2026, 5, 15, 10, 30);
+        ReflectionTestUtils.setField(card.getScrap(), "createdAt", collectedAt);
         CardTag springTag = new CardTag(card, Tag.builder().tagName("Spring").build());
         CardTag javaTag = new CardTag(card, Tag.builder().tagName("Java").build());
 
@@ -76,13 +82,49 @@ class KnowledgeCardServiceTest {
 
         KnowledgeCardDetailResponse response = knowledgeCardService.getCardDetail(userId, card.getCardId());
 
-        assertThat(response.title()).isEqualTo("지식카드 제목");
+        assertThat(response.title()).isEqualTo("Knowledge card title");
         assertThat(response.categoryId()).isEqualTo(card.getCategory().getCategoryId());
         assertThat(response.categoryName()).isEqualTo("Backend");
-        assertThat(response.rawContent()).isEqualTo("원본 내용");
-        assertThat(response.refinedContent()).isEqualTo("정제된 원본 내용");
-        assertThat(response.summary()).isEqualTo("3줄 요약");
+        assertThat(response.sourceType()).isEqualTo(SourceType.TEXT);
+        assertThat(response.sourceContent()).isEqualTo("raw content");
+        assertThat(response.refinedContent()).isEqualTo("refined content");
+        assertThat(response.summary()).isEqualTo("summary");
         assertThat(response.tags()).containsExactly("Spring", "Java");
+        assertThat(response.collectedAt()).isEqualTo(collectedAt);
+    }
+
+    @Test
+    void getCardDetail_returnsImageSourceContentForImageScrap() {
+        String imageObjectKey = "scrap/images/%s/image.png".formatted(userId);
+        String imageUrl = "https://bucket.s3.amazonaws.com/scrap/images/image.png?signature=test";
+        KnowledgeCard card = buildCard(user, SourceType.IMAGE, null, null, imageObjectKey);
+
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(card.getCardId()))
+                .thenReturn(Optional.of(card));
+        when(cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card)))
+                .thenReturn(List.of());
+        when(s3PresignedUrlService.createDownloadPresignedUrl(imageObjectKey)).thenReturn(imageUrl);
+
+        KnowledgeCardDetailResponse response = knowledgeCardService.getCardDetail(userId, card.getCardId());
+
+        assertThat(response.sourceType()).isEqualTo(SourceType.IMAGE);
+        assertThat(response.sourceContent()).isEqualTo(imageUrl);
+    }
+
+    @Test
+    void getCardDetail_returnsLinkSourceContentForLinkScrap() {
+        String sourceUrl = "https://example.com/article";
+        KnowledgeCard card = buildCard(user, SourceType.LINK, sourceUrl, null, null);
+
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(card.getCardId()))
+                .thenReturn(Optional.of(card));
+        when(cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card)))
+                .thenReturn(List.of());
+
+        KnowledgeCardDetailResponse response = knowledgeCardService.getCardDetail(userId, card.getCardId());
+
+        assertThat(response.sourceType()).isEqualTo(SourceType.LINK);
+        assertThat(response.sourceContent()).isEqualTo(sourceUrl);
     }
 
     @Test
@@ -167,7 +209,21 @@ class KnowledgeCardServiceTest {
     }
 
     private KnowledgeCard buildCard(User owner) {
+        return buildCard(owner, SourceType.TEXT, null, "raw content", null);
+    }
+
+    private KnowledgeCard buildCard(
+            User owner,
+            SourceType sourceType,
+            String sourceUrl,
+            String rawContent,
+            String imageObjectKey
+    ) {
         Scrap scrap = buildScrap(owner);
+        ReflectionTestUtils.setField(scrap, "sourceType", sourceType);
+        ReflectionTestUtils.setField(scrap, "sourceUrl", sourceUrl);
+        ReflectionTestUtils.setField(scrap, "rawContent", rawContent);
+        ReflectionTestUtils.setField(scrap, "imageObjectKey", imageObjectKey);
         Category category = Category.builder()
                 .user(owner)
                 .categoryName("Backend")
@@ -175,8 +231,8 @@ class KnowledgeCardServiceTest {
         return KnowledgeCard.builder()
                 .scrap(scrap)
                 .category(category)
-                .title("지식카드 제목")
-                .summary("3줄 요약")
+                .title("Knowledge card title")
+                .summary("summary")
                 .embedding(new float[]{0.1f, 0.2f})
                 .build();
     }
@@ -185,8 +241,8 @@ class KnowledgeCardServiceTest {
         return Scrap.builder()
                 .user(owner)
                 .sourceType(SourceType.TEXT)
-                .rawContent("원본 내용")
-                .refinedContent("정제된 원본 내용")
+                .rawContent("raw content")
+                .refinedContent("refined content")
                 .build();
     }
 }

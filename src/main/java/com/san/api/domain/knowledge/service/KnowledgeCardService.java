@@ -12,6 +12,7 @@ import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.knowledge.repository.CardTagRepository;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.entity.Scrap;
+import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.scrap.repository.ScrapRepository;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
@@ -19,6 +20,7 @@ import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.KnowledgeErrorCode;
 import com.san.api.global.exception.errorcode.ScrapErrorCode;
+import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class KnowledgeCardService {
     private final CardTagRepository cardTagRepository;
     private final AsyncJobManager asyncJobManager;
     private final VectorSearchService vectorSearchService;
+    private final S3PresignedUrlService s3PresignedUrlService;
 
     /**
      * 저장된 수집 원본 기반 지식카드 AI 분석 작업 등록
@@ -127,7 +130,7 @@ public class KnowledgeCardService {
         validateCardOwner(card, userId);
 
         List<CardTag> cardTags = cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card));
-        return KnowledgeCardDetailResponse.from(card, cardTags);
+        return KnowledgeCardDetailResponse.from(card, cardTags, createSourceContent(card.getScrap()));
     }
 
     /**
@@ -196,5 +199,25 @@ public class KnowledgeCardService {
         if (knowledgeCardRepository.existsByScrap_ScrapId(scrapId)) {
             throw new BusinessException(KnowledgeErrorCode.CARD_ALREADY_EXISTS);
         }
+    }
+
+    private String createSourceContent(Scrap scrap) {
+        if (scrap.getSourceType() == SourceType.IMAGE) {
+            return createImageUrl(scrap.getImageObjectKey());
+        }
+
+        if (scrap.getSourceType() == SourceType.LINK) {
+            return scrap.getSourceUrl();
+        }
+
+        return scrap.getRawContent();
+    }
+
+    private String createImageUrl(String imageObjectKey) {
+        if (imageObjectKey == null || imageObjectKey.trim().isEmpty()) {
+            return null;
+        }
+
+        return s3PresignedUrlService.createDownloadPresignedUrl(imageObjectKey);
     }
 }

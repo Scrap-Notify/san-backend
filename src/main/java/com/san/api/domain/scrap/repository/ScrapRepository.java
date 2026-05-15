@@ -66,7 +66,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, UUID> {
     @Query("""
             SELECT s FROM Scrap s
             WHERE s.isDeleted = false
-              AND s.refinedContent IS NULL
+              AND (s.refinedContent IS NULL OR TRIM(s.refinedContent) = '')
               AND NOT EXISTS (
                   SELECT aj FROM AsyncJob aj
                   WHERE aj.targetId = s.scrapId

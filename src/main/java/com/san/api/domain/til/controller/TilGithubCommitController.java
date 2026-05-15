@@ -1,6 +1,8 @@
 package com.san.api.domain.til.controller;
 
+import com.san.api.domain.til.dto.response.TilGithubContributionResponse;
 import com.san.api.domain.til.dto.response.TilGithubCommitJobResponse;
+import com.san.api.domain.til.service.TilGithubContributionService;
 import com.san.api.domain.til.service.TilGithubCommitService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -12,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /** TIL GitHub 커밋 API Controller */
@@ -22,6 +25,7 @@ import java.util.UUID;
 public class TilGithubCommitController {
 
     private final TilGithubCommitService tilGithubCommitService;
+    private final TilGithubContributionService tilGithubContributionService;
 
     /**
      * TIL GitHub 커밋 작업을 등록합니다.
@@ -43,6 +47,24 @@ public class TilGithubCommitController {
         );
 
         return ApiResponse.success(TilGithubCommitJobResponse.from(result));
+    }
+
+    @Operation(summary = "TIL GitHub contribution 조회", description = "서비스에서 GitHub로 성공적으로 커밋한 TIL 기록을 잔디 UI용으로 조회합니다.")
+    @GetMapping("/github-commits/contributions")
+    public ApiResponse<TilGithubContributionResponse> getGithubContributions(
+            Authentication authentication,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(required = false) Long githubRepositoryId) {
+
+        TilGithubContributionResponse response = tilGithubContributionService.getContributions(
+                currentUserId(authentication),
+                from,
+                to,
+                githubRepositoryId
+        );
+
+        return ApiResponse.success(response);
     }
 
     private UUID currentUserId(Authentication authentication) {

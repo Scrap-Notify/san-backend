@@ -1,5 +1,6 @@
 package com.san.api.domain.archive.service;
 
+import com.san.api.domain.archive.dto.response.ArchiveCardTagRelationResponse;
 import com.san.api.domain.archive.dto.response.ArchiveCategoryCardListResponse;
 import com.san.api.domain.archive.dto.response.ArchiveCategoryListResponse;
 import com.san.api.domain.knowledge.entity.CardTag;
@@ -7,6 +8,7 @@ import com.san.api.domain.knowledge.entity.Category;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.knowledge.entity.Tag;
 import com.san.api.domain.knowledge.repository.CardTagRepository;
+import com.san.api.domain.knowledge.repository.CardTagRepository.CardTagRelationProjection;
 import com.san.api.domain.knowledge.repository.CategoryRepository;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.entity.Scrap;
@@ -15,6 +17,7 @@ import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
+import com.san.api.global.exception.errorcode.KnowledgeErrorCode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,6 +30,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -146,6 +151,120 @@ class ArchiveServiceTest {
                 .hasMessage(CommonErrorCode.RESOURCE_NOT_FOUND.getMessage());
     }
 
+    @Test
+    void getCardTagRelations_returnsRelatedCardsWithMatchedTags() {
+        User user = createUser();
+        UUID userId = user.getUserId();
+        Category backendCategory = createCategory(user, "백엔드");
+        Category securityCategory = createCategory(user, "보안");
+        KnowledgeCard selectedCard = createCard(user, backendCategory, "JWT 인증");
+        Tag jwtTag = createTag("JWT");
+        Tag springTag = createTag("Spring");
+        UUID relatedCardId = UUID.randomUUID();
+        UUID securityCardId = UUID.randomUUID();
+
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(selectedCard.getCardId()))
+                .thenReturn(Optional.of(selectedCard));
+        when(cardTagRepository.findAllByCardIdWithTag(selectedCard.getCardId()))
+                .thenReturn(List.of(
+                        new CardTag(selectedCard, jwtTag),
+                        new CardTag(selectedCard, springTag)
+                ));
+        when(cardTagRepository.findRelatedCardTagRelations(
+                userId,
+                selectedCard.getCardId(),
+                List.of(jwtTag.getTagId(), springTag.getTagId())
+        )).thenReturn(List.of(
+                new TestCardTagRelationProjection(
+                        relatedCardId,
+                        backendCategory.getCategoryId(),
+                        "백엔드",
+                        "Spring Security",
+                        jwtTag.getTagId(),
+                        "JWT",
+                        2
+                ),
+                new TestCardTagRelationProjection(
+                        relatedCardId,
+                        backendCategory.getCategoryId(),
+                        "백엔드",
+                        "Spring Security",
+                        springTag.getTagId(),
+                        "Spring",
+                        2
+                ),
+                new TestCardTagRelationProjection(
+                        securityCardId,
+                        securityCategory.getCategoryId(),
+                        "보안",
+                        "토큰 보안",
+                        jwtTag.getTagId(),
+                        "JWT",
+                        1
+                )
+        ));
+
+        ArchiveCardTagRelationResponse response = archiveService.getCardTagRelations(userId, selectedCard.getCardId());
+
+        assertThat(response.selectedCardId()).isEqualTo(selectedCard.getCardId());
+        assertThat(response.relatedCards()).hasSize(2);
+        assertThat(response.relatedCards()).extracting("cardId")
+                .containsExactly(relatedCardId, securityCardId);
+        assertThat(response.relatedCards()).extracting("matchedTagCount")
+                .containsExactly(2L, 1L);
+        assertThat(response.relatedCards().get(0).matchedTags()).extracting("tagName")
+                .containsExactly("JWT", "Spring");
+        assertThat(response.relatedCards().get(1).matchedTags()).extracting("tagName")
+                .containsExactly("JWT");
+    }
+
+    @Test
+    void getCardTagRelations_returnsEmptyRelatedCardsWhenSelectedCardHasNoTags() {
+        User user = createUser();
+        UUID userId = user.getUserId();
+        Category category = createCategory(user, "백엔드");
+        KnowledgeCard selectedCard = createCard(user, category, "태그 없는 카드");
+
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(selectedCard.getCardId()))
+                .thenReturn(Optional.of(selectedCard));
+        when(cardTagRepository.findAllByCardIdWithTag(selectedCard.getCardId()))
+                .thenReturn(List.of());
+
+        ArchiveCardTagRelationResponse response = archiveService.getCardTagRelations(userId, selectedCard.getCardId());
+
+        assertThat(response.selectedCardId()).isEqualTo(selectedCard.getCardId());
+        assertThat(response.relatedCards()).isEmpty();
+        verify(cardTagRepository, never()).findRelatedCardTagRelations(any(), any(), anyList());
+    }
+
+    @Test
+    void getCardTagRelations_throwsExceptionWhenSelectedCardNotFound() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(cardId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> archiveService.getCardTagRelations(userId, cardId))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(KnowledgeErrorCode.CARD_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    void getCardTagRelations_throwsExceptionWhenSelectedCardOwnedByOtherUser() {
+        User owner = createUser();
+        User otherUser = createUser();
+        Category category = createCategory(owner, "백엔드");
+        KnowledgeCard selectedCard = createCard(owner, category, "다른 사용자 카드");
+
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(selectedCard.getCardId()))
+                .thenReturn(Optional.of(selectedCard));
+
+        assertThatThrownBy(() -> archiveService.getCardTagRelations(otherUser.getUserId(), selectedCard.getCardId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(KnowledgeErrorCode.CARD_ACCESS_DENIED.getMessage());
+    }
+
     private record TestCategoryCardCountProjection(
             UUID categoryId,
             String categoryName,
@@ -165,6 +284,52 @@ class ArchiveServiceTest {
         @Override
         public long getCardCount() {
             return cardCount;
+        }
+    }
+
+    private record TestCardTagRelationProjection(
+            UUID cardId,
+            UUID categoryId,
+            String categoryName,
+            String title,
+            UUID tagId,
+            String tagName,
+            long matchedTagCount
+    ) implements CardTagRelationProjection {
+
+        @Override
+        public UUID getCardId() {
+            return cardId;
+        }
+
+        @Override
+        public UUID getCategoryId() {
+            return categoryId;
+        }
+
+        @Override
+        public String getCategoryName() {
+            return categoryName;
+        }
+
+        @Override
+        public String getTitle() {
+            return title;
+        }
+
+        @Override
+        public UUID getTagId() {
+            return tagId;
+        }
+
+        @Override
+        public String getTagName() {
+            return tagName;
+        }
+
+        @Override
+        public long getMatchedTagCount() {
+            return matchedTagCount;
         }
     }
 

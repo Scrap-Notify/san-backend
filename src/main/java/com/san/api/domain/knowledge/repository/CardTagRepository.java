@@ -70,7 +70,7 @@ public interface CardTagRepository extends JpaRepository<CardTag, CardTagId> {
             WHERE s.user.userId = :userId
               AND kc.cardId <> :selectedCardId
               AND t.tagId IN :tagIds
-            ORDER BY matchedTagCount DESC, kc.updatedAt DESC, kc.createdAt DESC
+            ORDER BY kc.updatedAt DESC, kc.createdAt DESC
             """)
     List<CardTagRelationProjection> findRelatedCardTagRelations(
             @Param("userId") UUID userId,

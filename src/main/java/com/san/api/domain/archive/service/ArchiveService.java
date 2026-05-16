@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -119,13 +119,14 @@ public class ArchiveService {
         Map<UUID, List<CardTagRelationProjection>> relationsByCardId = cardTagRepository
                 .findRelatedCardTagRelations(userId, cardId, tagIds)
                 .stream()
-                .collect(Collectors.groupingBy(CardTagRelationProjection::getCardId));
+                .collect(Collectors.groupingBy(
+                        CardTagRelationProjection::getCardId,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
 
         List<ArchiveRelatedCardResponse> relatedCards = relationsByCardId.values().stream()
                 .map(this::toRelatedCardResponse)
-                .sorted(Comparator
-                        .comparingLong(ArchiveRelatedCardResponse::matchedTagCount).reversed()
-                        .thenComparing(ArchiveRelatedCardResponse::title))
                 .toList();
 
         return new ArchiveCardTagRelationResponse(cardId, relatedCards);

@@ -1,5 +1,6 @@
 package com.san.api.domain.archive.controller;
 
+import com.san.api.domain.archive.dto.response.ArchiveCategoryCardListResponse;
 import com.san.api.domain.archive.dto.response.ArchiveCategoryListResponse;
 import com.san.api.domain.archive.service.ArchiveService;
 import com.san.api.global.exception.BusinessException;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,6 +37,25 @@ public class ArchiveController {
     public ApiResponse<ArchiveCategoryListResponse> getCategories(Authentication authentication) {
         UUID userId = currentUserId(authentication);
         ArchiveCategoryListResponse response = archiveService.getCategories(userId);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 아카이브 카테고리별 지식카드 목록 조회
+     *
+     * @param authentication 인증 정보
+     * @param categoryId 카테고리 ID
+     * @return 카테고리별 지식카드 목록 응답
+     */
+    @Operation(summary = "아카이브 카테고리별 지식카드 조회", description = "선택한 카테고리에 속한 지식카드 목록을 최신순으로 조회")
+    @GetMapping("/categories/{categoryId}/cards")
+    public ApiResponse<ArchiveCategoryCardListResponse> getCategoryCards(
+            Authentication authentication,
+            @PathVariable UUID categoryId) {
+
+        UUID userId = currentUserId(authentication);
+        ArchiveCategoryCardListResponse response = archiveService.getCategoryCards(userId, categoryId);
 
         return ApiResponse.success(response);
     }

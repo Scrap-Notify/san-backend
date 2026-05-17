@@ -48,6 +48,28 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     List<KnowledgeCard> findByScrap_User_UserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
 
     /**
+     * 아카이브 카테고리 기준 지식카드 목록 조회
+     *
+     * @param userId 사용자 ID
+     * @param categoryId 카테고리 ID
+     * @return 카테고리에 속한 지식카드 목록
+     */
+    @Query("""
+            SELECT kc
+            FROM KnowledgeCard kc
+            JOIN kc.scrap s
+            JOIN FETCH kc.category c
+            WHERE s.user.userId = :userId
+              AND c.user.userId = :userId
+              AND c.categoryId = :categoryId
+            ORDER BY kc.updatedAt DESC, kc.createdAt DESC
+            """)
+    List<KnowledgeCard> findArchiveCardsByCategory(
+            @Param("userId") UUID userId,
+            @Param("categoryId") UUID categoryId
+    );
+
+    /**
      * 지식카드 상세 조회를 위한 원본 포함 단건 조회
      *
      * @param cardId 지식카드 ID

@@ -15,6 +15,9 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
     // 사용자와 카테고리명 기준 카테고리 조회
     Optional<Category> findByUser_UserIdAndCategoryName(UUID userId, String categoryName);
 
+    // 사용자와 카테고리 ID 기준 카테고리 조회
+    Optional<Category> findByCategoryIdAndUser_UserId(UUID categoryId, UUID userId);
+
     /**
      * 아카이브 카테고리 목록과 카테고리별 지식카드 개수를 조회
      *

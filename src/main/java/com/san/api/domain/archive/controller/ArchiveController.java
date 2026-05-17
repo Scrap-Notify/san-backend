@@ -1,5 +1,6 @@
 package com.san.api.domain.archive.controller;
 
+import com.san.api.domain.archive.dto.response.ArchiveCardTagRelationResponse;
 import com.san.api.domain.archive.dto.response.ArchiveCategoryCardListResponse;
 import com.san.api.domain.archive.dto.response.ArchiveCategoryListResponse;
 import com.san.api.domain.archive.service.ArchiveService;
@@ -56,6 +57,25 @@ public class ArchiveController {
 
         UUID userId = currentUserId(authentication);
         ArchiveCategoryCardListResponse response = archiveService.getCategoryCards(userId, categoryId);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 아카이브 카드 태그 연관도 조회
+     *
+     * @param authentication 인증 정보
+     * @param cardId 선택 지식카드 ID
+     * @return 태그가 겹치는 지식카드 목록 응답
+     */
+    @Operation(summary = "아카이브 카드 태그 연관도 조회", description = "선택한 지식카드와 태그가 겹치는 로그인 사용자의 전체 지식카드를 조회")
+    @GetMapping("/cards/{cardId}/tag-relations")
+    public ApiResponse<ArchiveCardTagRelationResponse> getCardTagRelations(
+            Authentication authentication,
+            @PathVariable UUID cardId) {
+
+        UUID userId = currentUserId(authentication);
+        ArchiveCardTagRelationResponse response = archiveService.getCardTagRelations(userId, cardId);
 
         return ApiResponse.success(response);
     }

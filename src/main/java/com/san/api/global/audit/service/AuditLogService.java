@@ -25,19 +25,20 @@ public class AuditLogService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UUID save(AuditLogCreateCommand command) {
+        AuditLogCreateCommand sanitizedCommand = AuditLogSanitizer.sanitize(command);
         AuditLogEvent event = AuditLogEvent.builder()
-                .actorUser(getActorUserReference(command.actorUserId()))
-                .traceId(command.traceId())
-                .eventDomain(command.eventDomain())
-                .eventType(command.eventType())
-                .targetType(command.targetType())
-                .targetId(command.targetId())
-                .outcome(command.outcome())
-                .failureReasonCode(command.failureReasonCode())
-                .failureMessage(command.failureMessage())
-                .ipAddress(command.ipAddress())
-                .userAgent(command.userAgent())
-                .metadata(command.metadata())
+                .actorUser(getActorUserReference(sanitizedCommand.actorUserId()))
+                .traceId(sanitizedCommand.traceId())
+                .eventDomain(sanitizedCommand.eventDomain())
+                .eventType(sanitizedCommand.eventType())
+                .targetType(sanitizedCommand.targetType())
+                .targetId(sanitizedCommand.targetId())
+                .outcome(sanitizedCommand.outcome())
+                .failureReasonCode(sanitizedCommand.failureReasonCode())
+                .failureMessage(sanitizedCommand.failureMessage())
+                .ipAddress(sanitizedCommand.ipAddress())
+                .userAgent(sanitizedCommand.userAgent())
+                .metadata(sanitizedCommand.metadata())
                 .build();
 
         return auditLogEventRepository.save(event).getAuditLogEventId();

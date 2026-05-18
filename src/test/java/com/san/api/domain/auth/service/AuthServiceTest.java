@@ -178,6 +178,35 @@ class AuthServiceTest {
 
         verify(redisTemplate).delete(familyKey);
         verify(setOperations).remove(indexKey, familyKey);
+        verify(authAuditService).recordFailure(
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.TOKEN_REUSE_DETECTED),
+                org.mockito.ArgumentMatchers.eq(com.san.api.global.exception.errorcode.AuthErrorCode.INVALID_REFRESH_TOKEN),
+                org.mockito.ArgumentMatchers.argThat(metadata -> "family-id".equals(metadata.get("familyId")))
+        );
+    }
+
+    @Test
+    void loginRecordsLockTriggeredSecurityEventWhenMaxFailCountReached() {
+        User user = localUser();
+        when(userRepository.findByUsername("dahyeon")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong-password", user.getPasswordHash())).thenReturn(false);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.increment(AuthRedisKeyPrefix.LOGIN_FAIL + "dahyeon")).thenReturn(5L);
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest("dahyeon", "wrong-password", ClientType.DASHBOARD)))
+                .isInstanceOf(com.san.api.global.exception.BusinessException.class);
+
+        verify(redisTemplate).delete(AuthRedisKeyPrefix.LOGIN_FAIL + "dahyeon");
+        verify(authAuditService).recordFailure(
+                org.mockito.ArgumentMatchers.eq(user.getUserId()),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.LOGIN_LOCK_TRIGGERED),
+                org.mockito.ArgumentMatchers.eq(com.san.api.global.exception.errorcode.AuthErrorCode.ACCOUNT_LOCKED),
+                org.mockito.ArgumentMatchers.argThat(metadata ->
+                        Long.valueOf(5L).equals(metadata.get("failCount"))
+                                && Integer.valueOf(5).equals(metadata.get("maxFailCount"))
+                                && metadata.containsKey("lockedUntil"))
+        );
     }
 
     @Test

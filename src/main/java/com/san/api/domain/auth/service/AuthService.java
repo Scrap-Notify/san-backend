@@ -154,13 +154,21 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            Long failCount = handleLoginFailure(user);
+            LoginFailureResult failureResult = handleLoginFailure(user);
             authAuditService.recordFailure(
                     user.getUserId(),
                     AuditEventType.LOGIN_FAILURE,
                     AuthErrorCode.INVALID_CREDENTIALS,
-                    loginMetadata(request, user, failCount)
+                    loginMetadata(request, user, failureResult.failCount())
             );
+            if (failureResult.lockedUntil() != null) {
+                authAuditService.recordFailure(
+                        user.getUserId(),
+                        AuditEventType.LOGIN_LOCK_TRIGGERED,
+                        AuthErrorCode.ACCOUNT_LOCKED,
+                        loginLockMetadata(request, user, failureResult)
+                );
+            }
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
         }
 
@@ -213,7 +221,7 @@ public class AuthService {
             log.warn("[Auth] Refresh Token 재사용 감지 - userId={}, familyId={}", userId, familyId);
             authAuditService.recordFailure(
                     userUuid,
-                    AuditEventType.TOKEN_REISSUE_FAILURE,
+                    AuditEventType.TOKEN_REUSE_DETECTED,
                     AuthErrorCode.INVALID_REFRESH_TOKEN,
                     reissueMetadata(sessionClaims, sessionId, familyId)
             );
@@ -300,7 +308,7 @@ public class AuthService {
         );
     }
 
-    private Long handleLoginFailure(User user) {
+    private LoginFailureResult handleLoginFailure(User user) {
         String failKey = AuthRedisKeyPrefix.LOGIN_FAIL + user.getUsername();
         Long count = redisTemplate.opsForValue().increment(failKey);
 
@@ -316,7 +324,7 @@ public class AuthService {
             redisTemplate.delete(failKey);
             log.warn("[Auth] 계정 잠금 - username={}, lockedUntil={}", user.getUsername(), lockUntil);
         }
-        return count;
+        return new LoginFailureResult(count, user.getLockedUntil());
     }
 
     private void resetFailCount(String username) {
@@ -404,12 +412,22 @@ public class AuthService {
         return metadata;
     }
 
+    private Map<String, Object> loginLockMetadata(LoginRequest request, User user, LoginFailureResult failureResult) {
+        Map<String, Object> metadata = loginMetadata(request, user, failureResult.failCount());
+        metadata.put("lockedUntil", failureResult.lockedUntil().toString());
+        metadata.put("maxFailCount", maxFailCount);
+        return metadata;
+    }
+
     private Map<String, Object> reissueMetadata(JwtSessionClaims sessionClaims, String sessionId, String familyId) {
         return Map.of(
                 "clientType", sessionClaims.clientType().name(),
                 "sessionId", sessionId,
                 "familyId", familyId
         );
+    }
+
+    private record LoginFailureResult(Long failCount, LocalDateTime lockedUntil) {
     }
 
 }

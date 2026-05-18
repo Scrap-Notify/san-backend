@@ -2,6 +2,7 @@ package com.san.api.domain.auth.service;
 
 import com.san.api.domain.auth.dto.response.AuthSessionListResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.security.jwt.JwtProvider;
 import com.san.api.global.security.jwt.JwtSessionClaims;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
@@ -44,13 +45,16 @@ class AuthSessionServiceTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
+    @Mock
+    private AuthAuditService authAuditService;
+
     private AuthSessionKeyService authSessionKeyService;
     private AuthSessionService authSessionService;
 
     @BeforeEach
     void setUp() {
         authSessionKeyService = new AuthSessionKeyService();
-        authSessionService = new AuthSessionService(jwtProvider, redisTemplate, authSessionKeyService);
+        authSessionService = new AuthSessionService(jwtProvider, redisTemplate, authSessionKeyService, authAuditService);
     }
 
     @Test
@@ -106,6 +110,15 @@ class AuthSessionServiceTest {
 
         verify(redisTemplate).delete(refreshKey);
         verify(setOperations).remove(indexKey, refreshKey);
+        verify(authAuditService).recordSuccess(
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.SESSION_REVOKED),
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.argThat(metadata ->
+                        "EXTENSION".equals(metadata.get("clientType"))
+                                && "session-id".equals(metadata.get("sessionId"))
+                                && Boolean.FALSE.equals(metadata.get("currentSession")))
+        );
     }
 
     @Test
@@ -129,5 +142,14 @@ class AuthSessionServiceTest {
         verify(redisTemplate).delete(refreshKey);
         verify(setOperations).remove(indexKey, refreshKey);
         verify(valueOperations).set(AuthRedisKeyPrefix.BLACKLIST + accessToken, "1", Duration.ofMillis(1000L));
+        verify(authAuditService).recordSuccess(
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.SESSION_REVOKED),
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.argThat(metadata ->
+                        "DASHBOARD".equals(metadata.get("clientType"))
+                                && "current-session".equals(metadata.get("sessionId"))
+                                && Boolean.TRUE.equals(metadata.get("currentSession")))
+        );
     }
 }

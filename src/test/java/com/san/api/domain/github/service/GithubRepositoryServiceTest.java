@@ -9,6 +9,8 @@ import com.san.api.domain.github.repository.GithubRepositoryConnectionRepository
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.audit.entity.AuditEventType;
+import com.san.api.global.audit.entity.AuditTargetType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
@@ -27,6 +29,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +53,9 @@ class GithubRepositoryServiceTest {
     @Mock
     private AesGcmStringEncryptor encryptor;
 
+    @Mock
+    private GithubAuditService githubAuditService;
+
     private GithubRepositoryService githubRepositoryService;
     private User user;
     private UUID userId;
@@ -63,7 +69,8 @@ class GithubRepositoryServiceTest {
                 githubAccountRepository,
                 connectionRepository,
                 userRepository,
-                encryptor
+                encryptor,
+                githubAuditService
         );
         user = User.builder()
                 .provider(AuthProvider.GITHUB)
@@ -92,6 +99,13 @@ class GithubRepositoryServiceTest {
         assertThat(responses.get(0).fullName()).isEqualTo("octocat/algorithm");
         verify(encryptor).decrypt("encrypted-token");
         verify(githubApiClient).findRepositories("plain-token");
+        verify(githubAuditService).recordSuccess(
+                eq(userId),
+                eq(AuditEventType.GITHUB_API_SUCCEEDED),
+                eq(AuditTargetType.GITHUB_REPOSITORY),
+                eq(userId),
+                any()
+        );
     }
 
     @Test
@@ -112,6 +126,13 @@ class GithubRepositoryServiceTest {
         assertThat(response.defaultBranch()).isEqualTo("main");
         verify(connectionRepository, never()).deleteAllByUser_UserId(userId);
         verify(connectionRepository).save(any(GithubRepositoryConnection.class));
+        verify(githubAuditService).recordSuccess(
+                eq(userId),
+                eq(AuditEventType.GITHUB_API_SUCCEEDED),
+                eq(AuditTargetType.GITHUB_REPOSITORY),
+                any(UUID.class),
+                any()
+        );
     }
 
     @Test
@@ -151,6 +172,14 @@ class GithubRepositoryServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(AuthErrorCode.GITHUB_REPOSITORY_NOT_FOUND);
+        verify(githubAuditService).recordFailure(
+                eq(userId),
+                eq(AuditEventType.GITHUB_API_FAILED),
+                eq(AuditTargetType.GITHUB_REPOSITORY),
+                eq(userId),
+                eq(AuthErrorCode.GITHUB_REPOSITORY_NOT_FOUND),
+                any()
+        );
     }
 
     private void mockGithubRepositoryLookup() {

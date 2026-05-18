@@ -1,15 +1,14 @@
-package com.san.api.domain.auth.service;
+package com.san.api.domain.github.service;
 
 import com.san.api.global.audit.context.AuditRequestContext;
 import com.san.api.global.audit.context.AuditRequestContextHolder;
 import com.san.api.global.audit.dto.AuditLogCreateCommand;
 import com.san.api.global.audit.entity.AuditEventDomain;
 import com.san.api.global.audit.entity.AuditEventType;
-import com.san.api.global.audit.entity.AuditFailureReason;
 import com.san.api.global.audit.entity.AuditOutcome;
 import com.san.api.global.audit.entity.AuditTargetType;
 import com.san.api.global.audit.service.AuditLogService;
-import com.san.api.global.exception.errorcode.AuthErrorCode;
+import com.san.api.global.exception.errorcode.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,27 +18,37 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Auth 도메인 감사 이벤트를 구조화해 저장하는 전용 서비스.
- *
- * AuthService가 인증 흐름에만 집중할 수 있도록 AuditLogCreateCommand 조립,
- * 요청 컨텍스트(traceId, IP, User-Agent) 주입, 저장 실패 방어를 담당한다.
+ * GitHub 외부 연동 도메인의 감사 이벤트를 생성해 저장하는 서비스입니다.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AuthAuditService {
+public class GithubAuditService {
+
+    private static final String FAILURE_REASON_PREFIX = "GITHUB.";
 
     private final AuditLogService auditLogService;
 
+    /**
+     * GitHub 외부 연동 성공 이벤트를 감사 로그로 저장합니다.
+     *
+     * @param actorUserId 행위를 수행한 사용자 ID
+     * @param eventType 기록할 감사 이벤트 유형
+     * @param targetType 감사 대상 리소스 유형
+     * @param targetId 감사 대상 리소스 ID
+     * @param metadata 추가 분석용 메타데이터
+     */
     public void recordSuccess(
             UUID actorUserId,
             AuditEventType eventType,
+            AuditTargetType targetType,
             UUID targetId,
             Map<String, Object> metadata
     ) {
         saveSafely(newCommand(
                 actorUserId,
                 eventType,
+                targetType,
                 targetId,
                 AuditOutcome.SUCCESS,
                 null,
@@ -48,20 +57,32 @@ public class AuthAuditService {
         ));
     }
 
+    /**
+     * GitHub 외부 연동 실패 이벤트를 표준 실패 코드와 함께 감사 로그로 저장합니다.
+     *
+     * @param actorUserId 행위를 수행한 사용자 ID
+     * @param eventType 기록할 감사 이벤트 유형
+     * @param targetType 감사 대상 리소스 유형
+     * @param targetId 감사 대상 리소스 ID
+     * @param errorCode 실패 원인이 된 도메인 에러 코드
+     * @param metadata 추가 분석용 메타데이터
+     */
     public void recordFailure(
             UUID actorUserId,
             AuditEventType eventType,
-            AuthErrorCode errorCode,
+            AuditTargetType targetType,
+            UUID targetId,
+            ErrorCode errorCode,
             Map<String, Object> metadata
     ) {
-        AuditFailureReason failureReason = AuditFailureReason.from(errorCode);
         saveSafely(newCommand(
                 actorUserId,
                 eventType,
-                actorUserId,
+                targetType,
+                targetId,
                 AuditOutcome.FAILURE,
-                failureReason.code(),
-                failureReason.message(),
+                failureReasonCode(errorCode),
+                errorCode == null ? null : errorCode.getMessage(),
                 failureMetadata(errorCode, metadata)
         ));
     }
@@ -69,6 +90,7 @@ public class AuthAuditService {
     private AuditLogCreateCommand newCommand(
             UUID actorUserId,
             AuditEventType eventType,
+            AuditTargetType targetType,
             UUID targetId,
             AuditOutcome outcome,
             String failureReasonCode,
@@ -79,9 +101,9 @@ public class AuthAuditService {
         return new AuditLogCreateCommand(
                 actorUserId,
                 context == null ? null : context.traceId(),
-                AuditEventDomain.AUTH,
+                AuditEventDomain.GITHUB,
                 eventType,
-                AuditTargetType.USER.code(),
+                targetType.code(),
                 targetId,
                 outcome,
                 failureReasonCode,
@@ -97,7 +119,7 @@ public class AuthAuditService {
             auditLogService.save(command);
         } catch (RuntimeException e) {
             log.warn(
-                    "[Auth] 감사 이벤트 저장 실패 - eventType={}, outcome={}, actorUserId={}",
+                    "[GitHub] 감사 이벤트 저장 실패 - eventType={}, outcome={}, actorUserId={}",
                     command.eventType(),
                     command.outcome(),
                     command.actorUserId(),
@@ -106,7 +128,14 @@ public class AuthAuditService {
         }
     }
 
-    private Map<String, Object> failureMetadata(AuthErrorCode errorCode, Map<String, Object> metadata) {
+    private String failureReasonCode(ErrorCode errorCode) {
+        if (errorCode == null) {
+            return FAILURE_REASON_PREFIX + "UNKNOWN_FAILURE";
+        }
+        return FAILURE_REASON_PREFIX + errorCode.getCode();
+    }
+
+    private Map<String, Object> failureMetadata(ErrorCode errorCode, Map<String, Object> metadata) {
         Map<String, Object> merged = new LinkedHashMap<>();
         if (metadata != null) {
             merged.putAll(metadata);

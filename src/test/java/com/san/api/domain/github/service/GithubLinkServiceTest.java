@@ -6,9 +6,12 @@ import com.san.api.domain.github.repository.GithubRepositoryConnectionRepository
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.audit.entity.AuditEventType;
+import com.san.api.global.audit.entity.AuditTargetType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
+import com.san.api.global.external.github.dto.response.GithubAccessTokenResponse;
 import com.san.api.global.external.github.dto.response.GithubUserProfileResponse;
 import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
@@ -56,6 +59,9 @@ class GithubLinkServiceTest {
     @Mock
     private AesGcmStringEncryptor encryptor;
 
+    @Mock
+    private GithubAuditService githubAuditService;
+
     private GithubLinkService githubLinkService;
 
     @BeforeEach
@@ -66,7 +72,8 @@ class GithubLinkServiceTest {
                 githubAccountRepository,
                 connectionRepository,
                 redisTemplate,
-                encryptor
+                encryptor,
+                githubAuditService
         );
     }
 
@@ -144,6 +151,35 @@ class GithubLinkServiceTest {
         assertThat(result.repositoryConnected()).isTrue();
         assertThat(result.connectedRepository().githubRepositoryId()).isEqualTo(100L);
         assertThat(result.connectedRepository().fullName()).isEqualTo("octocat/til");
+    }
+
+    @Test
+    void linkGithubAccountRecordsAuditSuccess() {
+        User user = User.builder()
+                .username("localuser")
+                .passwordHash("password")
+                .provider(AuthProvider.LOCAL)
+                .build();
+        UUID userId = user.getUserId();
+        GithubUserProfileResponse profile = new GithubUserProfileResponse(1L, "octocat");
+        GithubAccount githubAccount = new GithubAccount(user, "1", "octocat", "encrypted-token");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(githubApiClient.requestAccessToken("code"))
+                .thenReturn(new GithubAccessTokenResponse("github-token", "bearer", "repo"));
+        when(githubApiClient.findUserProfile("github-token")).thenReturn(profile);
+        when(encryptor.encrypt("github-token")).thenReturn("encrypted-token");
+        when(githubAccountRepository.findByGithubUserId("1")).thenReturn(Optional.empty());
+        when(githubAccountRepository.save(any(GithubAccount.class))).thenReturn(githubAccount);
+
+        githubLinkService.linkGithubAccount(userId, "code");
+
+        verify(githubAuditService).recordSuccess(
+                eq(userId),
+                eq(AuditEventType.GITHUB_TOKEN_LINKED),
+                eq(AuditTargetType.GITHUB_ACCOUNT),
+                eq(githubAccount.getGithubAccountId()),
+                any()
+        );
     }
 
     @Test

@@ -8,6 +8,8 @@ import com.san.api.domain.github.repository.GithubRepositoryConnectionRepository
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.audit.entity.AuditEventType;
+import com.san.api.global.audit.entity.AuditTargetType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +43,7 @@ public class GithubLinkService {
     private final GithubRepositoryConnectionRepository connectionRepository;
     private final StringRedisTemplate redisTemplate;
     private final AesGcmStringEncryptor encryptor;
+    private final GithubAuditService githubAuditService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public String createLinkAuthorizationRedirectUrl(UUID userId) {
@@ -81,54 +85,114 @@ public class GithubLinkService {
 
     @Transactional
     public void linkGithubAccount(UUID userId, String code) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
-        GithubAccessTokenResponse tokenResponse = githubApiClient.requestAccessToken(code);
-        GithubUserProfileResponse profile = githubApiClient.findUserProfile(tokenResponse.accessToken());
+            GithubAccessTokenResponse tokenResponse = githubApiClient.requestAccessToken(code);
+            GithubUserProfileResponse profile = githubApiClient.findUserProfile(tokenResponse.accessToken());
 
-        saveGithubAccount(user, profile, tokenResponse.accessToken());
+            GithubAccount account = saveGithubAccount(user, profile, tokenResponse.accessToken());
+            githubAuditService.recordSuccess(
+                    userId,
+                    AuditEventType.GITHUB_TOKEN_LINKED,
+                    AuditTargetType.GITHUB_ACCOUNT,
+                    account.getGithubAccountId(),
+                    githubAccountMetadata(profile.login(), profile.id().toString())
+            );
+        } catch (BusinessException e) {
+            githubAuditService.recordFailure(
+                    userId,
+                    AuditEventType.GITHUB_API_FAILED,
+                    AuditTargetType.GITHUB_ACCOUNT,
+                    userId,
+                    e.getErrorCode(),
+                    Map.of("operation", "LINK_ACCOUNT")
+            );
+            throw e;
+        } catch (RuntimeException e) {
+            githubAuditService.recordFailure(
+                    userId,
+                    AuditEventType.GITHUB_API_FAILED,
+                    AuditTargetType.GITHUB_ACCOUNT,
+                    userId,
+                    null,
+                    Map.of("operation", "LINK_ACCOUNT", "exceptionType", e.getClass().getSimpleName())
+            );
+            throw e;
+        }
     }
 
     @Transactional
-    public void saveGithubAccount(User user, GithubUserProfileResponse profile, String accessToken) {
+    public GithubAccount saveGithubAccount(User user, GithubUserProfileResponse profile, String accessToken) {
         String githubUserId = profile.id().toString();
         String encryptedToken = encryptor.encrypt(accessToken);
 
-        githubAccountRepository.findByGithubUserId(githubUserId)
-                .ifPresentOrElse(
-                        account -> updateOwnAccount(account, user, profile.login(), encryptedToken),
-                        () -> githubAccountRepository.save(
-                                new GithubAccount(user, githubUserId, profile.login(), encryptedToken)
-                        )
-                );
+        return githubAccountRepository.findByGithubUserId(githubUserId)
+                .map(account -> updateOwnAccount(account, user, profile.login(), encryptedToken))
+                .orElseGet(() -> githubAccountRepository.save(
+                        new GithubAccount(user, githubUserId, profile.login(), encryptedToken)
+                ));
     }
 
     @Transactional
     public void unlinkGithubAccount(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
-        if (user.getProvider() == AuthProvider.GITHUB) {
-            throw new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_UNLINK_NOT_ALLOWED);
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
+            if (user.getProvider() == AuthProvider.GITHUB) {
+                throw new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_UNLINK_NOT_ALLOWED);
+            }
+
+            GithubAccount githubAccount = githubAccountRepository.findByUser_UserId(userId)
+                    .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED));
+
+            connectionRepository.deleteAllByUser_UserId(userId);
+            githubAccountRepository.deleteByUser_UserId(userId);
+            githubAuditService.recordSuccess(
+                    userId,
+                    AuditEventType.GITHUB_API_SUCCEEDED,
+                    AuditTargetType.GITHUB_ACCOUNT,
+                    githubAccount.getGithubAccountId(),
+                    githubAccountMetadata(githubAccount.getGithubUsername(), githubAccount.getGithubUserId(),
+                            "UNLINK_ACCOUNT")
+            );
+        } catch (BusinessException e) {
+            githubAuditService.recordFailure(
+                    userId,
+                    AuditEventType.GITHUB_API_FAILED,
+                    AuditTargetType.GITHUB_ACCOUNT,
+                    userId,
+                    e.getErrorCode(),
+                    Map.of("operation", "UNLINK_ACCOUNT")
+            );
+            throw e;
         }
-
-        githubAccountRepository.findByUser_UserId(userId)
-                .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED));
-
-        connectionRepository.deleteAllByUser_UserId(userId);
-        githubAccountRepository.deleteByUser_UserId(userId);
     }
 
-    private void updateOwnAccount(GithubAccount account, User user, String githubUsername, String encryptedToken) {
+    private GithubAccount updateOwnAccount(GithubAccount account, User user, String githubUsername, String encryptedToken) {
         if (!account.getUser().getUserId().equals(user.getUserId())) {
             throw new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_ALREADY_LINKED);
         }
         account.updateToken(githubUsername, encryptedToken);
+        return account;
     }
 
     private String generateUrlSafeToken() {
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private Map<String, Object> githubAccountMetadata(String githubUsername, String githubUserId) {
+        return githubAccountMetadata(githubUsername, githubUserId, "LINK_ACCOUNT");
+    }
+
+    private Map<String, Object> githubAccountMetadata(String githubUsername, String githubUserId, String operation) {
+        return Map.of(
+                "operation", operation,
+                "githubUsername", githubUsername,
+                "githubUserId", githubUserId
+        );
     }
 }

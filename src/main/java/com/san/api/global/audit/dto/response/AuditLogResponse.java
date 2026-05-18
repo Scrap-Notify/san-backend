@@ -29,7 +29,7 @@ public record AuditLogResponse(
     public static AuditLogResponse from(AuditLogEvent event) {
         return new AuditLogResponse(
                 event.getAuditLogEventId(),
-                event.getActorUser() == null ? null : event.getActorUser().getUserId(),
+                event.getActorUserId(),
                 event.getTraceId(),
                 event.getEventDomain(),
                 event.getEventType(),

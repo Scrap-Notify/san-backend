@@ -1,12 +1,10 @@
 package com.san.api.global.audit.service;
 
-import com.san.api.domain.user.entity.User;
 import com.san.api.global.audit.dto.request.AuditLogSearchRequest;
 import com.san.api.global.audit.dto.response.AuditLogPageResponse;
 import com.san.api.global.audit.dto.response.AuditLogResponse;
 import com.san.api.global.audit.entity.AuditLogEvent;
 import com.san.api.global.audit.repository.AuditLogEventRepository;
-import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -46,8 +44,7 @@ public class AuditLogQueryService {
             List<Predicate> predicates = new ArrayList<>();
 
             if (request.actorUserId() != null) {
-                Join<AuditLogEvent, User> actorUser = root.join("actorUser");
-                predicates.add(criteriaBuilder.equal(actorUser.get("userId"), request.actorUserId()));
+                predicates.add(criteriaBuilder.equal(root.get("actorUserId"), request.actorUserId()));
             }
             if (hasText(request.traceId())) {
                 predicates.add(criteriaBuilder.equal(root.get("traceId"), request.traceId().trim()));

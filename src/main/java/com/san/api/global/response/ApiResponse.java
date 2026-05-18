@@ -1,6 +1,7 @@
 package com.san.api.global.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.san.api.global.audit.context.AuditRequestContextHolder;
 import com.san.api.global.exception.errorcode.ErrorCode;
 
 import java.time.Instant;
@@ -21,6 +22,7 @@ public record ApiResponse<T>(
         T data,
         String error,
         String message,
+        String traceId,
         Instant timestamp) {
 
     /**
@@ -30,7 +32,7 @@ public record ApiResponse<T>(
      * @return ok=true, data 포함 응답
      */
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(true, data, null, null, Instant.now());
+        return new ApiResponse<>(true, data, null, null, null, Instant.now());
     }
 
     /**
@@ -39,7 +41,7 @@ public record ApiResponse<T>(
      * @return ok=true, data=null 응답
      */
     public static <T> ApiResponse<T> success() {
-        return new ApiResponse<>(true, null, null, null, Instant.now());
+        return new ApiResponse<>(true, null, null, null, null, Instant.now());
     }
 
     /**
@@ -50,6 +52,12 @@ public record ApiResponse<T>(
      * @return ok=false, error/message 포함 응답
      */
     public static <T> ApiResponse<T> error(ErrorCode errorCode, String message) {
-        return new ApiResponse<>(false, null, errorCode.getCode(), message, Instant.now());
+        return new ApiResponse<>(false, null, errorCode.getCode(), message, currentTraceId(), Instant.now());
+    }
+
+    private static String currentTraceId() {
+        return AuditRequestContextHolder.get()
+                .map(context -> context.traceId())
+                .orElse(null);
     }
 }

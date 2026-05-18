@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 /**
  * 감사 로그에 기록할 세부 이벤트 타입.
  *
- * 사용자 주요 행위와 외부 연동 처리 결과를 코드화해 저장
- * 실패 이벤트는 {@code failureReasonCode}, {@code metadata}, {@code traceId}와 함께 장애 원인 분석에 활용
+ * 사용자 주요 행위와 외부 연동 처리 결과를 코드화해 저장한다.
+ * 실패 이벤트는 failureReasonCode, metadata, traceId와 함께 장애 원인 분석에 활용한다.
  */
 @Getter
 @RequiredArgsConstructor
@@ -16,6 +16,10 @@ public enum AuditEventType {
     LOGIN_FAILURE("로그인 실패"),
     LOGOUT_SUCCESS("로그아웃 성공"),
     LOGOUT_FAILURE("로그아웃 실패"),
+    LOGIN_BRIDGE_TICKET_ISSUED("로그인 브리지 티켓 발급"),
+    LOGIN_BRIDGE_TICKET_ISSUE_FAILED("로그인 브리지 티켓 발급 실패"),
+    LOGIN_BRIDGE_TOKEN_EXCHANGED("로그인 브리지 토큰 교환"),
+    LOGIN_BRIDGE_TOKEN_EXCHANGE_FAILED("로그인 브리지 토큰 교환 실패"),
     TOKEN_REISSUE_SUCCESS("토큰 재발급 성공"),
     TOKEN_REISSUE_FAILURE("토큰 재발급 실패"),
     SIGNUP("회원가입"),

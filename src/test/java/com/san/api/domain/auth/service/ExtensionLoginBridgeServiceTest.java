@@ -4,6 +4,9 @@ import com.san.api.domain.auth.dto.request.ExtensionBridgeTokenRequest;
 import com.san.api.domain.auth.dto.response.LoginBridgeTicketResponse;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.global.audit.entity.AuditEventType;
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +18,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,28 +31,45 @@ class ExtensionLoginBridgeServiceTest {
     @Mock
     private TokenIssueService tokenIssueService;
 
+    @Mock
+    private AuthAuditService authAuditService;
+
     private ExtensionLoginBridgeService extensionLoginBridgeService;
 
     @BeforeEach
     void setUp() {
-        extensionLoginBridgeService = new ExtensionLoginBridgeService(loginBridgeTicketService, tokenIssueService);
+        extensionLoginBridgeService = new ExtensionLoginBridgeService(
+                loginBridgeTicketService,
+                tokenIssueService,
+                authAuditService
+        );
     }
 
     @Test
     void issueTicketDelegatesDashboardToExtensionBridge() {
         String accessToken = "dashboard-access-token";
+        String userId = UUID.randomUUID().toString();
         LoginBridgeTicketResponse ticketResponse = LoginBridgeTicketResponse.of("bridge-ticket", 120L);
 
-        when(loginBridgeTicketService.issueTicket(
+        when(loginBridgeTicketService.issueTicketWithContext(
                 accessToken,
                 ClientType.DASHBOARD,
                 AuthRedisKeyPrefix.LOGIN_BRIDGE_EXTENSION_TICKET,
                 Duration.ofMinutes(2)
-        )).thenReturn(ticketResponse);
+        )).thenReturn(new LoginBridgeTicketIssueResult(userId, ClientType.DASHBOARD, ticketResponse));
 
         LoginBridgeTicketResponse result = extensionLoginBridgeService.issueTicket(accessToken);
 
         assertThat(result).isEqualTo(ticketResponse);
+        verify(authAuditService).recordSuccess(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.LOGIN_BRIDGE_TICKET_ISSUED),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.argThat(metadata ->
+                        "DASHBOARD_TO_EXTENSION".equals(metadata.get("flow"))
+                                && "DASHBOARD".equals(metadata.get("sourceClientType"))
+                                && "EXTENSION".equals(metadata.get("targetClientType")))
+        );
     }
 
     @Test
@@ -65,5 +86,34 @@ class ExtensionLoginBridgeServiceTest {
 
         assertThat(result).isEqualTo(tokenResponse);
         verify(tokenIssueService).issueTokenPair(userId, ClientType.EXTENSION);
+        verify(authAuditService).recordSuccess(
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.LOGIN_BRIDGE_TOKEN_EXCHANGED),
+                org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
+                org.mockito.ArgumentMatchers.argThat(metadata ->
+                        "DASHBOARD_TO_EXTENSION".equals(metadata.get("flow"))
+                                && "DASHBOARD".equals(metadata.get("sourceClientType"))
+                                && "EXTENSION".equals(metadata.get("targetClientType")))
+        );
+    }
+
+    @Test
+    void exchangeTokenRecordsFailureWhenTicketIsInvalid() {
+        String ticket = "missing-ticket";
+        when(loginBridgeTicketService.consumeTicket(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_EXTENSION_TICKET))
+                .thenThrow(new BusinessException(AuthErrorCode.INVALID_LOGIN_BRIDGE_TICKET));
+
+        assertThatThrownBy(() -> extensionLoginBridgeService.exchangeToken(new ExtensionBridgeTokenRequest(ticket)))
+                .isInstanceOf(BusinessException.class);
+
+        verify(authAuditService).recordFailure(
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(AuditEventType.LOGIN_BRIDGE_TOKEN_EXCHANGE_FAILED),
+                org.mockito.ArgumentMatchers.eq(AuthErrorCode.INVALID_LOGIN_BRIDGE_TICKET),
+                org.mockito.ArgumentMatchers.argThat(metadata ->
+                        "DASHBOARD_TO_EXTENSION".equals(metadata.get("flow"))
+                                && "DASHBOARD".equals(metadata.get("sourceClientType"))
+                                && "EXTENSION".equals(metadata.get("targetClientType")))
+        );
     }
 }

@@ -10,6 +10,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,6 +35,8 @@ import java.util.UUID;
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AuditLogEvent {
+
+    private static final ChronoUnit DATABASE_TIMESTAMP_PRECISION = ChronoUnit.MICROS;
 
     @Id
     @Column(name = "audit_log_event_id", columnDefinition = "uuid", updatable = false, nullable = false)
@@ -118,7 +121,7 @@ public class AuditLogEvent {
         this.ipAddress = ipAddress;
         this.userAgent = userAgent;
         this.metadata = metadata;
-        this.occurredAt = LocalDateTime.now();
+        this.occurredAt = LocalDateTime.now().truncatedTo(DATABASE_TIMESTAMP_PRECISION);
     }
 
     public void updateIntegrityHash(String integrityHash) {

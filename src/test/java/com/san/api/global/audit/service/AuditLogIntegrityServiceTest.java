@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,6 +35,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 class AuditLogIntegrityServiceTest {
+
+    private static final UUID ACTOR_USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final UUID OTHER_USER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
     @Mock
     private AuditLogEventRepository auditLogEventRepository;
@@ -47,9 +51,10 @@ class AuditLogIntegrityServiceTest {
         AuditLogIntegrityService service = new AuditLogIntegrityService(auditLogEventRepository, hasher);
         when(auditLogEventRepository.findById(event.getAuditLogEventId())).thenReturn(Optional.of(event));
 
-        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId());
+        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId(), ACTOR_USER_ID);
 
         assertThat(response.status()).isEqualTo(AuditIntegrityStatus.VALID);
+        assertThat(response.statusDescription()).isEqualTo(AuditIntegrityStatus.VALID.getDescription());
         assertThat(response.valid()).isTrue();
     }
 
@@ -60,10 +65,21 @@ class AuditLogIntegrityServiceTest {
         AuditLogIntegrityService service = new AuditLogIntegrityService(auditLogEventRepository, hasher);
         when(auditLogEventRepository.findById(event.getAuditLogEventId())).thenReturn(Optional.of(event));
 
-        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId());
+        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId(), ACTOR_USER_ID);
 
         assertThat(response.status()).isEqualTo(AuditIntegrityStatus.INVALID);
         assertThat(response.valid()).isFalse();
+    }
+
+    @Test
+    void verifyRejectsEventOwnedByAnotherActor() {
+        AuditLogEvent event = event();
+        event.updateIntegrityHash(hasher.hash(event));
+        AuditLogIntegrityService service = new AuditLogIntegrityService(auditLogEventRepository, hasher);
+        when(auditLogEventRepository.findById(event.getAuditLogEventId())).thenReturn(Optional.of(event));
+
+        assertThatThrownBy(() -> service.verify(event.getAuditLogEventId(), OTHER_USER_ID))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -75,15 +91,21 @@ class AuditLogIntegrityServiceTest {
         AuditLogEvent missing = event();
         AuditLogIntegrityService service = new AuditLogIntegrityService(auditLogEventRepository, hasher);
         when(auditLogEventRepository.findAll(any(Specification.class), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(valid, invalid, missing)));
+                .thenReturn(new PageImpl<>(List.of(valid, invalid, missing), Pageable.ofSize(500), 501));
 
         AuditLogIntegritySummaryResponse response = service.verifyRange(
                 LocalDateTime.of(2026, 5, 18, 0, 0),
                 LocalDateTime.of(2026, 5, 18, 23, 59),
                 0,
-                1_000
+                1_000,
+                ACTOR_USER_ID
         );
 
+        assertThat(response.page()).isZero();
+        assertThat(response.size()).isEqualTo(500);
+        assertThat(response.totalMatchedCount()).isEqualTo(501);
+        assertThat(response.totalPages()).isEqualTo(2);
+        assertThat(response.hasNext()).isTrue();
         assertThat(response.checkedCount()).isEqualTo(3);
         assertThat(response.validCount()).isEqualTo(1);
         assertThat(response.invalidCount()).isEqualTo(1);
@@ -104,7 +126,8 @@ class AuditLogIntegrityServiceTest {
                 LocalDateTime.of(2026, 5, 19, 0, 0),
                 LocalDateTime.of(2026, 5, 18, 0, 0),
                 0,
-                100
+                100,
+                ACTOR_USER_ID
         )).isInstanceOf(BusinessException.class);
     }
 
@@ -122,6 +145,7 @@ class AuditLogIntegrityServiceTest {
                 .metadata(Map.of("clientType", "DASHBOARD"))
                 .build();
         ReflectionTestUtils.setField(event, "occurredAt", LocalDateTime.of(2026, 5, 18, 13, 30));
+        ReflectionTestUtils.setField(event, "actorUserId", ACTOR_USER_ID);
         return event;
     }
 }

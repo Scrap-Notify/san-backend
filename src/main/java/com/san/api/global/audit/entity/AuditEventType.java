@@ -15,21 +15,28 @@ public enum AuditEventType {
     LOGIN_SUCCESS("로그인 성공"),
     LOGIN_FAILURE("로그인 실패"),
     LOGIN_LOCK_TRIGGERED("로그인 실패 누적으로 계정 잠금"),
+
     LOGOUT_SUCCESS("로그아웃 성공"),
     LOGOUT_FAILURE("로그아웃 실패"),
+
     LOGIN_BRIDGE_TICKET_ISSUED("로그인 브릿지 티켓 발급"),
     LOGIN_BRIDGE_TICKET_ISSUE_FAILED("로그인 브릿지 티켓 발급 실패"),
+
     LOGIN_BRIDGE_TOKEN_EXCHANGED("로그인 브릿지 토큰 교환"),
     LOGIN_BRIDGE_TOKEN_EXCHANGE_FAILED("로그인 브릿지 토큰 교환 실패"),
+
     TOKEN_REISSUE_SUCCESS("토큰 재발급 성공"),
     TOKEN_REISSUE_FAILURE("토큰 재발급 실패"),
     TOKEN_REUSE_DETECTED("리프레시 토큰 재사용 의심"),
+
     SESSION_REVOKED("인증 세션 수동 폐기"),
+
     SIGNUP("회원가입"),
     WITHDRAW("회원탈퇴"),
 
     GITHUB_TOKEN_LINKED("GitHub 토큰 연동"),
     GITHUB_TOKEN_REFRESH_FAILED("GitHub 토큰 갱신 실패"),
+
     GITHUB_API_REQUESTED("GitHub API 요청"),
     GITHUB_API_SUCCEEDED("GitHub API 요청 성공"),
     GITHUB_API_FAILED("GitHub API 요청 실패"),

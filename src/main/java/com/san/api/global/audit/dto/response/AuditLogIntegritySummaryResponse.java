@@ -5,6 +5,11 @@ import java.util.List;
 import java.util.UUID;
 
 public record AuditLogIntegritySummaryResponse(
+        int page,
+        int size,
+        long totalMatchedCount,
+        int totalPages,
+        boolean hasNext,
         int checkedCount,
         int validCount,
         int invalidCount,

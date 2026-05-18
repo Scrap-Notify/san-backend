@@ -8,6 +8,7 @@ import java.util.UUID;
 public record AuditLogIntegrityResponse(
         UUID auditLogEventId,
         AuditIntegrityStatus status,
+        String statusDescription,
         boolean valid,
         Instant verifiedAt
 ) {

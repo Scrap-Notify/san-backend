@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * 감사 로그 무결성 검증 API를 제공합니다.
+ */
 @Tag(name = "Audit Log Integrity", description = "감사 로그 무결성 검증 API")
 @Validated
 @RestController
@@ -29,12 +32,27 @@ public class AuditLogIntegrityController {
 
     private final AuditLogIntegrityService auditLogIntegrityService;
 
+    /**
+     * 감사 로그 단건의 무결성 상태를 검증합니다.
+     *
+     * @param auditLogEventId 검증할 감사 로그 식별자
+     * @return 저장된 해시와 현재 로그 내용의 일치 여부
+     */
     @Operation(summary = "감사 로그 단건 무결성 검증")
     @GetMapping("/{auditLogEventId}/integrity")
     public ApiResponse<AuditLogIntegrityResponse> verify(@PathVariable UUID auditLogEventId) {
         return ApiResponse.success(auditLogIntegrityService.verify(auditLogEventId));
     }
 
+    /**
+     * 지정한 기간의 감사 로그 무결성 상태를 페이지 단위로 검증합니다.
+     *
+     * @param from 검증 시작 시각
+     * @param to 검증 종료 시각
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @return 유효, 불일치, 해시 누락 건수와 대상 식별자 목록
+     */
     @Operation(summary = "감사 로그 기간 무결성 검증")
     @GetMapping("/integrity")
     public ApiResponse<AuditLogIntegritySummaryResponse> verifyRange(

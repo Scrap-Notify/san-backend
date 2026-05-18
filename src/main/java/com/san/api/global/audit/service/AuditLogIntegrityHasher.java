@@ -23,7 +23,15 @@ public class AuditLogIntegrityHasher {
                 .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
+    /**
+     * 감사 로그의 주요 필드를 고정된 문자열로 정규화한 뒤 SHA-256 해시를 생성합니다.
+     * metadata는 key 순서에 따라 해시가 흔들리지 않도록 canonical JSON으로 직렬화합니다.
+     *
+     * @param event 무결성 해시를 생성할 감사 로그 이벤트
+     * @return 64자 hex 형식의 SHA-256 해시
+     */
     public String hash(AuditLogEvent event) {
+        // 각 필드는 length-prefix 형식으로 연결해 값 안의 구분자 문자 때문에 해시 입력이 모호해지지 않게 합니다.
         String canonicalPayload = String.join("|",
                 value(event.getAuditLogEventId()),
                 value(event.getActorUserId()),

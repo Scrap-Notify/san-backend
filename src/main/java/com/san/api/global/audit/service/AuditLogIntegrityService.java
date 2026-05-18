@@ -28,6 +28,12 @@ public class AuditLogIntegrityService {
     private final AuditLogEventRepository auditLogEventRepository;
     private final AuditLogIntegrityHasher auditLogIntegrityHasher;
 
+    /**
+     * 감사 로그 단건의 저장된 해시와 현재 로그 내용으로 다시 계산한 해시를 비교합니다.
+     *
+     * @param auditLogEventId 검증할 감사 로그 식별자
+     * @return 단건 무결성 검증 결과
+     */
     @Transactional(readOnly = true)
     public AuditLogIntegrityResponse verify(UUID auditLogEventId) {
         AuditLogEvent event = auditLogEventRepository.findById(auditLogEventId)
@@ -41,6 +47,16 @@ public class AuditLogIntegrityService {
         );
     }
 
+    /**
+     * 지정한 기간의 감사 로그를 발생 시각 오름차순으로 조회해 페이지 단위로 무결성을 검증합니다.
+     * 한 번에 과도한 범위를 검증하지 않도록 요청 크기는 최대 500건으로 제한합니다.
+     *
+     * @param from 검증 시작 시각
+     * @param to 검증 종료 시각
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @return 기간 내 감사 로그 무결성 검증 요약
+     */
     @Transactional(readOnly = true)
     public AuditLogIntegritySummaryResponse verifyRange(LocalDateTime from, LocalDateTime to, int page, int size) {
         if (from.isAfter(to)) {
@@ -85,6 +101,7 @@ public class AuditLogIntegrityService {
 
     private AuditIntegrityStatus status(AuditLogEvent event) {
         if (event.getIntegrityHash() == null || event.getIntegrityHash().isBlank()) {
+            // 무결성 해시 도입 전 생성된 기존 감사 로그는 조작이 아니라 미검증 대상으로 분리합니다.
             return AuditIntegrityStatus.MISSING_HASH;
         }
         String calculatedHash = auditLogIntegrityHasher.hash(event);

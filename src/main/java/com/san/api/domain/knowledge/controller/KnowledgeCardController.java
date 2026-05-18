@@ -1,6 +1,7 @@
 package com.san.api.domain.knowledge.controller;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
+import com.san.api.domain.knowledge.dto.request.RefinedContentUpdateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardDetailResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardIdResponse;
@@ -18,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -109,6 +111,27 @@ public class KnowledgeCardController {
 
         UUID userId = currentUserId(authentication);
         KnowledgeCardDetailResponse response = knowledgeCardService.getCardDetail(userId, cardId);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 지식카드 상세보기에서 정제원본 수정
+     *
+     * @param authentication 인증 정보
+     * @param cardId 지식카드 ID
+     * @param request 정제원본 수정 요청
+     * @return 수정된 지식카드 상세 조회 응답
+     */
+    @Operation(summary = "지식카드 정제원본 수정", description = "지식카드 상세보기에서 정제원본 내용을 수정")
+    @PatchMapping("/{cardId}/refined-content")
+    public ApiResponse<KnowledgeCardDetailResponse> updateRefinedContent(
+            Authentication authentication,
+            @PathVariable UUID cardId,
+            @Valid @RequestBody RefinedContentUpdateRequest request) {
+
+        UUID userId = currentUserId(authentication);
+        KnowledgeCardDetailResponse response = knowledgeCardService.updateRefinedContent(userId, cardId, request);
 
         return ApiResponse.success(response);
     }

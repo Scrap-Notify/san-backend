@@ -1,5 +1,6 @@
 package com.san.api.domain.knowledge.service;
 
+import com.san.api.domain.knowledge.dto.request.RefinedContentUpdateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardDetailResponse;
 import com.san.api.domain.knowledge.entity.CardTag;
 import com.san.api.domain.knowledge.entity.Category;
@@ -148,6 +149,55 @@ class KnowledgeCardServiceTest {
         assertThatThrownBy(() -> knowledgeCardService.getCardDetail(userId, card.getCardId()))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", KnowledgeErrorCode.CARD_ACCESS_DENIED);
+        verifyNoInteractions(cardTagRepository);
+    }
+
+    @Test
+    void updateRefinedContent_updatesScrapRefinedContentAndReturnsDetail() {
+        KnowledgeCard card = buildCard(user);
+        CardTag springTag = new CardTag(card, Tag.builder().tagName("Spring").build());
+        RefinedContentUpdateRequest request = new RefinedContentUpdateRequest(" updated refined content ");
+
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(card.getCardId()))
+                .thenReturn(Optional.of(card));
+        when(cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card)))
+                .thenReturn(List.of(springTag));
+
+        KnowledgeCardDetailResponse response = knowledgeCardService.updateRefinedContent(
+                userId,
+                card.getCardId(),
+                request
+        );
+
+        assertThat(card.getScrap().getRefinedContent()).isEqualTo("updated refined content");
+        assertThat(response.refinedContent()).isEqualTo("updated refined content");
+        assertThat(response.tags()).containsExactly("Spring");
+    }
+
+    @Test
+    void updateRefinedContent_throwsCardNotFoundWhenCardDoesNotExist() {
+        UUID cardId = UUID.randomUUID();
+        RefinedContentUpdateRequest request = new RefinedContentUpdateRequest("updated refined content");
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(cardId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> knowledgeCardService.updateRefinedContent(userId, cardId, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", KnowledgeErrorCode.CARD_NOT_FOUND);
+        verifyNoInteractions(cardTagRepository);
+    }
+
+    @Test
+    void updateRefinedContent_throwsCardAccessDeniedWhenUserIsNotOwner() {
+        KnowledgeCard card = buildCard(otherUser);
+        RefinedContentUpdateRequest request = new RefinedContentUpdateRequest("updated refined content");
+        when(knowledgeCardRepository.findByCardIdWithScrapAndCategory(card.getCardId()))
+                .thenReturn(Optional.of(card));
+
+        assertThatThrownBy(() -> knowledgeCardService.updateRefinedContent(userId, card.getCardId(), request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", KnowledgeErrorCode.CARD_ACCESS_DENIED);
+        assertThat(card.getScrap().getRefinedContent()).isEqualTo("refined content");
         verifyNoInteractions(cardTagRepository);
     }
 

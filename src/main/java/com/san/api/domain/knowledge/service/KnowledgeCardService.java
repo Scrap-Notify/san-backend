@@ -1,6 +1,7 @@
 package com.san.api.domain.knowledge.service;
 
 import com.san.api.domain.knowledge.dto.request.KnowledgeCardCreateRequest;
+import com.san.api.domain.knowledge.dto.request.RefinedContentUpdateRequest;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardAnalysisJobResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardDetailResponse;
 import com.san.api.domain.knowledge.dto.response.KnowledgeCardIdResponse;
@@ -128,6 +129,29 @@ public class KnowledgeCardService {
         KnowledgeCard card = knowledgeCardRepository.findByCardIdWithScrapAndCategory(cardId)
                 .orElseThrow(() -> new BusinessException(KnowledgeErrorCode.CARD_NOT_FOUND));
         validateCardOwner(card, userId);
+
+        List<CardTag> cardTags = cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card));
+        return KnowledgeCardDetailResponse.from(card, cardTags, createSourceContent(card.getScrap()));
+    }
+
+    /**
+     * 지식카드 상세보기에서 정제원본 수정
+     *
+     * @param userId 로그인 사용자 ID
+     * @param cardId 지식카드 ID
+     * @param request 정제원본 수정 요청
+     */
+    @Transactional
+    public KnowledgeCardDetailResponse updateRefinedContent(
+            UUID userId,
+            UUID cardId,
+            RefinedContentUpdateRequest request
+    ) {
+        KnowledgeCard card = knowledgeCardRepository.findByCardIdWithScrapAndCategory(cardId)
+                .orElseThrow(() -> new BusinessException(KnowledgeErrorCode.CARD_NOT_FOUND));
+        validateCardOwner(card, userId);
+
+        card.getScrap().updateRefinedContent(request.refinedContent().trim());
 
         List<CardTag> cardTags = cardTagRepository.findAllByKnowledgeCardInWithTag(List.of(card));
         return KnowledgeCardDetailResponse.from(card, cardTags, createSourceContent(card.getScrap()));

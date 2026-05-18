@@ -22,6 +22,7 @@ public class AuditLogService {
 
     private final EntityManager entityManager;
     private final AuditLogEventRepository auditLogEventRepository;
+    private final AuditLogIntegrityHasher auditLogIntegrityHasher;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UUID save(AuditLogCreateCommand command) {
@@ -40,6 +41,7 @@ public class AuditLogService {
                 .userAgent(sanitizedCommand.userAgent())
                 .metadata(sanitizedCommand.metadata())
                 .build();
+        event.updateIntegrityHash(auditLogIntegrityHasher.hash(event));
 
         return auditLogEventRepository.save(event).getAuditLogEventId();
     }

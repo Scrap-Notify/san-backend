@@ -83,6 +83,9 @@ public class AuditLogEvent {
     @Column(name = "metadata", columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
+    @Column(name = "integrity_hash", length = 64)
+    private String integrityHash;
+
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private LocalDateTime occurredAt;
 
@@ -103,6 +106,7 @@ public class AuditLogEvent {
     ) {
         this.auditLogEventId = UUID.randomUUID();
         this.actorUser = actorUser;
+        this.actorUserId = actorUser == null ? null : actorUser.getUserId();
         this.traceId = traceId;
         this.eventDomain = eventDomain;
         this.eventType = eventType;
@@ -115,5 +119,9 @@ public class AuditLogEvent {
         this.userAgent = userAgent;
         this.metadata = metadata;
         this.occurredAt = LocalDateTime.now();
+    }
+
+    public void updateIntegrityHash(String integrityHash) {
+        this.integrityHash = integrityHash;
     }
 }

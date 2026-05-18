@@ -22,5 +22,6 @@ class SchemaIndexInitializerTest {
         verify(jdbcTemplate).execute(contains("idx_audit_log_events_failure_reason_time"));
         verify(jdbcTemplate).execute(contains("idx_audit_log_events_target_time"));
         verify(jdbcTemplate).execute(contains("idx_audit_log_events_occurred_at"));
+        verify(jdbcTemplate).execute(contains("integrity_hash"));
     }
 }

@@ -45,5 +45,9 @@ public class SchemaIndexInitializer implements ApplicationRunner {
                 CREATE INDEX IF NOT EXISTS idx_audit_log_events_occurred_at
                     ON audit_log_events (occurred_at DESC)
                 """);
+        jdbcTemplate.execute("""
+                ALTER TABLE audit_log_events
+                    ADD COLUMN IF NOT EXISTS integrity_hash varchar(64)
+                """);
     }
 }

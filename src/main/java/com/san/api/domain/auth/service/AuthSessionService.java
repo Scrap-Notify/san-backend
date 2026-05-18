@@ -2,6 +2,7 @@ package com.san.api.domain.auth.service;
 
 import com.san.api.domain.auth.dto.response.AuthSessionListResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.security.jwt.JwtProvider;
@@ -14,7 +15,9 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -26,6 +29,7 @@ public class AuthSessionService {
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
     private final AuthSessionKeyService authSessionKeyService;
+    private final AuthAuditService authAuditService;
 
     /**
      * Access Token의 사용자 식별자를 기준으로 Redis에 저장된 refresh token 세션 목록을 조회합니다.
@@ -79,19 +83,33 @@ public class AuthSessionService {
      */
     public void revokeSession(String accessToken, ClientType clientType, String sessionId) {
         if (!jwtProvider.validateToken(accessToken) || !jwtProvider.isAccessToken(accessToken)) {
+            authAuditService.recordFailure(
+                    null,
+                    AuditEventType.SESSION_REVOKED,
+                    AuthErrorCode.INVALID_ACCESS_TOKEN,
+                    revokeMetadata(clientType, sessionId, false)
+            );
             throw new BusinessException(AuthErrorCode.INVALID_ACCESS_TOKEN);
         }
 
         String userId = jwtProvider.getUserId(accessToken);
+        UUID userUuid = UUID.fromString(userId);
         String refreshKey = authSessionKeyService.refreshKey(userId, clientType, sessionId);
         redisTemplate.delete(refreshKey);
         redisTemplate.opsForSet().remove(authSessionKeyService.userRefreshIndexKey(userId), refreshKey);
 
         JwtSessionClaims currentSession = jwtProvider.getSessionClaims(accessToken);
         String currentSessionId = requireSessionId(currentSession.sessionId());
-        if (clientType == currentSession.clientType() && sessionId.equals(currentSessionId)) {
+        boolean currentSessionRevoked = clientType == currentSession.clientType() && sessionId.equals(currentSessionId);
+        if (currentSessionRevoked) {
             blacklistCurrentAccessToken(accessToken);
         }
+        authAuditService.recordSuccess(
+                userUuid,
+                AuditEventType.SESSION_REVOKED,
+                userUuid,
+                revokeMetadata(clientType, sessionId, currentSessionRevoked)
+        );
     }
 
     private void blacklistCurrentAccessToken(String accessToken) {
@@ -135,6 +153,14 @@ public class AuthSessionService {
             throw new BusinessException(AuthErrorCode.INVALID_ACCESS_TOKEN);
         }
         return sessionId;
+    }
+
+    private Map<String, Object> revokeMetadata(ClientType clientType, String sessionId, boolean currentSession) {
+        return Map.of(
+                "clientType", clientType.name(),
+                "sessionId", sessionId,
+                "currentSession", currentSession
+        );
     }
 
     private record SessionKey(String refreshKey, ClientType clientType, String sessionId) {

@@ -12,6 +12,8 @@ import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
+import com.san.api.global.audit.entity.AuditEventType;
+import com.san.api.global.audit.entity.AuditTargetType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.TilErrorCode;
 import com.san.api.global.external.github.dto.response.ExternalGithubRepositoryResponse;
@@ -53,6 +55,8 @@ class TilGithubCommitServiceTest {
     private AsyncJobManager asyncJobManager;
     @Mock
     private AesGcmStringEncryptor encryptor;
+    @Mock
+    private TilAuditService tilAuditService;
 
     private TilGithubCommitService service;
     private UUID userId;
@@ -72,7 +76,8 @@ class TilGithubCommitServiceTest {
                 filePolicy,
                 filePathResolver,
                 asyncJobManager,
-                encryptor
+                encryptor,
+                tilAuditService
         );
 
         user = User.builder()
@@ -133,6 +138,13 @@ class TilGithubCommitServiceTest {
         TilGithubCommit saved = captor.getValue();
         assertThat(saved.getFilePath()).isEqualTo("2026/05/06/spring-security.md");
         assertThat(saved.getContentHash()).isEqualTo("content-hash");
+        verify(tilAuditService).recordSuccess(
+                eq(userId),
+                eq(AuditEventType.TIL_COMMIT_REQUESTED),
+                eq(AuditTargetType.TIL_GITHUB_COMMIT),
+                eq(saved.getTilGithubCommitId()),
+                any()
+        );
     }
 
     @Test
@@ -188,6 +200,14 @@ class TilGithubCommitServiceTest {
                 .isEqualTo(TilErrorCode.TIL_ALREADY_COMMITTED);
 
         verify(tilGithubCommitRepository, never()).save(any());
+        verify(tilAuditService).recordFailure(
+                eq(userId),
+                eq(AuditEventType.TIL_COMMIT_DUPLICATE_BLOCKED),
+                eq(AuditTargetType.DAILY_SUMMARY),
+                eq(summaryId),
+                eq(TilErrorCode.TIL_ALREADY_COMMITTED),
+                any()
+        );
     }
 
     @Test

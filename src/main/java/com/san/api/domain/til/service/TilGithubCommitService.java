@@ -10,6 +10,8 @@ import com.san.api.domain.til.entity.TilGithubCommitStatus;
 import com.san.api.domain.til.repository.TilGithubCommitRepository;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
+import com.san.api.global.audit.entity.AuditEventType;
+import com.san.api.global.audit.entity.AuditTargetType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.TilErrorCode;
@@ -17,7 +19,9 @@ import com.san.api.global.security.crypto.AesGcmStringEncryptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** TIL GitHub 커밋 요청을 검증하고 비동기 작업으로 등록하는 서비스 */
@@ -39,6 +43,7 @@ public class TilGithubCommitService {
     private final TilGithubFilePathResolver filePathResolver;
     private final AsyncJobManager asyncJobManager;
     private final AesGcmStringEncryptor encryptor;
+    private final TilAuditService tilAuditService;
 
     /**
      * TIL GitHub 커밋 요청을 등록합니다.
@@ -48,45 +53,64 @@ public class TilGithubCommitService {
      * @return 등록된 커밋 요청과 비동기 작업 ID
      */
     public RequestResult requestCommit(UUID userId, UUID summaryId) {
-        DailySummary summary = dailySummaryService.getSummary(summaryId);
-        validateSummaryOwner(summary, userId);
-        validateGeneratedTil(summary);
+        try {
+            DailySummary summary = dailySummaryService.getSummary(summaryId);
+            validateSummaryOwner(summary, userId);
+            validateGeneratedTil(summary);
 
-        GithubAccount githubAccount = githubAccountRepository.findByUser_UserId(userId)
-                .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED));
-        GithubRepositoryConnection repositoryConnection = findSingleRepositoryConnection(userId);
+            GithubAccount githubAccount = githubAccountRepository.findByUser_UserId(userId)
+                    .orElseThrow(() -> new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_NOT_LINKED));
+            GithubRepositoryConnection repositoryConnection = findSingleRepositoryConnection(userId);
 
-        String branch = repositoryConnection.getDefaultBranch();
-        String contentHash = filePolicy.createContentHash(summary.getContent());
-        validateDuplicateContent(repositoryConnection, branch, contentHash);
+            String branch = repositoryConnection.getDefaultBranch();
+            String contentHash = filePolicy.createContentHash(summary.getContent());
+            validateDuplicateContent(repositoryConnection, branch, contentHash);
 
-        String accessToken = encryptor.decrypt(githubAccount.getAccessTokenEncrypted());
-        String filePath = filePathResolver.resolve(
-                accessToken,
-                repositoryConnection.getFullName(),
-                branch,
-                summary.getTargetDate(),
-                summary.getTitle()
-        );
-        String commitMessage = filePolicy.createCommitMessage(summary.getTitle());
+            String accessToken = encryptor.decrypt(githubAccount.getAccessTokenEncrypted());
+            String filePath = filePathResolver.resolve(
+                    accessToken,
+                    repositoryConnection.getFullName(),
+                    branch,
+                    summary.getTargetDate(),
+                    summary.getTitle()
+            );
+            String commitMessage = filePolicy.createCommitMessage(summary.getTitle());
 
-        TilGithubCommit commit = tilGithubCommitRepository.save(TilGithubCommit.builder()
-                .dailySummary(summary)
-                .githubRepositoryConnection(repositoryConnection)
-                .branch(branch)
-                .filePath(filePath)
-                .title(summary.getTitle().trim())
-                .contentHash(contentHash)
-                .commitMessage(commitMessage)
-                .build());
+            TilGithubCommit commit = tilGithubCommitRepository.save(TilGithubCommit.builder()
+                    .dailySummary(summary)
+                    .githubRepositoryConnection(repositoryConnection)
+                    .branch(branch)
+                    .filePath(filePath)
+                    .title(summary.getTitle().trim())
+                    .contentHash(contentHash)
+                    .commitMessage(commitMessage)
+                    .build());
 
-        UUID jobId = asyncJobManager.enqueue(JobType.TIL_GITHUB_COMMIT, commit.getTilGithubCommitId());
-        return new RequestResult(
-                commit.getTilGithubCommitId(),
-                jobId,
-                summary.getSummaryId(),
-                commit.getStatus()
-        );
+            UUID jobId = asyncJobManager.enqueue(JobType.TIL_GITHUB_COMMIT, commit.getTilGithubCommitId());
+            tilAuditService.recordSuccess(
+                    userId,
+                    AuditEventType.TIL_COMMIT_REQUESTED,
+                    AuditTargetType.TIL_GITHUB_COMMIT,
+                    commit.getTilGithubCommitId(),
+                    commitMetadata(commit, jobId)
+            );
+            return new RequestResult(
+                    commit.getTilGithubCommitId(),
+                    jobId,
+                    summary.getSummaryId(),
+                    commit.getStatus()
+            );
+        } catch (BusinessException e) {
+            tilAuditService.recordFailure(
+                    userId,
+                    failureEventType(e),
+                    AuditTargetType.DAILY_SUMMARY,
+                    summaryId,
+                    e.getErrorCode(),
+                    Map.of("summaryId", summaryId)
+            );
+            throw e;
+        }
     }
 
     private void validateSummaryOwner(DailySummary summary, UUID userId) {
@@ -130,7 +154,25 @@ public class TilGithubCommitService {
         return value == null || value.trim().isEmpty();
     }
 
-    /** TIL GitHub 커밋 요청 등록 결과 */
+    private AuditEventType failureEventType(BusinessException e) {
+        if (e.getErrorCode() == TilErrorCode.TIL_ALREADY_COMMITTED) {
+            return AuditEventType.TIL_COMMIT_DUPLICATE_BLOCKED;
+        }
+        return AuditEventType.TIL_COMMIT_FAILED;
+    }
+
+    private Map<String, Object> commitMetadata(TilGithubCommit commit, UUID jobId) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("jobId", jobId);
+        metadata.put("summaryId", commit.getDailySummary().getSummaryId());
+        metadata.put("githubRepositoryId", commit.getGithubRepositoryConnection().getGithubRepositoryId());
+        metadata.put("repositoryFullName", commit.getGithubRepositoryConnection().getFullName());
+        metadata.put("branch", commit.getBranch());
+        metadata.put("filePath", commit.getFilePath());
+        metadata.put("status", commit.getStatus().name());
+        return metadata;
+    }
+
     public record RequestResult(
             UUID commitId,
             UUID jobId,

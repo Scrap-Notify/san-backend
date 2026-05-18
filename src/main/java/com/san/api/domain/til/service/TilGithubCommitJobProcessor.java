@@ -10,6 +10,8 @@ import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
 import com.san.api.global.async.processor.AsyncJobProcessor;
 import com.san.api.global.async.service.AsyncJobManager;
+import com.san.api.global.audit.entity.AuditEventType;
+import com.san.api.global.audit.entity.AuditTargetType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.TilErrorCode;
@@ -27,6 +29,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /** TIL GitHub 커밋 비동기 작업 처리기 */
@@ -34,12 +39,15 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
 
+    private static final String UNKNOWN_FAILURE_REASON_CODE = "TIL.UNKNOWN_FAILURE";
+
     private final AsyncJobManager asyncJobManager;
     private final TilGithubCommitRepository tilGithubCommitRepository;
     private final GithubAccountRepository githubAccountRepository;
     private final GithubApiClient githubApiClient;
     private final AesGcmStringEncryptor encryptor;
     private final PlatformTransactionManager transactionManager;
+    private final TilAuditService tilAuditService;
 
     /**
      * TIL_GITHUB_COMMIT 작업 생성 이벤트를 수신합니다.
@@ -65,10 +73,11 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
     @Override
     public void process(UUID jobId, UUID targetId) {
         asyncJobManager.markProcessing(jobId);
+        CommitPayload payload = null;
 
         try {
             markCommitProcessing(targetId);
-            CommitPayload payload = loadPayload(targetId);
+            payload = loadPayload(targetId);
             GithubCreateContentResponse response = githubApiClient.createContent(
                     payload.accessToken(),
                     payload.owner(),
@@ -80,10 +89,12 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
             );
             markCommitCompleted(targetId, response.commit().sha(), response.commit().htmlUrl(), LocalDateTime.now());
             asyncJobManager.markCompleted(jobId);
+            recordCommitSucceeded(jobId, targetId, payload, response);
         } catch (Exception e) {
             String errorMessage = resolveErrorMessage(e, "TIL GitHub 커밋 작업 처리 중 오류가 발생했습니다.");
             markCommitFailedIfExists(targetId, errorMessage);
             asyncJobManager.markFailed(jobId, errorMessage);
+            recordCommitFailed(jobId, targetId, payload, e, errorMessage);
         }
     }
 
@@ -97,6 +108,10 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
             RepositoryName repositoryName = RepositoryName.from(repositoryConnection.getFullName());
 
             return new CommitPayload(
+                    summary.getUser().getUserId(),
+                    summary.getSummaryId(),
+                    repositoryConnection.getGithubRepositoryId(),
+                    repositoryConnection.getFullName(),
                     encryptor.decrypt(githubAccount.getAccessTokenEncrypted()),
                     repositoryName.owner(),
                     repositoryName.repo(),
@@ -133,9 +148,110 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
         }
     }
 
+    private void recordCommitSucceeded(
+            UUID jobId,
+            UUID commitId,
+            CommitPayload payload,
+            GithubCreateContentResponse response
+    ) {
+        tilAuditService.recordSuccess(
+                payload.actorUserId(),
+                AuditEventType.TIL_COMMIT_SUCCEEDED,
+                AuditTargetType.TIL_GITHUB_COMMIT,
+                commitId,
+                commitMetadata(jobId, payload, response.commit().sha(), response.commit().htmlUrl())
+        );
+    }
+
+    private void recordCommitFailed(
+            UUID jobId,
+            UUID commitId,
+            CommitPayload payload,
+            Exception exception,
+            String errorMessage
+    ) {
+        CommitPayload auditPayload = payload == null ? loadAuditPayload(commitId).orElse(null) : payload;
+        UUID actorUserId = auditPayload == null ? null : auditPayload.actorUserId();
+        Map<String, Object> metadata = auditPayload == null
+                ? fallbackFailureMetadata(jobId, commitId, exception)
+                : failureMetadata(jobId, auditPayload, exception);
+        tilAuditService.recordFailure(
+                actorUserId,
+                AuditEventType.TIL_COMMIT_FAILED,
+                AuditTargetType.TIL_GITHUB_COMMIT,
+                commitId,
+                UNKNOWN_FAILURE_REASON_CODE,
+                errorMessage,
+                metadata
+        );
+    }
+
+    private Optional<CommitPayload> loadAuditPayload(UUID commitId) {
+        try {
+            return Optional.ofNullable(transactionTemplate().execute(status -> {
+                TilGithubCommit commit = getCommit(commitId);
+                DailySummary summary = commit.getDailySummary();
+                GithubRepositoryConnection repositoryConnection = commit.getGithubRepositoryConnection();
+                RepositoryName repositoryName = RepositoryName.from(repositoryConnection.getFullName());
+                return new CommitPayload(
+                        summary.getUser().getUserId(),
+                        summary.getSummaryId(),
+                        repositoryConnection.getGithubRepositoryId(),
+                        repositoryConnection.getFullName(),
+                        null,
+                        repositoryName.owner(),
+                        repositoryName.repo(),
+                        commit.getFilePath(),
+                        commit.getBranch(),
+                        commit.getCommitMessage(),
+                        summary.getContent()
+                );
+            }));
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
     private TilGithubCommit getCommit(UUID commitId) {
         return tilGithubCommitRepository.findByIdWithSummaryAndRepository(commitId)
                 .orElseThrow(() -> new BusinessException(TilErrorCode.TIL_GITHUB_COMMIT_NOT_FOUND));
+    }
+
+    private Map<String, Object> commitMetadata(
+            UUID jobId,
+            CommitPayload payload,
+            String commitSha,
+            String commitUrl
+    ) {
+        Map<String, Object> metadata = baseCommitMetadata(jobId, payload);
+        metadata.put("commitSha", commitSha);
+        metadata.put("commitUrl", commitUrl);
+        return metadata;
+    }
+
+    private Map<String, Object> failureMetadata(UUID jobId, CommitPayload payload, Exception exception) {
+        Map<String, Object> metadata = baseCommitMetadata(jobId, payload);
+        metadata.put("exceptionType", exception.getClass().getSimpleName());
+        return metadata;
+    }
+
+    private Map<String, Object> fallbackFailureMetadata(UUID jobId, UUID commitId, Exception exception) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("jobId", jobId);
+        metadata.put("commitId", commitId);
+        metadata.put("exceptionType", exception.getClass().getSimpleName());
+        return metadata;
+    }
+
+    private Map<String, Object> baseCommitMetadata(UUID jobId, CommitPayload payload) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("jobId", jobId);
+        metadata.put("summaryId", payload.summaryId());
+        metadata.put("githubRepositoryId", payload.githubRepositoryId());
+        metadata.put("repositoryFullName", payload.repositoryFullName());
+        metadata.put("branch", payload.branch());
+        metadata.put("filePath", payload.filePath());
+        return metadata;
     }
 
     private String encodeContent(String content) {
@@ -147,6 +263,10 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
     }
 
     private record CommitPayload(
+            UUID actorUserId,
+            UUID summaryId,
+            Long githubRepositoryId,
+            String repositoryFullName,
             String accessToken,
             String owner,
             String repo,

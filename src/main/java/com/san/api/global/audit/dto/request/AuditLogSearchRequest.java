@@ -22,4 +22,19 @@ public record AuditLogSearchRequest(
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
         LocalDateTime to
 ) {
+
+    public AuditLogSearchRequest forActor(UUID actorUserId) {
+        return new AuditLogSearchRequest(
+                actorUserId,
+                traceId,
+                eventDomain,
+                eventType,
+                outcome,
+                targetType,
+                targetId,
+                failureReasonCode,
+                from,
+                to
+        );
+    }
 }

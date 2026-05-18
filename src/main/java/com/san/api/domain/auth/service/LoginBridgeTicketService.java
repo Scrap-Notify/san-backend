@@ -29,6 +29,14 @@ public class LoginBridgeTicketService {
             ClientType sourceClientType,
             String ticketKeyPrefix,
             Duration ttl) {
+        return issueTicketWithContext(accessToken, sourceClientType, ticketKeyPrefix, ttl).response();
+    }
+
+    LoginBridgeTicketIssueResult issueTicketWithContext(
+            String accessToken,
+            ClientType sourceClientType,
+            String ticketKeyPrefix,
+            Duration ttl) {
         if (!jwtProvider.validateToken(accessToken) || !jwtProvider.isAccessToken(accessToken)) {
             throw new BusinessException(AuthErrorCode.INVALID_ACCESS_TOKEN);
         }
@@ -37,14 +45,19 @@ public class LoginBridgeTicketService {
             throw new BusinessException(AuthErrorCode.INVALID_ACCESS_TOKEN);
         }
 
+        String userId = jwtProvider.getUserId(accessToken);
         String ticket = generateUrlSafeToken();
         redisTemplate.opsForValue().set(
                 ticketKeyPrefix + ticket,
-                jwtProvider.getUserId(accessToken),
+                userId,
                 ttl
         );
 
-        return LoginBridgeTicketResponse.of(ticket, ttl.toSeconds());
+        return new LoginBridgeTicketIssueResult(
+                userId,
+                sourceClientType,
+                LoginBridgeTicketResponse.of(ticket, ttl.toSeconds())
+        );
     }
 
     /**

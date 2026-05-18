@@ -82,4 +82,26 @@ class AuthAuditServiceTest {
                 Map.of("username", "dahyeon")
         )).doesNotThrowAnyException();
     }
+
+    @Test
+    void recordFailureUsesAuditFailureReasonAndPreservesClientErrorCode() {
+        AuthAuditService authAuditService = new AuthAuditService(auditLogService);
+
+        authAuditService.recordFailure(
+                null,
+                AuditEventType.LOGIN_FAILURE,
+                AuthErrorCode.INVALID_CREDENTIALS,
+                Map.of("username", "dahyeon")
+        );
+
+        ArgumentCaptor<AuditLogCreateCommand> captor = ArgumentCaptor.forClass(AuditLogCreateCommand.class);
+        verify(auditLogService).save(captor.capture());
+        AuditLogCreateCommand command = captor.getValue();
+        assertThat(command.failureReasonCode()).isEqualTo("AUTH.INVALID_CREDENTIALS");
+        assertThat(command.failureMessage()).isEqualTo("아이디 또는 비밀번호가 올바르지 않습니다.");
+        assertThat(command.metadata())
+                .containsEntry("username", "dahyeon")
+                .containsEntry("clientErrorCode", "A002")
+                .containsEntry("httpStatus", 401);
+    }
 }

@@ -5,6 +5,7 @@ import com.san.api.global.audit.context.AuditRequestContextHolder;
 import com.san.api.global.audit.dto.AuditLogCreateCommand;
 import com.san.api.global.audit.entity.AuditEventDomain;
 import com.san.api.global.audit.entity.AuditEventType;
+import com.san.api.global.audit.entity.AuditFailureReason;
 import com.san.api.global.audit.entity.AuditOutcome;
 import com.san.api.global.audit.service.AuditLogService;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -53,14 +55,15 @@ public class AuthAuditService {
             AuthErrorCode errorCode,
             Map<String, Object> metadata
     ) {
+        AuditFailureReason failureReason = AuditFailureReason.from(errorCode);
         saveSafely(newCommand(
                 actorUserId,
                 eventType,
                 actorUserId,
                 AuditOutcome.FAILURE,
-                errorCode.getCode(),
-                errorCode.getMessage(),
-                metadata
+                failureReason.code(),
+                failureReason.message(),
+                failureMetadata(errorCode, metadata)
         ));
     }
 
@@ -102,5 +105,17 @@ public class AuthAuditService {
                     e
             );
         }
+    }
+
+    private Map<String, Object> failureMetadata(AuthErrorCode errorCode, Map<String, Object> metadata) {
+        Map<String, Object> merged = new LinkedHashMap<>();
+        if (metadata != null) {
+            merged.putAll(metadata);
+        }
+        if (errorCode != null) {
+            merged.put("clientErrorCode", errorCode.getCode());
+            merged.put("httpStatus", errorCode.getStatus().value());
+        }
+        return merged;
     }
 }

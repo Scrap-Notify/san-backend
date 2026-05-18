@@ -25,7 +25,11 @@ import java.util.UUID;
                 @Index(name = "idx_audit_log_events_actor_time", columnList = "actor_user_id, occurred_at"),
                 @Index(name = "idx_audit_log_events_trace_id", columnList = "trace_id"),
                 @Index(name = "idx_audit_log_events_event_type_time", columnList = "event_type, occurred_at"),
-                @Index(name = "idx_audit_log_events_target", columnList = "target_type, target_id")
+                @Index(name = "idx_audit_log_events_event_domain_time", columnList = "event_domain, occurred_at"),
+                @Index(name = "idx_audit_log_events_outcome_time", columnList = "outcome, occurred_at"),
+                @Index(name = "idx_audit_log_events_failure_reason_time", columnList = "failure_reason_code, occurred_at"),
+                @Index(name = "idx_audit_log_events_target_time", columnList = "target_type, target_id, occurred_at"),
+                @Index(name = "idx_audit_log_events_occurred_at", columnList = "occurred_at")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -38,6 +42,9 @@ public class AuditLogEvent {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_user_id")
     private User actorUser;
+
+    @Column(name = "actor_user_id", columnDefinition = "uuid", insertable = false, updatable = false)
+    private UUID actorUserId;
 
     @Column(name = "trace_id", length = 100)
     private String traceId;

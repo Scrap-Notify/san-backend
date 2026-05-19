@@ -1,7 +1,6 @@
 package com.san.api.domain.recall.controller;
 
-import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
-import com.san.api.domain.recall.dto.response.RecallQuizResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizGenerationJobResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizSubmitResponse;
 import com.san.api.domain.recall.entity.RecallQuizType;
 import com.san.api.domain.recall.service.RecallQuizGenerationService;
@@ -18,7 +17,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,27 +45,19 @@ class RecallControllerTest {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
-    void generateReturnsRecallQuizzes() throws Exception {
+    void generateReturnsRecallQuizGenerationJob() throws Exception {
         UUID userId = UUID.randomUUID();
-        UUID quizId = UUID.randomUUID();
-        UUID scrapId = UUID.randomUUID();
+        UUID generationId = UUID.randomUUID();
+        UUID quizJobId = UUID.randomUUID();
         LocalDate targetDate = LocalDate.of(2026, 5, 19);
-        RecallQuizGenerateResponse response = new RecallQuizGenerateResponse(
+        RecallQuizGenerationJobResponse response = new RecallQuizGenerationJobResponse(
+                generationId,
+                quizJobId,
                 targetDate,
-                RecallQuizType.OX,
-                List.of(new RecallQuizResponse(
-                        quizId,
-                        scrapId,
-                        RecallQuizType.OX,
-                        "React.memo는 모든 컴포넌트에 권장된다.",
-                        false,
-                        null,
-                        null,
-                        null
-                ))
+                RecallQuizType.OX
         );
 
-        when(recallQuizGenerationService.generate(eq(userId), any()))
+        when(recallQuizGenerationService.requestGeneration(eq(userId), any()))
                 .thenReturn(response);
 
         mockMvc.perform(post("/recall/quizzes")
@@ -81,14 +71,12 @@ class RecallControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(true))
+                .andExpect(jsonPath("$.data.generationId").value(generationId.toString()))
+                .andExpect(jsonPath("$.data.quizJobId").value(quizJobId.toString()))
                 .andExpect(jsonPath("$.data.targetDate").value("2026-05-19"))
-                .andExpect(jsonPath("$.data.quizType").value("OX"))
-                .andExpect(jsonPath("$.data.quizzes[0].quizId").value(quizId.toString()))
-                .andExpect(jsonPath("$.data.quizzes[0].scrapId").value(scrapId.toString()))
-                .andExpect(jsonPath("$.data.quizzes[0].question").value("React.memo는 모든 컴포넌트에 권장된다."))
-                .andExpect(jsonPath("$.data.quizzes[0].solved").value(false));
+                .andExpect(jsonPath("$.data.quizType").value("OX"));
 
-        verify(recallQuizGenerationService).generate(eq(userId), any());
+        verify(recallQuizGenerationService).requestGeneration(eq(userId), any());
     }
 
     @Test

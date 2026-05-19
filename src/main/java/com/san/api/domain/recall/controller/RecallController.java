@@ -2,7 +2,7 @@ package com.san.api.domain.recall.controller;
 
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
 import com.san.api.domain.recall.dto.request.RecallQuizSubmitRequest;
-import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizGenerationJobResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizSubmitResponse;
 import com.san.api.domain.recall.service.RecallQuizGenerationService;
 import com.san.api.domain.recall.service.RecallQuizSubmissionService;
@@ -33,20 +33,20 @@ public class RecallController {
     private final RecallQuizSubmissionService recallQuizSubmissionService;
 
     /**
-     * 날짜 기반 리콜 퀴즈 생성
+     * 날짜 기반 리콜 퀴즈 생성 작업 등록
      *
      * @param authentication 인증 정보
      * @param request 리콜 퀴즈 생성 요청
-     * @return 리콜 퀴즈 생성 응답
+     * @return 등록된 리콜 퀴즈 생성 작업 응답
      */
-    @Operation(summary = "날짜 기반 리콜 퀴즈 생성", description = "대상 날짜의 TIL 원본을 기반으로 리콜 퀴즈를 생성")
+    @Operation(summary = "날짜 기반 리콜 퀴즈 생성 작업 등록", description = "대상 날짜의 TIL 원본 기반 리콜 퀴즈 생성을 비동기 작업으로 등록")
     @PostMapping("/quizzes")
-    public ApiResponse<RecallQuizGenerateResponse> generate(
+    public ApiResponse<RecallQuizGenerationJobResponse> generate(
             Authentication authentication,
             @Valid @RequestBody RecallQuizGenerateRequest request) {
 
         UUID userId = currentUserId(authentication);
-        RecallQuizGenerateResponse response = recallQuizGenerationService.generate(userId, request);
+        RecallQuizGenerationJobResponse response = recallQuizGenerationService.requestGeneration(userId, request);
 
         return ApiResponse.success(response);
     }

@@ -32,18 +32,24 @@ public class OutboxEventRetryService {
      */
     @Transactional
     public OutboxEventResponse retryFailedEvent(UUID outboxEventId, UUID actorUserId) {
-        OutboxEvent outboxEvent = outboxEventRepository.findById(outboxEventId)
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
-
-        if (outboxEvent.getStatus() != OutboxEventStatus.FAILED) {
-            throw new BusinessException(
-                    CommonErrorCode.BAD_REQUEST,
-                    "FAILED 상태의 Outbox 이벤트만 수동 재처리할 수 있습니다."
-            );
-        }
+        OutboxEvent outboxEvent = outboxEventRepository.findByOutboxEventIdAndStatus(
+                outboxEventId,
+                OutboxEventStatus.FAILED
+        )
+                .orElseThrow(() -> retryTargetNotFound(outboxEventId));
 
         outboxEvent.resetForRetry(LocalDateTime.now());
         outboxEventAuditService.recordRetryRequested(actorUserId, outboxEvent);
         return OutboxEventResponse.from(outboxEvent);
+    }
+
+    private BusinessException retryTargetNotFound(UUID outboxEventId) {
+        if (outboxEventRepository.existsById(outboxEventId)) {
+            return new BusinessException(
+                    CommonErrorCode.BAD_REQUEST,
+                    "FAILED 상태의 Outbox 이벤트만 수동 재처리할 수 있습니다."
+            );
+        }
+        return new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
     }
 }

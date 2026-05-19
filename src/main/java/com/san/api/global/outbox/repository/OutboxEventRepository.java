@@ -2,8 +2,10 @@ package com.san.api.global.outbox.repository;
 
 import com.san.api.global.outbox.entity.OutboxEvent;
 import com.san.api.global.outbox.entity.OutboxEventStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -49,5 +51,6 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID>,
      * @param status        조회할 이벤트 상태
      * @return 상태가 일치하는 Outbox 이벤트
      */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<OutboxEvent> findByOutboxEventIdAndStatus(UUID outboxEventId, OutboxEventStatus status);
 }

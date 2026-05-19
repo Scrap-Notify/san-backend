@@ -30,7 +30,8 @@ class OutboxEventRetryServiceTest {
         OutboxEventRetryService service = new OutboxEventRetryService(repository, auditService);
         UUID actorUserId = UUID.randomUUID();
         OutboxEvent event = failedEvent();
-        when(repository.findById(event.getOutboxEventId())).thenReturn(Optional.of(event));
+        when(repository.findByOutboxEventIdAndStatus(event.getOutboxEventId(), OutboxEventStatus.FAILED))
+                .thenReturn(Optional.of(event));
 
         OutboxEventResponse response = service.retryFailedEvent(event.getOutboxEventId(), actorUserId);
 
@@ -48,7 +49,9 @@ class OutboxEventRetryServiceTest {
         OutboxEventAuditService auditService = mock(OutboxEventAuditService.class);
         OutboxEventRetryService service = new OutboxEventRetryService(repository, auditService);
         OutboxEvent event = pendingEvent();
-        when(repository.findById(event.getOutboxEventId())).thenReturn(Optional.of(event));
+        when(repository.findByOutboxEventIdAndStatus(event.getOutboxEventId(), OutboxEventStatus.FAILED))
+                .thenReturn(Optional.empty());
+        when(repository.existsById(event.getOutboxEventId())).thenReturn(true);
 
         assertThatThrownBy(() -> service.retryFailedEvent(event.getOutboxEventId(), UUID.randomUUID()))
                 .isInstanceOf(BusinessException.class);

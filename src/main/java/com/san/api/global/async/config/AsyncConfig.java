@@ -19,7 +19,7 @@ public class AsyncConfig {
 
     /**
      * AI 호출 잡 전용 스레드 풀.
-     * 대상: CARD_ANALYSIS, TIL_GENERATION
+     * 대상: CARD_ANALYSIS, TIL_GENERATION, SCRAP_REFINE
      */
     @Bean(name = "aiJobExecutor")
     public Executor aiJobExecutor() {
@@ -34,7 +34,7 @@ public class AsyncConfig {
 
     /**
      * 외부 API 잡 전용 스레드 풀.
-     * 대상: TIL_GITHUB_COMMIT, SCRAP_REFINE
+     * 대상: TIL_GITHUB_COMMIT
      */
     @Bean(name = "githubJobExecutor")
     public Executor githubJobExecutor() {

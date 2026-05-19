@@ -71,6 +71,8 @@ public class MattermostFeedbackNotifier {
                         payload.feedbackId(), attempt, maxAttempts, e);
             }
         }
+
+        throw lastException;
     }
 
     /** Mattermost 채널에 표시할 피드백 메시지를 생성합니다. */
@@ -92,7 +94,6 @@ public class MattermostFeedbackNotifier {
                 %s
                 ```
                 """.formatted(
-                payload.feedbackId(),
                 payload.type(),
                 valueOrDash(payload.userId()),
                 valueOrDash(payload.clientType()),

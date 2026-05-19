@@ -2,7 +2,6 @@ package com.san.api.domain.feedback.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -29,24 +28,6 @@ public class MattermostFeedbackNotifier {
     }
 
     /**
-     * Mattermost webhook URL이 설정된 경우 피드백 알림을 전송합니다.
-     *
-     * <p>기존 호출부와의 호환을 위해 실패 예외는 경고 로그로만 남깁니다. Outbox 릴레이처럼
-     * 성공/실패 상태를 기록해야 하는 호출부는 {@link #send(FeedbackNotificationPayload)}를 사용합니다.</p>
-     *
-     * @param payload Mattermost 알림에 필요한 피드백 스냅샷
-     */
-    @Async("notificationExecutor")
-    public void notify(FeedbackNotificationPayload payload) {
-        try {
-            send(payload);
-        } catch (RestClientException e) {
-            log.warn("Failed to send feedback notification to Mattermost. feedbackId={}",
-                    payload.feedbackId(), e);
-        }
-    }
-
-    /**
      * Mattermost webhook으로 피드백 알림을 동기 전송합니다.
      *
      * @param payload Mattermost 알림에 필요한 피드백 스냅샷
@@ -67,6 +48,7 @@ public class MattermostFeedbackNotifier {
                         .toBodilessEntity();
                 return;
             } catch (RestClientException e) {
+                lastException = e;
                 log.warn("Failed to send feedback notification to Mattermost. feedbackId={}, attempt={}/{}",
                         payload.feedbackId(), attempt, maxAttempts, e);
             }

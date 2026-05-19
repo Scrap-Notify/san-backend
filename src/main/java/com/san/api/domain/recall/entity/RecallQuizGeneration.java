@@ -38,8 +38,8 @@ import java.util.UUID;
 public class RecallQuizGeneration extends BaseEntity {
 
     @Id
-    @Column(name = "request_id", columnDefinition = "uuid", updatable = false, nullable = false)
-    private UUID requestId;
+    @Column(name = "generation_id", columnDefinition = "uuid", updatable = false, nullable = false)
+    private UUID generationId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
@@ -58,7 +58,7 @@ public class RecallQuizGeneration extends BaseEntity {
             LocalDate targetDate,
             RecallQuizType quizType
     ) {
-        this.requestId = UUID.randomUUID();
+        this.generationId = UUID.randomUUID();
         this.user = user;
         this.targetDate = targetDate;
         this.quizType = quizType;

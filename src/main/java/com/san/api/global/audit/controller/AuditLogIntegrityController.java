@@ -29,7 +29,7 @@ import java.util.UUID;
 @Tag(name = "Audit Log Integrity", description = "감사 로그 무결성 검증 API")
 @Validated
 @RestController
-@RequestMapping("/audit-logs")
+@RequestMapping("/admin/audit-logs")
 @RequiredArgsConstructor
 public class AuditLogIntegrityController {
 

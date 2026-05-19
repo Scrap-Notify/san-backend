@@ -55,11 +55,12 @@ public class DashboardLoginBridgeService {
      */
     public TokenResponse exchangeToken(DashboardBridgeTokenRequest request) {
         try {
-            String userId = loginBridgeTicketService.consumeTicket(
+            LoginBridgeTicketConsumeResult ticket = loginBridgeTicketService.consumeTicketWithContext(
                     request.ticket(),
                     AuthRedisKeyPrefix.LOGIN_BRIDGE_DASHBOARD_TICKET
             );
-            TokenResponse response = tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD);
+            String userId = ticket.userId();
+            TokenResponse response = tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, ticket.role());
             UUID userUuid = UUID.fromString(userId);
             authAuditService.recordSuccess(
                     userUuid,

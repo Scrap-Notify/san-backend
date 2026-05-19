@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.security.jwt.JwtProvider;
@@ -41,13 +42,22 @@ public class TokenIssueService {
         return issueTokenPair(userId, clientType, UUID.randomUUID().toString());
     }
 
+    public TokenResponse issueTokenPair(String userId, ClientType clientType, UserRole role) {
+        return issueTokenPair(userId, clientType, UUID.randomUUID().toString(), UUID.randomUUID().toString(), role);
+    }
+
     public TokenResponse issueTokenPair(String userId, ClientType clientType, String sessionId) {
         return issueTokenPair(userId, clientType, sessionId, UUID.randomUUID().toString());
     }
 
     public TokenResponse issueTokenPair(String userId, ClientType clientType, String sessionId, String familyId) {
-        String accessToken = jwtProvider.generateAccessToken(userId, clientType, sessionId);
-        String refreshToken = jwtProvider.generateRefreshToken(userId, clientType, sessionId, familyId);
+        return issueTokenPair(userId, clientType, sessionId, familyId, UserRole.USER);
+    }
+
+    public TokenResponse issueTokenPair(String userId, ClientType clientType, String sessionId, String familyId,
+                                        UserRole role) {
+        String accessToken = jwtProvider.generateAccessToken(userId, clientType, sessionId, role);
+        String refreshToken = jwtProvider.generateRefreshToken(userId, clientType, sessionId, familyId, role);
         // Redis에는 refresh token 원문을 저장하지 않고 검증용 메타데이터만 저장합니다.
         RefreshTokenSession session = new RefreshTokenSession(
                 refreshTokenHashService.hash(refreshToken),

@@ -4,6 +4,7 @@ import com.san.api.domain.auth.dto.request.ExtensionBridgeTokenRequest;
 import com.san.api.domain.auth.dto.response.LoginBridgeTicketResponse;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
@@ -56,7 +57,7 @@ class ExtensionLoginBridgeServiceTest {
                 ClientType.DASHBOARD,
                 AuthRedisKeyPrefix.LOGIN_BRIDGE_EXTENSION_TICKET,
                 Duration.ofMinutes(2)
-        )).thenReturn(new LoginBridgeTicketIssueResult(userId, ClientType.DASHBOARD, ticketResponse));
+        )).thenReturn(new LoginBridgeTicketIssueResult(userId, ClientType.DASHBOARD, UserRole.USER, ticketResponse));
 
         LoginBridgeTicketResponse result = extensionLoginBridgeService.issueTicket(accessToken);
 
@@ -78,14 +79,14 @@ class ExtensionLoginBridgeServiceTest {
         String ticket = "bridge-ticket";
         TokenResponse tokenResponse = TokenResponse.of("access-token", "refresh-token", 1800L, "extension-session");
 
-        when(loginBridgeTicketService.consumeTicket(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_EXTENSION_TICKET))
-                .thenReturn(userId);
-        when(tokenIssueService.issueTokenPair(userId, ClientType.EXTENSION)).thenReturn(tokenResponse);
+        when(loginBridgeTicketService.consumeTicketWithContext(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_EXTENSION_TICKET))
+                .thenReturn(new LoginBridgeTicketConsumeResult(userId, UserRole.ADMIN));
+        when(tokenIssueService.issueTokenPair(userId, ClientType.EXTENSION, UserRole.ADMIN)).thenReturn(tokenResponse);
 
         TokenResponse result = extensionLoginBridgeService.exchangeToken(new ExtensionBridgeTokenRequest(ticket));
 
         assertThat(result).isEqualTo(tokenResponse);
-        verify(tokenIssueService).issueTokenPair(userId, ClientType.EXTENSION);
+        verify(tokenIssueService).issueTokenPair(userId, ClientType.EXTENSION, UserRole.ADMIN);
         verify(authAuditService).recordSuccess(
                 org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
                 org.mockito.ArgumentMatchers.eq(AuditEventType.LOGIN_BRIDGE_TOKEN_EXCHANGED),
@@ -100,7 +101,7 @@ class ExtensionLoginBridgeServiceTest {
     @Test
     void exchangeTokenRecordsFailureWhenTicketIsInvalid() {
         String ticket = "missing-ticket";
-        when(loginBridgeTicketService.consumeTicket(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_EXTENSION_TICKET))
+        when(loginBridgeTicketService.consumeTicketWithContext(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_EXTENSION_TICKET))
                 .thenThrow(new BusinessException(AuthErrorCode.INVALID_LOGIN_BRIDGE_TICKET));
 
         assertThatThrownBy(() -> extensionLoginBridgeService.exchangeToken(new ExtensionBridgeTokenRequest(ticket)))

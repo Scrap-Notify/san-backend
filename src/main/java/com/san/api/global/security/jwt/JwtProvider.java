@@ -1,6 +1,7 @@
 package com.san.api.global.security.jwt;
 
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.domain.user.entity.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -9,6 +10,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -16,7 +18,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-/** JWT 토큰 생성, 파싱, 검증. subject는 userId(UUID 문자열). */
+/** JWT 토큰 생성, 파싱, 검증을 담당합니다. subject는 userId(UUID 문자열)입니다. */
 @Component
 public class JwtProvider {
 
@@ -24,6 +26,7 @@ public class JwtProvider {
     private static final String CLIENT_TYPE_CLAIM = "clientType";
     private static final String SESSION_ID_CLAIM = "sessionId";
     private static final String FAMILY_ID_CLAIM = "familyId";
+    private static final String ROLE_CLAIM = "role";
     private static final String ACCESS_TOKEN_TYPE = "access";
     private static final String REFRESH_TOKEN_TYPE = "refresh";
 
@@ -45,7 +48,11 @@ public class JwtProvider {
     }
 
     public String generateAccessToken(String userId, ClientType clientType, String sessionId) {
-        return buildToken(userId, accessExpiration, ACCESS_TOKEN_TYPE, clientType, sessionId);
+        return generateAccessToken(userId, clientType, sessionId, UserRole.USER);
+    }
+
+    public String generateAccessToken(String userId, ClientType clientType, String sessionId, UserRole role) {
+        return buildToken(userId, accessExpiration, ACCESS_TOKEN_TYPE, clientType, sessionId, null, role);
     }
 
     public String generateRefreshToken(String userId) {
@@ -57,14 +64,24 @@ public class JwtProvider {
     }
 
     public String generateRefreshToken(String userId, ClientType clientType, String sessionId, String familyId) {
-        // familyId는 refresh token rotation 과정에서 같은 로그인 세션 묶음을 추적하는 값입니다.
-        return buildToken(userId, refreshExpiration, REFRESH_TOKEN_TYPE, clientType, sessionId, familyId);
+        return generateRefreshToken(userId, clientType, sessionId, familyId, UserRole.USER);
     }
 
-    /** 토큰에서 Authentication 객체 추출. principal은 userId(String). */
+    public String generateRefreshToken(String userId, ClientType clientType, String sessionId, String familyId,
+                                       UserRole role) {
+        return buildToken(userId, refreshExpiration, REFRESH_TOKEN_TYPE, clientType, sessionId, familyId, role);
+    }
+
+    /** 토큰에서 인증 객체를 추출합니다. principal은 userId(String)입니다. */
     public Authentication getAuthentication(String token) {
-        String userId = getUserId(token);
-        return new UsernamePasswordAuthenticationToken(userId, null, List.of());
+        Claims claims = getClaims(token);
+        String userId = claims.getSubject();
+        UserRole role = getRole(claims);
+        return new UsernamePasswordAuthenticationToken(
+                userId,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))
+        );
     }
 
     public String getUserId(String token) {
@@ -77,10 +94,11 @@ public class JwtProvider {
         String sessionId = claims.get(SESSION_ID_CLAIM, String.class);
         String familyId = claims.get(FAMILY_ID_CLAIM, String.class);
         String jti = claims.getId();
-        return new JwtSessionClaims(clientType, sessionId, familyId, jti);
+        UserRole role = getRole(claims);
+        return new JwtSessionClaims(clientType, sessionId, familyId, jti, role);
     }
 
-    /** 토큰 남은 유효시간(ms). 블랙리스트 TTL 계산에 사용. */
+    /** 토큰 남은 유효시간(ms)입니다. 블랙리스트 TTL 계산에 사용합니다. */
     public long getRemainingExpiration(String token) {
         Date expiration = getClaims(token).getExpiration();
         return Math.max(0, expiration.getTime() - System.currentTimeMillis());
@@ -108,14 +126,11 @@ public class JwtProvider {
     }
 
     private String buildToken(String userId, long expiration, String tokenType) {
-        return buildToken(userId, expiration, tokenType, null, null);
+        return buildToken(userId, expiration, tokenType, null, null, null, UserRole.USER);
     }
 
-    private String buildToken(String userId, long expiration, String tokenType, ClientType clientType, String sessionId) {
-        return buildToken(userId, expiration, tokenType, clientType, sessionId, null);
-    }
-
-    private String buildToken(String userId, long expiration, String tokenType, ClientType clientType, String sessionId, String familyId) {
+    private String buildToken(String userId, long expiration, String tokenType, ClientType clientType, String sessionId,
+                              String familyId, UserRole role) {
         Date now = new Date();
         var builder = Jwts.builder()
                 .subject(userId)
@@ -134,8 +149,19 @@ public class JwtProvider {
         if (familyId != null && !familyId.isBlank()) {
             builder.claim(FAMILY_ID_CLAIM, familyId);
         }
+        if (role != null) {
+            builder.claim(ROLE_CLAIM, role.name());
+        }
 
         return builder.compact();
+    }
+
+    private UserRole getRole(Claims claims) {
+        String role = claims.get(ROLE_CLAIM, String.class);
+        if (role == null || role.isBlank()) {
+            return UserRole.USER;
+        }
+        return UserRole.valueOf(role);
     }
 
     private Claims getClaims(String token) {

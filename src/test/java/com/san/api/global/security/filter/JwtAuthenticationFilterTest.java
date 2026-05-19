@@ -2,6 +2,7 @@ package com.san.api.global.security.filter;
 
 import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.auth.service.AuthSessionKeyService;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.security.handler.SecurityErrorAttribute;
 import com.san.api.global.security.jwt.JwtProvider;
@@ -71,7 +72,7 @@ class JwtAuthenticationFilterTest {
         when(jwtProvider.isAccessToken(token)).thenReturn(true);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(AuthRedisKeyPrefix.BLACKLIST + token)).thenReturn(null);
-        JwtSessionClaims sessionClaims = new JwtSessionClaims(ClientType.DASHBOARD, sessionId, null, null);
+        JwtSessionClaims sessionClaims = new JwtSessionClaims(ClientType.DASHBOARD, sessionId, null, null, UserRole.USER);
         when(jwtProvider.getSessionClaims(token))
                 .thenReturn(sessionClaims);
         when(jwtProvider.getUserId(token)).thenReturn(userId);
@@ -100,7 +101,7 @@ class JwtAuthenticationFilterTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(AuthRedisKeyPrefix.BLACKLIST + token)).thenReturn(null);
         when(jwtProvider.getSessionClaims(token))
-                .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, sessionId, null, null));
+                .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, sessionId, null, null, UserRole.USER));
         when(jwtProvider.getUserId(token)).thenReturn(userId);
         when(redisTemplate.hasKey(refreshKey)).thenReturn(false);
 

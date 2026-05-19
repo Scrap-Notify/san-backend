@@ -2,6 +2,7 @@ package com.san.api.domain.auth.service;
 
 import com.san.api.domain.auth.dto.response.AuthSessionListResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.security.jwt.JwtProvider;
 import com.san.api.global.security.jwt.JwtSessionClaims;
@@ -70,7 +71,7 @@ class AuthSessionServiceTest {
         when(jwtProvider.isAccessToken(accessToken)).thenReturn(true);
         when(jwtProvider.getUserId(accessToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(accessToken))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, "current-session", null, null));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, "current-session", null, null, UserRole.USER));
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
         when(setOperations.members(indexKey)).thenReturn(Set.of(currentKey, otherKey, staleKey));
         when(redisTemplate.hasKey(currentKey)).thenReturn(true);
@@ -103,7 +104,7 @@ class AuthSessionServiceTest {
         when(jwtProvider.isAccessToken(accessToken)).thenReturn(true);
         when(jwtProvider.getUserId(accessToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(accessToken))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, "current-session", null, null));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, "current-session", null, null, UserRole.USER));
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
 
         authSessionService.revokeSession(accessToken, ClientType.EXTENSION, "session-id");
@@ -132,7 +133,7 @@ class AuthSessionServiceTest {
         when(jwtProvider.isAccessToken(accessToken)).thenReturn(true);
         when(jwtProvider.getUserId(accessToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(accessToken))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, "current-session", null, null));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, "current-session", null, null, UserRole.USER));
         when(jwtProvider.getRemainingExpiration(accessToken)).thenReturn(1000L);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);

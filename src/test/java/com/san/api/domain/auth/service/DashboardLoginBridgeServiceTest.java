@@ -4,6 +4,7 @@ import com.san.api.domain.auth.dto.request.DashboardBridgeTokenRequest;
 import com.san.api.domain.auth.dto.response.LoginBridgeTicketResponse;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
@@ -56,7 +57,7 @@ class DashboardLoginBridgeServiceTest {
                 ClientType.EXTENSION,
                 AuthRedisKeyPrefix.LOGIN_BRIDGE_DASHBOARD_TICKET,
                 Duration.ofSeconds(30)
-        )).thenReturn(new LoginBridgeTicketIssueResult(userId, ClientType.EXTENSION, ticketResponse));
+        )).thenReturn(new LoginBridgeTicketIssueResult(userId, ClientType.EXTENSION, UserRole.USER, ticketResponse));
 
         LoginBridgeTicketResponse result = dashboardLoginBridgeService.issueTicket(accessToken);
 
@@ -78,14 +79,14 @@ class DashboardLoginBridgeServiceTest {
         String ticket = "dashboard-ticket";
         TokenResponse tokenResponse = TokenResponse.of("access-token", "refresh-token", 1800L, "dashboard-session");
 
-        when(loginBridgeTicketService.consumeTicket(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_DASHBOARD_TICKET))
-                .thenReturn(userId);
-        when(tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD)).thenReturn(tokenResponse);
+        when(loginBridgeTicketService.consumeTicketWithContext(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_DASHBOARD_TICKET))
+                .thenReturn(new LoginBridgeTicketConsumeResult(userId, UserRole.ADMIN));
+        when(tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, UserRole.ADMIN)).thenReturn(tokenResponse);
 
         TokenResponse result = dashboardLoginBridgeService.exchangeToken(new DashboardBridgeTokenRequest(ticket));
 
         assertThat(result).isEqualTo(tokenResponse);
-        verify(tokenIssueService).issueTokenPair(userId, ClientType.DASHBOARD);
+        verify(tokenIssueService).issueTokenPair(userId, ClientType.DASHBOARD, UserRole.ADMIN);
         verify(authAuditService).recordSuccess(
                 org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
                 org.mockito.ArgumentMatchers.eq(AuditEventType.LOGIN_BRIDGE_TOKEN_EXCHANGED),
@@ -100,7 +101,7 @@ class DashboardLoginBridgeServiceTest {
     @Test
     void exchangeTokenRecordsFailureWhenTicketIsInvalid() {
         String ticket = "missing-ticket";
-        when(loginBridgeTicketService.consumeTicket(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_DASHBOARD_TICKET))
+        when(loginBridgeTicketService.consumeTicketWithContext(ticket, AuthRedisKeyPrefix.LOGIN_BRIDGE_DASHBOARD_TICKET))
                 .thenThrow(new BusinessException(AuthErrorCode.INVALID_LOGIN_BRIDGE_TICKET));
 
         assertThatThrownBy(() -> dashboardLoginBridgeService.exchangeToken(new DashboardBridgeTokenRequest(ticket)))

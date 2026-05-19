@@ -3,6 +3,7 @@ package com.san.api.domain.auth.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.global.security.jwt.JwtProvider;
 import com.san.api.global.security.jwt.JwtSessionClaims;
 import com.san.api.global.security.redis.AuthRedisKeyPrefix;
@@ -65,10 +66,12 @@ class TokenIssueServiceTest {
         String sessionId = "session-id";
         String familyId = "family-id";
         String jti = "refresh-jti";
-        when(jwtProvider.generateAccessToken(userId, ClientType.DASHBOARD, sessionId)).thenReturn("access-token");
-        when(jwtProvider.generateRefreshToken(userId, ClientType.DASHBOARD, sessionId, familyId)).thenReturn("refresh-token");
+        when(jwtProvider.generateAccessToken(userId, ClientType.DASHBOARD, sessionId, UserRole.USER))
+                .thenReturn("access-token");
+        when(jwtProvider.generateRefreshToken(userId, ClientType.DASHBOARD, sessionId, familyId, UserRole.USER))
+                .thenReturn("refresh-token");
         when(jwtProvider.getSessionClaims("refresh-token"))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, familyId, jti));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, familyId, jti, UserRole.USER));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
 

@@ -29,6 +29,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -51,6 +52,8 @@ class RecallQuizGenerationServiceTest {
     private RecallQuizSourceService recallQuizSourceService;
     @Mock
     private RecallQuizRepository recallQuizRepository;
+    @Mock
+    private RecallQuizPersistenceService recallQuizPersistenceService;
     @Mock
     private AiQuizClient aiQuizClient;
     @Mock
@@ -121,7 +124,7 @@ class RecallQuizGenerationServiceTest {
                 RecallQuizType.SHORT_ANSWER
         )).thenReturn(List.of());
         when(aiQuizClient.generateShortAnswerQuiz(any(AiQuizRequest.class))).thenReturn(aiResponse);
-        when(recallQuizRepository.saveAll(anyList())).thenAnswer(invocation -> {
+        when(recallQuizPersistenceService.saveQuizzes(anyList())).thenAnswer(invocation -> {
             List<RecallQuiz> quizzes = invocation.getArgument(0);
             savedQuizzes.set(quizzes);
             return quizzes;
@@ -164,7 +167,7 @@ class RecallQuizGenerationServiceTest {
                 RecallQuizType.OX
         )).thenReturn(List.of());
         when(aiQuizClient.generateOxQuiz(any(AiQuizRequest.class))).thenReturn(aiResponse);
-        when(recallQuizRepository.saveAll(anyList())).thenAnswer(invocation -> {
+        when(recallQuizPersistenceService.saveQuizzes(anyList())).thenAnswer(invocation -> {
             List<RecallQuiz> quizzes = invocation.getArgument(0);
             savedQuizzes.set(quizzes);
             return quizzes;
@@ -186,6 +189,45 @@ class RecallQuizGenerationServiceTest {
         assertThat(savedQuiz.getAnswer()).isEqualTo("X");
         assertThat(savedQuiz.getExplanation()).isEqualTo("필요한 곳에만 사용한다.");
         assertThat(response.quizzes().getFirst().question()).isEqualTo("React.memo는 모든 컴포넌트에 권장된다.");
+    }
+
+    @Test
+    void generateReturnsExistingQuizzesWhenSaveConflicts() {
+        KnowledgeCard card = buildCard(SourceType.TEXT, null, "raw content", null);
+        RecallQuiz conflictQuiz = RecallQuiz.builder()
+                .dailySummary(summary)
+                .scrap(card.getScrap())
+                .quizType(RecallQuizType.SHORT_ANSWER)
+                .question("conflict question")
+                .answer("conflict answer")
+                .explanation("conflict explanation")
+                .build();
+        AiShortAnswerQuizResponse aiResponse = new AiShortAnswerQuizResponse(
+                "short_answer",
+                List.of(new AiShortAnswerQuizQuestionResponse("question", "answer", "explanation"))
+        );
+
+        when(recallQuizSourceService.findSources(userId, targetDate))
+                .thenReturn(new RecallQuizSourceResult(summary, List.of(card)));
+        when(recallQuizRepository.findAllByUser_UserIdAndDailySummary_SummaryIdAndQuizTypeOrderByCreatedAtAsc(
+                userId,
+                summary.getSummaryId(),
+                RecallQuizType.SHORT_ANSWER
+        )).thenReturn(List.of(), List.of(conflictQuiz));
+        when(aiQuizClient.generateShortAnswerQuiz(any(AiQuizRequest.class))).thenReturn(aiResponse);
+        when(recallQuizPersistenceService.saveQuizzes(anyList()))
+                .thenThrow(new DataIntegrityViolationException("duplicate recall quiz"));
+
+        RecallQuizGenerateResponse response = recallQuizGenerationService.generate(
+                userId,
+                new RecallQuizGenerateRequest(targetDate, RecallQuizType.SHORT_ANSWER)
+        );
+
+        assertThat(response.targetDate()).isEqualTo(targetDate);
+        assertThat(response.quizType()).isEqualTo(RecallQuizType.SHORT_ANSWER);
+        assertThat(response.quizzes()).hasSize(1);
+        assertThat(response.quizzes().getFirst().question()).isEqualTo("conflict question");
+        verify(recallQuizPersistenceService).saveQuizzes(anyList());
     }
 
     @Test

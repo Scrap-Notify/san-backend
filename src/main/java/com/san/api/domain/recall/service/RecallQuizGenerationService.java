@@ -22,6 +22,7 @@ import com.san.api.global.external.ai.dto.response.AiShortAnswerQuizQuestionResp
 import com.san.api.global.external.ai.dto.response.AiShortAnswerQuizResponse;
 import com.san.api.global.external.s3.service.S3PresignedUrlService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,7 @@ public class RecallQuizGenerationService {
 
     private final RecallQuizSourceService recallQuizSourceService;
     private final RecallQuizRepository recallQuizRepository;
+    private final RecallQuizPersistenceService recallQuizPersistenceService;
     private final AiQuizClient aiQuizClient;
     private final S3PresignedUrlService s3PresignedUrlService;
 
@@ -56,12 +58,7 @@ public class RecallQuizGenerationService {
         RecallQuizSourceResult source = recallQuizSourceService.findSources(userId, request.targetDate());
         DailySummary summary = source.dailySummary();
 
-        List<RecallQuiz> existingQuizzes = recallQuizRepository
-                .findAllByUser_UserIdAndDailySummary_SummaryIdAndQuizTypeOrderByCreatedAtAsc(
-                        userId,
-                        summary.getSummaryId(),
-                        request.quizType()
-                );
+        List<RecallQuiz> existingQuizzes = findExistingQuizzes(userId, summary, request.quizType());
         if (!existingQuizzes.isEmpty()) {
             return toResponse(summary, request.quizType(), existingQuizzes);
         }
@@ -78,7 +75,24 @@ public class RecallQuizGenerationService {
             case OX -> createOxQuizzes(summary, source.sourceCards(), aiRequest);
         };
 
-        return toResponse(summary, request.quizType(), recallQuizRepository.saveAll(quizzes));
+        try {
+            return toResponse(summary, request.quizType(), recallQuizPersistenceService.saveQuizzes(quizzes));
+        } catch (DataIntegrityViolationException e) {
+            List<RecallQuiz> conflictQuizzes = findExistingQuizzes(userId, summary, request.quizType());
+            if (!conflictQuizzes.isEmpty()) {
+                return toResponse(summary, request.quizType(), conflictQuizzes);
+            }
+            throw e;
+        }
+    }
+
+    /** 기존 리콜 퀴즈 조회 */
+    private List<RecallQuiz> findExistingQuizzes(UUID userId, DailySummary summary, RecallQuizType quizType) {
+        return recallQuizRepository.findAllByUser_UserIdAndDailySummary_SummaryIdAndQuizTypeOrderByCreatedAtAsc(
+                userId,
+                summary.getSummaryId(),
+                quizType
+        );
     }
 
     /** 단답형 퀴즈 생성 */

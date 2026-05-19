@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Outbox 이벤트의 저장과 조회를 담당하는 Repository입니다. */
@@ -30,4 +31,22 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
      * @return 해당 상태의 Outbox 이벤트 목록
      */
     List<OutboxEvent> findByStatusOrderByCreatedAtDesc(OutboxEventStatus status);
+
+    /**
+     * 특정 시각 이전에 처리 중으로 남아 있는 이벤트를 조회합니다.
+     *
+     * @param status    조회할 이벤트 상태
+     * @param threshold 고착 이벤트 판단 기준 시각
+     * @return 오래된 처리 중 Outbox 이벤트 목록
+     */
+    List<OutboxEvent> findByStatusAndUpdatedAtBefore(OutboxEventStatus status, LocalDateTime threshold);
+
+    /**
+     * 특정 이벤트 ID와 상태가 모두 일치하는 이벤트를 조회합니다.
+     *
+     * @param outboxEventId 조회할 Outbox 이벤트 ID
+     * @param status        조회할 이벤트 상태
+     * @return 상태가 일치하는 Outbox 이벤트
+     */
+    Optional<OutboxEvent> findByOutboxEventIdAndStatus(UUID outboxEventId, OutboxEventStatus status);
 }

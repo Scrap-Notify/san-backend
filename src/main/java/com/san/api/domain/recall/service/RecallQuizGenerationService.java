@@ -4,6 +4,7 @@ import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
 import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizGenerationJobResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizListResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizResponse;
 import com.san.api.domain.recall.entity.RecallQuiz;
 import com.san.api.domain.recall.entity.RecallQuizGeneration;
@@ -34,6 +35,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -82,6 +84,32 @@ public class RecallQuizGenerationService {
                 quizJobId,
                 generation.getTargetDate(),
                 generation.getQuizType()
+        );
+    }
+
+    /**
+     * 날짜와 유형 기준 리콜 퀴즈 조회
+     *
+     * @param userId 사용자 ID
+     * @param targetDate 조회 대상 날짜
+     * @param quizType 리콜 퀴즈 유형
+     * @return 리콜 퀴즈 목록 응답
+     */
+    @Transactional(readOnly = true)
+    public RecallQuizListResponse getQuizzes(UUID userId, LocalDate targetDate, RecallQuizType quizType) {
+        List<RecallQuiz> quizzes = recallQuizRepository
+                .findAllByUser_UserIdAndDailySummary_TargetDateAndQuizTypeOrderByCreatedAtAsc(
+                        userId,
+                        targetDate,
+                        quizType
+                );
+
+        return new RecallQuizListResponse(
+                targetDate,
+                quizType,
+                quizzes.stream()
+                        .map(RecallQuizResponse::from)
+                        .toList()
         );
     }
 

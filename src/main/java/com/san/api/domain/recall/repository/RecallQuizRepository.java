@@ -4,6 +4,7 @@ import com.san.api.domain.recall.entity.RecallQuiz;
 import com.san.api.domain.recall.entity.RecallQuizType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,13 @@ public interface RecallQuizRepository extends JpaRepository<RecallQuiz, UUID> {
     List<RecallQuiz> findAllByUser_UserIdAndDailySummary_SummaryIdAndQuizTypeOrderByCreatedAtAsc(
             UUID userId,
             UUID summaryId,
+            RecallQuizType quizType
+    );
+
+    /** 날짜와 유형 기준 리콜 퀴즈 조회 */
+    List<RecallQuiz> findAllByUser_UserIdAndDailySummary_TargetDateAndQuizTypeOrderByCreatedAtAsc(
+            UUID userId,
+            LocalDate targetDate,
             RecallQuizType quizType
     );
 

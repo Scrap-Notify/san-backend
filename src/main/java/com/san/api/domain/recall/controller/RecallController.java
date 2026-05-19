@@ -3,7 +3,9 @@ package com.san.api.domain.recall.controller;
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
 import com.san.api.domain.recall.dto.request.RecallQuizSubmitRequest;
 import com.san.api.domain.recall.dto.response.RecallQuizGenerationJobResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizListResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizSubmitResponse;
+import com.san.api.domain.recall.entity.RecallQuizType;
 import com.san.api.domain.recall.service.RecallQuizGenerationService;
 import com.san.api.domain.recall.service.RecallQuizSubmissionService;
 import com.san.api.global.exception.BusinessException;
@@ -14,12 +16,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /** 리콜 API Controller */
@@ -47,6 +52,27 @@ public class RecallController {
 
         UUID userId = currentUserId(authentication);
         RecallQuizGenerationJobResponse response = recallQuizGenerationService.requestGeneration(userId, request);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 날짜와 유형 기준 리콜 퀴즈 조회
+     *
+     * @param authentication 인증 정보
+     * @param targetDate 조회 대상 날짜
+     * @param quizType 리콜 퀴즈 유형
+     * @return 리콜 퀴즈 목록 응답
+     */
+    @Operation(summary = "날짜와 유형 기준 리콜 퀴즈 조회", description = "대상 날짜와 퀴즈 유형에 해당하는 리콜 퀴즈 목록 조회")
+    @GetMapping("/quizzes")
+    public ApiResponse<RecallQuizListResponse> getQuizzes(
+            Authentication authentication,
+            @RequestParam LocalDate targetDate,
+            @RequestParam RecallQuizType quizType) {
+
+        UUID userId = currentUserId(authentication);
+        RecallQuizListResponse response = recallQuizGenerationService.getQuizzes(userId, targetDate, quizType);
 
         return ApiResponse.success(response);
     }

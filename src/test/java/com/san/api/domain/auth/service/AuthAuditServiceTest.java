@@ -86,10 +86,12 @@ class AuthAuditServiceTest {
     @Test
     void recordFailureUsesAuditFailureReasonAndPreservesClientErrorCode() {
         AuthAuditService authAuditService = new AuthAuditService(auditLogService);
+        UUID targetUserId = UUID.randomUUID();
 
         authAuditService.recordFailure(
                 null,
                 AuditEventType.LOGIN_FAILURE,
+                targetUserId,
                 AuthErrorCode.INVALID_CREDENTIALS,
                 Map.of("username", "dahyeon")
         );
@@ -97,6 +99,8 @@ class AuthAuditServiceTest {
         ArgumentCaptor<AuditLogCreateCommand> captor = ArgumentCaptor.forClass(AuditLogCreateCommand.class);
         verify(auditLogService).save(captor.capture());
         AuditLogCreateCommand command = captor.getValue();
+        assertThat(command.actorUserId()).isNull();
+        assertThat(command.targetId()).isEqualTo(targetUserId);
         assertThat(command.failureReasonCode()).isEqualTo("AUTH.INVALID_CREDENTIALS");
         assertThat(command.failureMessage()).isEqualTo("아이디 또는 비밀번호가 올바르지 않습니다.");
         assertThat(command.metadata())

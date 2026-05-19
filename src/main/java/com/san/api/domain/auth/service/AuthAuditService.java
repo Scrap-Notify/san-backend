@@ -54,11 +54,21 @@ public class AuthAuditService {
             AuthErrorCode errorCode,
             Map<String, Object> metadata
     ) {
+        recordFailure(actorUserId, eventType, actorUserId, errorCode, metadata);
+    }
+
+    public void recordFailure(
+            UUID actorUserId,
+            AuditEventType eventType,
+            UUID targetId,
+            AuthErrorCode errorCode,
+            Map<String, Object> metadata
+    ) {
         AuditFailureReason failureReason = AuditFailureReason.from(errorCode);
         saveSafely(newCommand(
                 actorUserId,
                 eventType,
-                actorUserId,
+                targetId,
                 AuditOutcome.FAILURE,
                 failureReason.code(),
                 failureReason.message(),

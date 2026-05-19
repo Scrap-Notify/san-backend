@@ -2,8 +2,8 @@ package com.san.api.domain.feedback.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -28,15 +28,17 @@ public class MattermostFeedbackNotifier {
     }
 
     /**
-     * Mattermost webhook URL이 설정된 경우 피드백 알림을 전송합니다.
-     * 알림 실패가 피드백 저장 흐름을 막지 않도록 예외는 경고 로그로만 남깁니다.
+     * Mattermost webhook으로 피드백 알림을 동기 전송합니다.
+     *
+     * @param payload Mattermost 알림에 필요한 피드백 스냅샷
+     * @throws RestClientException 최대 재시도 후에도 전송에 실패한 경우
      */
-    @Async("notificationExecutor")
-    public void notify(FeedbackNotificationPayload payload) {
+    public void send(FeedbackNotificationPayload payload) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
-            return;
+            throw new ResourceAccessException("Mattermost webhook URL is not configured");
         }
 
+        RestClientException lastException = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 restClient.post()
@@ -46,35 +48,41 @@ public class MattermostFeedbackNotifier {
                         .toBodilessEntity();
                 return;
             } catch (RestClientException e) {
+                lastException = e;
                 log.warn("Failed to send feedback notification to Mattermost. feedbackId={}, attempt={}/{}",
                         payload.feedbackId(), attempt, maxAttempts, e);
             }
         }
+
+        throw lastException;
     }
 
     /** Mattermost 채널에 표시할 피드백 메시지를 생성합니다. */
     private String createMessage(FeedbackNotificationPayload payload) {
         return """
-                ### 새 피드백이 도착했습니다
-                - feedbackId: %s
-                - type: %s
-                - userId: %s
-                - clientType: %s
-                - pageUrl: %s
-                - traceId: %s
-                - contact: %s
+                ## 📬 NEW Feedback 배송왔습니다
+                | **항목** | **내용** |
+                | --- | --- |
+                | **유형** | `%s` |
+                | **작성자** | `%s` |
+                | **클라이언트** | `%s` |
+                | **연락처** | %s |
+                | **작성 위치** | %s |
+                | **추적 ID** | `%s` |
+                | **피드백 ID** | `%s` |
 
-                ```text
+                ### 내용
+                ```
                 %s
                 ```
                 """.formatted(
-                payload.feedbackId(),
                 payload.type(),
                 valueOrDash(payload.userId()),
                 valueOrDash(payload.clientType()),
+                valueOrDash(payload.contact()),
                 valueOrDash(payload.pageUrl()),
                 valueOrDash(payload.traceId()),
-                valueOrDash(payload.contact()),
+                payload.feedbackId(),
                 payload.content()
         );
     }

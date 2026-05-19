@@ -122,7 +122,8 @@ class AuthServiceTest {
 
     @Test
     void reissueValidatesRefreshTokenByClientSessionKey() {
-        String userId = UUID.randomUUID().toString();
+        User user = localUser();
+        String userId = user.getUserId().toString();
         String sessionId = "dashboard-session";
         String refreshToken = "refresh-token";
         String redisKey = AuthRedisKeyPrefix.REFRESH + userId + ":DASHBOARD:" + sessionId;
@@ -132,16 +133,18 @@ class AuthServiceTest {
         when(jwtProvider.isRefreshToken(refreshToken)).thenReturn(true);
         when(jwtProvider.getUserId(refreshToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(refreshToken))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, "family-id", "refresh-jti", UserRole.USER));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, "family-id", "refresh-jti", UserRole.ADMIN));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
         when(valueOperations.getAndDelete(redisKey)).thenReturn(refreshTokenSessionJson(refreshToken, "family-id", "refresh-jti"));
+        when(userRepository.findById(user.getUserId())).thenReturn(Optional.of(user));
         when(tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId, "family-id", UserRole.USER))
                 .thenReturn(tokenResponse);
 
         TokenResponse result = authService.reissue(new ReissueRequest(refreshToken));
 
         assertThat(result).isEqualTo(tokenResponse);
+        verify(tokenIssueService).issueTokenPair(userId, ClientType.DASHBOARD, sessionId, "family-id", UserRole.USER);
         verify(setOperations).remove(AuthRedisKeyPrefix.REFRESH + "index:user:" + userId, redisKey);
         verify(authAuditService).recordSuccess(
                 org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),

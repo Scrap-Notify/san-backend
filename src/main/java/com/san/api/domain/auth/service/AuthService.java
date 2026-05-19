@@ -234,12 +234,14 @@ public class AuthService {
 
         // 정상 rotation은 같은 sessionId와 familyId를 유지한 채 refresh token만 새로 발급합니다.
         removeRefreshSessionIndex(userId, refreshKey);
+        User user = userRepository.findById(userUuid)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_REFRESH_TOKEN));
         TokenResponse tokens = tokenIssueService.issueTokenPair(
                 userId,
                 sessionClaims.clientType(),
                 sessionId,
                 familyId,
-                sessionClaims.role()
+                user.getRole()
         );
 
         log.info("[Auth] 토큰 재발급 - userId={}", userId);

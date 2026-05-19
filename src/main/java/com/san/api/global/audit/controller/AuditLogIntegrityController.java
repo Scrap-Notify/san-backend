@@ -3,8 +3,6 @@ package com.san.api.global.audit.controller;
 import com.san.api.global.audit.dto.response.AuditLogIntegrityResponse;
 import com.san.api.global.audit.dto.response.AuditLogIntegritySummaryResponse;
 import com.san.api.global.audit.service.AuditLogIntegrityService;
-import com.san.api.global.exception.BusinessException;
-import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,7 +10,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,14 +41,8 @@ public class AuditLogIntegrityController {
      */
     @Operation(summary = "감사 로그 단건 무결성 검증")
     @GetMapping("/{auditLogEventId}/integrity")
-    public ApiResponse<AuditLogIntegrityResponse> verify(
-            Authentication authentication,
-            @PathVariable UUID auditLogEventId
-    ) {
-        return ApiResponse.success(auditLogIntegrityService.verify(
-                auditLogEventId,
-                currentUserId(authentication)
-        ));
+    public ApiResponse<AuditLogIntegrityResponse> verify(@PathVariable UUID auditLogEventId) {
+        return ApiResponse.success(auditLogIntegrityService.verify(auditLogEventId));
     }
 
     /**
@@ -67,7 +58,6 @@ public class AuditLogIntegrityController {
     @Operation(summary = "감사 로그 기간 무결성 검증")
     @GetMapping("/integrity")
     public ApiResponse<AuditLogIntegritySummaryResponse> verifyRange(
-            Authentication authentication,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -77,15 +67,7 @@ public class AuditLogIntegrityController {
                 from,
                 to,
                 page,
-                size,
-                currentUserId(authentication)
+                size
         ));
-    }
-
-    private UUID currentUserId(Authentication authentication) {
-        if (authentication == null || authentication.getPrincipal() == null) {
-            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
-        }
-        return UUID.fromString((String) authentication.getPrincipal());
     }
 }

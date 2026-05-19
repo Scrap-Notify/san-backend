@@ -22,6 +22,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 /** 리콜 퀴즈 엔티티 */
@@ -89,7 +90,6 @@ public class RecallQuiz extends BaseEntity {
 
     @Builder
     public RecallQuiz(
-            User user,
             DailySummary dailySummary,
             Scrap scrap,
             RecallQuizType quizType,
@@ -97,8 +97,10 @@ public class RecallQuiz extends BaseEntity {
             String answer,
             String explanation
     ) {
+        validateSameOwner(dailySummary, scrap);
+
         this.quizId = UUID.randomUUID();
-        this.user = user;
+        this.user = dailySummary.getUser();
         this.dailySummary = dailySummary;
         this.scrap = scrap;
         this.quizType = quizType;
@@ -131,5 +133,15 @@ public class RecallQuiz extends BaseEntity {
         this.isSolved = true;
         this.isCorrect = answer.equals(submittedAnswer);
         this.solvedAt = solvedAt;
+    }
+
+    /** 소유자 일치 검증 */
+    private void validateSameOwner(DailySummary dailySummary, Scrap scrap) {
+        Objects.requireNonNull(dailySummary, "dailySummary must not be null");
+        Objects.requireNonNull(scrap, "scrap must not be null");
+
+        if (!Objects.equals(dailySummary.getUser().getUserId(), scrap.getUser().getUserId())) {
+            throw new IllegalArgumentException("Daily summary and scrap owner must be same.");
+        }
     }
 }

@@ -52,6 +52,8 @@ public enum AuditEventType {
     NOTIFICATION_READ("알림 읽음"),
     NOTIFICATION_STATUS_CHANGED("알림 상태 변경"),
 
+    OUTBOX_EVENT_RETRY_REQUESTED("Outbox 이벤트 수동 재처리 요청"),
+
     EXTERNAL_API_REQUESTED("외부 API 요청"),
     EXTERNAL_API_SUCCEEDED("외부 API 요청 성공"),
     EXTERNAL_API_FAILED("외부 API 요청 실패");

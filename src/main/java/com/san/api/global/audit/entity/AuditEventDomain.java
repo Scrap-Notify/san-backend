@@ -16,6 +16,7 @@ public enum AuditEventDomain {
     GITHUB("GitHub 연동"),
     TIL("TIL"),
     NOTIFICATION("알림"),
+    OUTBOX("Outbox"),
     EXTERNAL_API("외부 API");
 
     private final String description;

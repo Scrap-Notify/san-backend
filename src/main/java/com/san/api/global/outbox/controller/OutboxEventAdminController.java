@@ -1,15 +1,19 @@
 package com.san.api.global.outbox.controller;
 
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.outbox.dto.request.OutboxEventSearchRequest;
 import com.san.api.global.outbox.dto.response.OutboxEventPageResponse;
 import com.san.api.global.outbox.dto.response.OutboxEventResponse;
 import com.san.api.global.outbox.service.OutboxEventQueryService;
+import com.san.api.global.outbox.service.OutboxEventRetryService;
 import com.san.api.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +27,7 @@ import java.util.UUID;
 public class OutboxEventAdminController {
 
     private final OutboxEventQueryService outboxEventQueryService;
+    private final OutboxEventRetryService outboxEventRetryService;
 
     /**
      * Outbox 이벤트를 조건별로 조회합니다.
@@ -52,5 +57,34 @@ public class OutboxEventAdminController {
     @GetMapping("/{outboxEventId}")
     public ApiResponse<OutboxEventResponse> get(@PathVariable UUID outboxEventId) {
         return ApiResponse.success(outboxEventQueryService.get(outboxEventId));
+    }
+
+    /**
+     * FAILED 상태의 Outbox 이벤트를 즉시 재처리 대기 상태로 변경합니다.
+     *
+     * @param outboxEventId  재처리할 Outbox 이벤트 ID
+     * @param authentication 현재 인증 정보
+     * @return 재처리 대기 상태로 변경된 Outbox 이벤트
+     */
+    @Operation(
+            summary = "실패 Outbox 이벤트 수동 재처리",
+            description = "FAILED 상태의 Outbox 이벤트를 PENDING 상태로 되돌려 릴레이 스케줄러가 다시 처리하게 합니다."
+    )
+    @PostMapping("/{outboxEventId}/retry")
+    public ApiResponse<OutboxEventResponse> retry(
+            @PathVariable UUID outboxEventId,
+            Authentication authentication
+    ) {
+        return ApiResponse.success(outboxEventRetryService.retryFailedEvent(
+                outboxEventId,
+                currentUserId(authentication)
+        ));
+    }
+
+    private UUID currentUserId(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
+        }
+        return UUID.fromString((String) authentication.getPrincipal());
     }
 }

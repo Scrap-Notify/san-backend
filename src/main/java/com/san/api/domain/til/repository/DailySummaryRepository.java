@@ -26,6 +26,26 @@ public interface DailySummaryRepository extends JpaRepository<DailySummary, UUID
     List<DailySummary> findAllByUser_UserIdAndTargetDateOrderByCreatedAtDesc(UUID userId, LocalDate targetDate);
 
     /**
+     * 사용자와 대상 날짜 기준 최신 DailySummary 조회
+     *
+     * @param userId 사용자 ID
+     * @param targetDate TIL 대상 날짜
+     * @return 사용자 정보가 포함된 DailySummary 목록
+     */
+    @Query("""
+            SELECT ds
+            FROM DailySummary ds
+            JOIN FETCH ds.user
+            WHERE ds.user.userId = :userId
+              AND ds.targetDate = :targetDate
+            ORDER BY ds.createdAt DESC
+            """)
+    List<DailySummary> findAllByUserIdAndTargetDateWithUserOrderByCreatedAtDesc(
+            @Param("userId") UUID userId,
+            @Param("targetDate") LocalDate targetDate
+    );
+
+    /**
      * 사용자 정보를 함께 조회하는 DailySummary 단건 조회
      *
      * @param summaryId DailySummary ID

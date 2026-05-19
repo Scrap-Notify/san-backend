@@ -1,8 +1,11 @@
 package com.san.api.domain.recall.controller;
 
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
+import com.san.api.domain.recall.dto.request.RecallQuizSubmitRequest;
 import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizSubmitResponse;
 import com.san.api.domain.recall.service.RecallQuizGenerationService;
+import com.san.api.domain.recall.service.RecallQuizSubmissionService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.response.ApiResponse;
@@ -11,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +30,7 @@ import java.util.UUID;
 public class RecallController {
 
     private final RecallQuizGenerationService recallQuizGenerationService;
+    private final RecallQuizSubmissionService recallQuizSubmissionService;
 
     /**
      * 날짜 기반 리콜 퀴즈 생성
@@ -42,6 +47,27 @@ public class RecallController {
 
         UUID userId = currentUserId(authentication);
         RecallQuizGenerateResponse response = recallQuizGenerationService.generate(userId, request);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 리콜 퀴즈 정답 제출
+     *
+     * @param authentication 인증 정보
+     * @param quizId 리콜 퀴즈 ID
+     * @param request 리콜 퀴즈 정답 제출 요청
+     * @return 리콜 퀴즈 정답 제출 응답
+     */
+    @Operation(summary = "리콜 퀴즈 정답 제출", description = "리콜 퀴즈에 사용자가 입력한 답변 제출")
+    @PostMapping("/quizzes/{quizId}/submissions")
+    public ApiResponse<RecallQuizSubmitResponse> submit(
+            Authentication authentication,
+            @PathVariable UUID quizId,
+            @Valid @RequestBody RecallQuizSubmitRequest request) {
+
+        UUID userId = currentUserId(authentication);
+        RecallQuizSubmitResponse response = recallQuizSubmissionService.submit(userId, quizId, request);
 
         return ApiResponse.success(response);
     }

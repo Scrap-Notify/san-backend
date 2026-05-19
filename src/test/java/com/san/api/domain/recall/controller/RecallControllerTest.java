@@ -2,8 +2,10 @@ package com.san.api.domain.recall.controller;
 
 import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizSubmitResponse;
 import com.san.api.domain.recall.entity.RecallQuizType;
 import com.san.api.domain.recall.service.RecallQuizGenerationService;
+import com.san.api.domain.recall.service.RecallQuizSubmissionService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.security.filter.JwtAuthenticationFilter;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,9 @@ class RecallControllerTest {
 
     @MockitoBean
     private RecallQuizGenerationService recallQuizGenerationService;
+
+    @MockitoBean
+    private RecallQuizSubmissionService recallQuizSubmissionService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -96,8 +101,61 @@ class RecallControllerTest {
     }
 
     @Test
+    void submitReturnsSubmittedQuiz() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        RecallQuizSubmitResponse response = new RecallQuizSubmitResponse(
+                quizId,
+                RecallQuizType.OX,
+                "React.memo는 모든 컴포넌트에 무조건 사용하는 것이 권장된다.",
+                true,
+                false,
+                "X",
+                "필요한 경우에만 사용하는 것이 권장됩니다."
+        );
+
+        when(recallQuizSubmissionService.submit(eq(userId), eq(quizId), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/recall/quizzes/{quizId}/submissions", quizId)
+                        .principal(new TestingAuthenticationToken(userId.toString(), null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "answer": "X"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ok").value(true))
+                .andExpect(jsonPath("$.data.quizId").value(quizId.toString()))
+                .andExpect(jsonPath("$.data.quizType").value("OX"))
+                .andExpect(jsonPath("$.data.question").value("React.memo는 모든 컴포넌트에 무조건 사용하는 것이 권장된다."))
+                .andExpect(jsonPath("$.data.solved").value(true))
+                .andExpect(jsonPath("$.data.correct").value(false))
+                .andExpect(jsonPath("$.data.submittedAnswer").value("X"))
+                .andExpect(jsonPath("$.data.explanation").value("필요한 경우에만 사용하는 것이 권장됩니다."));
+
+        verify(recallQuizSubmissionService).submit(eq(userId), eq(quizId), any());
+    }
+
+    @Test
+    void submitRejectsInvalidRequest() throws Exception {
+        UUID quizId = UUID.randomUUID();
+
+        mockMvc.perform(post("/recall/quizzes/{quizId}/submissions", quizId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "answer": " "
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.ok").value(false));
+    }
+
+    @Test
     void generateRejectsMissingAuthentication() {
-        RecallController controller = new RecallController(recallQuizGenerationService);
+        RecallController controller = new RecallController(recallQuizGenerationService, recallQuizSubmissionService);
 
         assertThatThrownBy(() -> controller.generate(null, null))
                 .isInstanceOf(BusinessException.class);

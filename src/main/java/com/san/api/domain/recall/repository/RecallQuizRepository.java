@@ -5,6 +5,7 @@ import com.san.api.domain.recall.entity.RecallQuizType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /** 리콜 퀴즈 Repository */
@@ -16,4 +17,7 @@ public interface RecallQuizRepository extends JpaRepository<RecallQuiz, UUID> {
             UUID summaryId,
             RecallQuizType quizType
     );
+
+    /** 사용자 소유 리콜 퀴즈 조회 */
+    Optional<RecallQuiz> findByQuizIdAndUser_UserId(UUID quizId, UUID userId);
 }

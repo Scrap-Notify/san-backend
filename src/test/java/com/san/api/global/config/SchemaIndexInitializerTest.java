@@ -17,6 +17,9 @@ class SchemaIndexInitializerTest {
 
         initializer.run(new DefaultApplicationArguments());
 
+        verify(jdbcTemplate).execute(contains("idx_outbox_events_status_next_attempt"));
+        verify(jdbcTemplate).execute(contains("idx_outbox_events_event_type_created_at"));
+        verify(jdbcTemplate).execute(contains("idx_outbox_events_aggregate"));
         verify(jdbcTemplate).execute(contains("idx_audit_log_events_event_domain_time"));
         verify(jdbcTemplate).execute(contains("idx_audit_log_events_outcome_time"));
         verify(jdbcTemplate).execute(contains("idx_audit_log_events_failure_reason_time"));

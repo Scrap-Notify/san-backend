@@ -4,6 +4,7 @@ import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizResponse;
 import com.san.api.domain.recall.entity.RecallQuizType;
 import com.san.api.domain.recall.service.RecallQuizGenerationService;
+import com.san.api.domain.recall.service.RecallQuizSubmissionService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.security.filter.JwtAuthenticationFilter;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,9 @@ class RecallControllerTest {
 
     @MockitoBean
     private RecallQuizGenerationService recallQuizGenerationService;
+
+    @MockitoBean
+    private RecallQuizSubmissionService recallQuizSubmissionService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -97,7 +101,7 @@ class RecallControllerTest {
 
     @Test
     void generateRejectsMissingAuthentication() {
-        RecallController controller = new RecallController(recallQuizGenerationService);
+        RecallController controller = new RecallController(recallQuizGenerationService, recallQuizSubmissionService);
 
         assertThatThrownBy(() -> controller.generate(null, null))
                 .isInstanceOf(BusinessException.class);

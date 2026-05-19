@@ -76,10 +76,7 @@ public class RecallQuizGenerationService {
 
         RecallQuizGeneration generation = findOrCreateGeneration(user, request);
         UUID quizJobId = findActiveQuizJobId(generation)
-                .orElseGet(() -> asyncJobManager.enqueue(
-                        JobType.RECALL_QUIZ_GENERATION,
-                        generation.getGenerationId()
-                ));
+                .orElseGet(() -> enqueueRecallQuizGenerationJob(generation.getGenerationId()));
 
         return new RecallQuizGenerationJobResponse(
                 generation.getGenerationId(),
@@ -91,29 +88,57 @@ public class RecallQuizGenerationService {
 
     /** 기존 생성 작업 재사용 또는 신규 생성 */
     private RecallQuizGeneration findOrCreateGeneration(User user, RecallQuizGenerateRequest request) {
-        Optional<RecallQuizGeneration> existingGeneration = recallQuizGenerationRepository
+        Optional<RecallQuizGeneration> existingGeneration = findExistingGeneration(user, request);
+        if (existingGeneration.isPresent()) {
+            return existingGeneration.get();
+        }
+
+        try {
+            return recallQuizGenerationRepository.save(
+                    RecallQuizGeneration.builder()
+                            .user(user)
+                            .targetDate(request.targetDate())
+                            .quizType(request.quizType())
+                            .build()
+            );
+        } catch (DataIntegrityViolationException e) {
+            return findExistingGeneration(user, request)
+                    .orElseThrow(() -> e);
+        }
+    }
+
+    /** 기존 생성 작업 조회 */
+    private Optional<RecallQuizGeneration> findExistingGeneration(User user, RecallQuizGenerateRequest request) {
+        return recallQuizGenerationRepository
                 .findFirstByUser_UserIdAndTargetDateAndQuizTypeOrderByCreatedAtDesc(
                         user.getUserId(),
                         request.targetDate(),
                         request.quizType()
                 );
-        if (existingGeneration.isPresent()) {
-            return existingGeneration.get();
-        }
-
-        return recallQuizGenerationRepository.save(
-                RecallQuizGeneration.builder()
-                        .user(user)
-                        .targetDate(request.targetDate())
-                        .quizType(request.quizType())
-                        .build()
-        );
     }
 
     /** 진행 중인 생성 작업 ID 조회 */
     private Optional<UUID> findActiveQuizJobId(RecallQuizGeneration generation) {
+        return findActiveQuizJobId(generation.getGenerationId());
+    }
+
+    /** 리콜 퀴즈 생성 작업 등록 */
+    private UUID enqueueRecallQuizGenerationJob(UUID generationId) {
+        try {
+            return asyncJobManager.enqueue(JobType.RECALL_QUIZ_GENERATION, generationId);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() != CommonErrorCode.DUPLICATE_RESOURCE) {
+                throw e;
+            }
+            return findActiveQuizJobId(generationId)
+                    .orElseThrow(() -> e);
+        }
+    }
+
+    /** 진행 중인 생성 작업 ID 조회 */
+    private Optional<UUID> findActiveQuizJobId(UUID generationId) {
         return asyncJobRepository.findByTargetIdAndJobType(
-                        generation.getGenerationId(),
+                        generationId,
                         JobType.RECALL_QUIZ_GENERATION
                 )
                 .stream()

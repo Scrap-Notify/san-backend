@@ -24,6 +24,7 @@ import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.repository.AsyncJobRepository;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.RecallErrorCode;
 import com.san.api.global.external.ai.client.AiQuizClient;
 import com.san.api.global.external.ai.dto.request.AiQuizRequest;
@@ -125,6 +126,33 @@ class RecallQuizGenerationServiceTest {
     }
 
     @Test
+    void requestGenerationReusesGenerationWhenDuplicateCreationConflicts() {
+        RecallQuizGeneration generation = buildGeneration(RecallQuizType.OX);
+        UUID quizJobId = UUID.randomUUID();
+        AsyncJob job = buildJob(quizJobId, JobStatus.PENDING, generation.getGenerationId());
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(recallQuizGenerationRepository.findFirstByUser_UserIdAndTargetDateAndQuizTypeOrderByCreatedAtDesc(
+                userId,
+                targetDate,
+                RecallQuizType.OX
+        )).thenReturn(Optional.empty(), Optional.of(generation));
+        when(recallQuizGenerationRepository.save(any(RecallQuizGeneration.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate generation"));
+        when(asyncJobRepository.findByTargetIdAndJobType(generation.getGenerationId(), JobType.RECALL_QUIZ_GENERATION))
+                .thenReturn(List.of(job));
+
+        RecallQuizGenerationJobResponse response = recallQuizGenerationService.requestGeneration(
+                userId,
+                new RecallQuizGenerateRequest(targetDate, RecallQuizType.OX)
+        );
+
+        assertThat(response.generationId()).isEqualTo(generation.getGenerationId());
+        assertThat(response.quizJobId()).isEqualTo(quizJobId);
+        verify(asyncJobManager, never()).enqueue(any(), any());
+    }
+
+    @Test
     void requestGenerationReusesProcessingJob() {
         RecallQuizGeneration generation = buildGeneration(RecallQuizType.OX);
         UUID quizJobId = UUID.randomUUID();
@@ -149,6 +177,32 @@ class RecallQuizGenerationServiceTest {
         assertThat(response.targetDate()).isEqualTo(targetDate);
         assertThat(response.quizType()).isEqualTo(RecallQuizType.OX);
         verify(asyncJobManager, never()).enqueue(any(), any());
+    }
+
+    @Test
+    void requestGenerationReusesActiveJobWhenEnqueueConflicts() {
+        RecallQuizGeneration generation = buildGeneration(RecallQuizType.OX);
+        UUID quizJobId = UUID.randomUUID();
+        AsyncJob job = buildJob(quizJobId, JobStatus.PENDING, generation.getGenerationId());
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(recallQuizGenerationRepository.findFirstByUser_UserIdAndTargetDateAndQuizTypeOrderByCreatedAtDesc(
+                userId,
+                targetDate,
+                RecallQuizType.OX
+        )).thenReturn(Optional.of(generation));
+        when(asyncJobRepository.findByTargetIdAndJobType(generation.getGenerationId(), JobType.RECALL_QUIZ_GENERATION))
+                .thenReturn(List.of(), List.of(job));
+        when(asyncJobManager.enqueue(JobType.RECALL_QUIZ_GENERATION, generation.getGenerationId()))
+                .thenThrow(new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE));
+
+        RecallQuizGenerationJobResponse response = recallQuizGenerationService.requestGeneration(
+                userId,
+                new RecallQuizGenerateRequest(targetDate, RecallQuizType.OX)
+        );
+
+        assertThat(response.generationId()).isEqualTo(generation.getGenerationId());
+        assertThat(response.quizJobId()).isEqualTo(quizJobId);
     }
 
     @Test

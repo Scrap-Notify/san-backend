@@ -12,6 +12,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -25,6 +26,12 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "recall_quiz_generations",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_recall_quiz_generations_user_date_type",
+                        columnNames = {"user_id", "target_date", "quiz_type"}
+                )
+        },
         indexes = {
                 @Index(
                         name = "idx_recall_quiz_generations_user_date_type",

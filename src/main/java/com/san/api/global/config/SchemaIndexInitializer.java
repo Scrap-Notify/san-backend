@@ -26,6 +26,18 @@ public class SchemaIndexInitializer implements ApplicationRunner {
                       AND content_hash IS NOT NULL
                 """);
         jdbcTemplate.execute("""
+                CREATE INDEX IF NOT EXISTS idx_outbox_events_status_next_attempt
+                    ON outbox_events (status, next_attempt_at, created_at)
+                """);
+        jdbcTemplate.execute("""
+                CREATE INDEX IF NOT EXISTS idx_outbox_events_event_type_created_at
+                    ON outbox_events (event_type, created_at DESC)
+                """);
+        jdbcTemplate.execute("""
+                CREATE INDEX IF NOT EXISTS idx_outbox_events_aggregate
+                    ON outbox_events (aggregate_type, aggregate_id)
+                """);
+        jdbcTemplate.execute("""
                 CREATE INDEX IF NOT EXISTS idx_audit_log_events_event_domain_time
                     ON audit_log_events (event_domain, occurred_at DESC)
                 """);

@@ -2,6 +2,7 @@ package com.san.api.domain.auth.service;
 
 import com.san.api.domain.auth.dto.response.LoginBridgeTicketResponse;
 import com.san.api.domain.auth.entity.ClientType;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.security.jwt.JwtProvider;
@@ -52,7 +53,7 @@ class LoginBridgeTicketServiceTest {
         when(jwtProvider.validateToken(accessToken)).thenReturn(true);
         when(jwtProvider.isAccessToken(accessToken)).thenReturn(true);
         when(jwtProvider.getSessionClaims(accessToken))
-                .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, "extension-session", null, null));
+                .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, "extension-session", null, null, UserRole.ADMIN));
         when(jwtProvider.getUserId(accessToken)).thenReturn(userId);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
@@ -65,7 +66,7 @@ class LoginBridgeTicketServiceTest {
 
         assertThat(response.ticket()).isNotBlank();
         assertThat(response.expiresIn()).isEqualTo(30L);
-        verify(valueOperations).set(TICKET_KEY_PREFIX + response.ticket(), userId, ttl);
+        verify(valueOperations).set(TICKET_KEY_PREFIX + response.ticket(), userId + "|ADMIN", ttl);
     }
 
     @Test
@@ -75,7 +76,7 @@ class LoginBridgeTicketServiceTest {
         when(jwtProvider.validateToken(accessToken)).thenReturn(true);
         when(jwtProvider.isAccessToken(accessToken)).thenReturn(true);
         when(jwtProvider.getSessionClaims(accessToken))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, "dashboard-session", null, null));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, "dashboard-session", null, null, UserRole.USER));
 
         assertThatThrownBy(() -> loginBridgeTicketService.issueTicket(
                 accessToken,
@@ -93,7 +94,7 @@ class LoginBridgeTicketServiceTest {
         String ticket = "bridge-ticket";
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.getAndDelete(TICKET_KEY_PREFIX + ticket)).thenReturn(userId);
+        when(valueOperations.getAndDelete(TICKET_KEY_PREFIX + ticket)).thenReturn(userId + "|ADMIN");
 
         String result = loginBridgeTicketService.consumeTicket(ticket, TICKET_KEY_PREFIX);
 

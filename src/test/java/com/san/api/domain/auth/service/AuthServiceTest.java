@@ -9,6 +9,7 @@ import com.san.api.domain.auth.dto.response.TokenResponse;
 import com.san.api.domain.auth.entity.ClientType;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.security.jwt.JwtProvider;
@@ -100,7 +101,7 @@ class AuthServiceTest {
         TokenResponse tokenResponse = TokenResponse.of("access-token", "refresh-token", 1800, "session-id");
         when(userRepository.findByUsername("dahyeon")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password", user.getPasswordHash())).thenReturn(true);
-        when(tokenIssueService.issueTokenPair(user.getUserId().toString(), ClientType.EXTENSION))
+        when(tokenIssueService.issueTokenPair(user.getUserId().toString(), ClientType.EXTENSION, UserRole.USER))
                 .thenReturn(tokenResponse);
 
         TokenResponse result = authService.login(new LoginRequest("dahyeon", "password", ClientType.EXTENSION));
@@ -121,7 +122,8 @@ class AuthServiceTest {
 
     @Test
     void reissueValidatesRefreshTokenByClientSessionKey() {
-        String userId = UUID.randomUUID().toString();
+        User user = localUser();
+        String userId = user.getUserId().toString();
         String sessionId = "dashboard-session";
         String refreshToken = "refresh-token";
         String redisKey = AuthRedisKeyPrefix.REFRESH + userId + ":DASHBOARD:" + sessionId;
@@ -131,16 +133,18 @@ class AuthServiceTest {
         when(jwtProvider.isRefreshToken(refreshToken)).thenReturn(true);
         when(jwtProvider.getUserId(refreshToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(refreshToken))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, "family-id", "refresh-jti"));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, "family-id", "refresh-jti", UserRole.ADMIN));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
         when(valueOperations.getAndDelete(redisKey)).thenReturn(refreshTokenSessionJson(refreshToken, "family-id", "refresh-jti"));
-        when(tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId, "family-id"))
+        when(userRepository.findById(user.getUserId())).thenReturn(Optional.of(user));
+        when(tokenIssueService.issueTokenPair(userId, ClientType.DASHBOARD, sessionId, "family-id", UserRole.USER))
                 .thenReturn(tokenResponse);
 
         TokenResponse result = authService.reissue(new ReissueRequest(refreshToken));
 
         assertThat(result).isEqualTo(tokenResponse);
+        verify(tokenIssueService).issueTokenPair(userId, ClientType.DASHBOARD, sessionId, "family-id", UserRole.USER);
         verify(setOperations).remove(AuthRedisKeyPrefix.REFRESH + "index:user:" + userId, redisKey);
         verify(authAuditService).recordSuccess(
                 org.mockito.ArgumentMatchers.argThat(userUuid -> userUuid.toString().equals(userId)),
@@ -164,7 +168,7 @@ class AuthServiceTest {
         when(jwtProvider.isRefreshToken(refreshToken)).thenReturn(true);
         when(jwtProvider.getUserId(refreshToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(refreshToken))
-                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, "family-id", "old-jti"));
+                .thenReturn(new JwtSessionClaims(ClientType.DASHBOARD, sessionId, "family-id", "old-jti", UserRole.USER));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);
         when(valueOperations.getAndDelete(redisKey)).thenReturn(refreshTokenSessionJson("new-refresh-token", "family-id", "new-jti"));
@@ -220,7 +224,7 @@ class AuthServiceTest {
         when(jwtProvider.isAccessToken(accessToken)).thenReturn(true);
         when(jwtProvider.getUserId(accessToken)).thenReturn(userId);
         when(jwtProvider.getSessionClaims(accessToken))
-                .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, sessionId, null, null));
+                .thenReturn(new JwtSessionClaims(ClientType.EXTENSION, sessionId, null, null, UserRole.USER));
         when(jwtProvider.getRemainingExpiration(accessToken)).thenReturn(1000L);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForSet()).thenReturn(setOperations);

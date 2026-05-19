@@ -50,6 +50,10 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 10)
     private UserStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private UserRole role;
+
     /** 계정 잠금 해제 시각. LOCKED 상태일 때만 유효. */
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
@@ -62,6 +66,7 @@ public class User extends BaseEntity {
         this.provider = provider;
         this.providerId = providerId;
         this.status = UserStatus.ACTIVE;
+        this.role = UserRole.USER;
     }
 
     // ────────────────────────────── 도메인 행위 ──────────────────────────────
@@ -97,5 +102,9 @@ public class User extends BaseEntity {
 
     public boolean isWithdrawn() {
         return this.status == UserStatus.WITHDRAWN;
+    }
+
+    public boolean isAdmin() {
+        return this.role == UserRole.ADMIN;
     }
 }

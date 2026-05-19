@@ -9,6 +9,7 @@ import com.san.api.domain.github.entity.GithubAccount;
 import com.san.api.domain.github.repository.GithubAccountRepository;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
+import com.san.api.domain.user.entity.UserRole;
 import com.san.api.domain.user.repository.UserRepository;
 import com.san.api.global.external.github.client.GithubApiClient;
 import com.san.api.global.external.github.dto.response.GithubAccessTokenResponse;
@@ -81,7 +82,8 @@ class GithubAuthServiceTest {
         when(githubApiClient.requestAccessToken("code")).thenReturn(githubToken);
         when(githubApiClient.findUserProfile("github-token")).thenReturn(profile);
         when(githubAccountRepository.findByGithubUserId("1")).thenReturn(Optional.of(githubAccount));
-        when(tokenIssueService.issueTokenPair(user.getUserId().toString(), ClientType.DASHBOARD)).thenReturn(tokenResponse);
+        when(tokenIssueService.issueTokenPair(user.getUserId().toString(), ClientType.DASHBOARD, UserRole.USER))
+                .thenReturn(tokenResponse);
 
         TokenResponse result = githubAuthService.login(new GithubLoginRequest("code", ClientType.DASHBOARD));
 

@@ -61,5 +61,22 @@ public class SchemaIndexInitializer implements ApplicationRunner {
                 ALTER TABLE audit_log_events
                     ADD COLUMN IF NOT EXISTS integrity_hash varchar(64)
                 """);
+        jdbcTemplate.execute("""
+                ALTER TABLE users
+                    ADD COLUMN IF NOT EXISTS role varchar(20)
+                """);
+        jdbcTemplate.execute("""
+                UPDATE users
+                    SET role = 'USER'
+                    WHERE role IS NULL
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE users
+                    ALTER COLUMN role SET DEFAULT 'USER'
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE users
+                    ALTER COLUMN role SET NOT NULL
+                """);
     }
 }

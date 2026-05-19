@@ -159,7 +159,7 @@ public class GithubAuthService {
 
         githubLinkService.saveGithubAccount(user, profile, tokenResponse.accessToken());
         validateLoginAvailable(user);
-        return tokenIssueService.issueTokenPair(user.getUserId().toString(), clientType);
+        return tokenIssueService.issueTokenPair(user.getUserId().toString(), clientType, user.getRole());
     }
 
     private User createGithubUser(String githubUserId) {

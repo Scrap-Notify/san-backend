@@ -55,11 +55,12 @@ public class ExtensionLoginBridgeService {
      */
     public TokenResponse exchangeToken(ExtensionBridgeTokenRequest request) {
         try {
-            String userId = loginBridgeTicketService.consumeTicket(
+            LoginBridgeTicketConsumeResult ticket = loginBridgeTicketService.consumeTicketWithContext(
                     request.ticket(),
                     AuthRedisKeyPrefix.LOGIN_BRIDGE_EXTENSION_TICKET
             );
-            TokenResponse response = tokenIssueService.issueTokenPair(userId, ClientType.EXTENSION);
+            String userId = ticket.userId();
+            TokenResponse response = tokenIssueService.issueTokenPair(userId, ClientType.EXTENSION, ticket.role());
             UUID userUuid = UUID.fromString(userId);
             authAuditService.recordSuccess(
                     userUuid,

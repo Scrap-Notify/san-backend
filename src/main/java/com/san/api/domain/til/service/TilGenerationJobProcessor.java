@@ -28,7 +28,7 @@ public class TilGenerationJobProcessor implements AsyncJobProcessor {
      *
      * @param event 비동기 작업 생성 이벤트
      */
-    @Async("asyncJobExecutor")
+    @Async("aiJobExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(JobCreatedEvent event) {
         if (event.getJobType() != JobType.TIL_GENERATION) {

@@ -31,7 +31,7 @@ public class MattermostFeedbackNotifier {
      * Mattermost webhook URL이 설정된 경우 피드백 알림을 전송합니다.
      * 알림 실패가 피드백 저장 흐름을 막지 않도록 예외는 경고 로그로만 남깁니다.
      */
-    @Async("asyncJobExecutor")
+    @Async("notificationExecutor")
     public void notify(FeedbackNotificationPayload payload) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             return;

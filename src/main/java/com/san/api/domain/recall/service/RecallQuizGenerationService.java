@@ -17,7 +17,10 @@ import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.til.entity.DailySummary;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.async.entity.AsyncJob;
+import com.san.api.global.async.entity.JobStatus;
 import com.san.api.global.async.entity.JobType;
+import com.san.api.global.async.repository.AsyncJobRepository;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -37,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -49,12 +53,12 @@ public class RecallQuizGenerationService {
     private static final String OX_AI_QUIZ_TYPE = "ox";
     private static final String O_ANSWER = "O";
     private static final String X_ANSWER = "X";
-
     private final RecallQuizSourceService recallQuizSourceService;
     private final RecallQuizRepository recallQuizRepository;
     private final RecallQuizGenerationRepository recallQuizGenerationRepository;
     private final RecallQuizPersistenceService recallQuizPersistenceService;
     private final UserRepository userRepository;
+    private final AsyncJobRepository asyncJobRepository;
     private final AsyncJobManager asyncJobManager;
     private final AiQuizClient aiQuizClient;
     private final S3PresignedUrlService s3PresignedUrlService;
@@ -70,14 +74,12 @@ public class RecallQuizGenerationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
-        RecallQuizGeneration generation = recallQuizGenerationRepository.save(
-                RecallQuizGeneration.builder()
-                        .user(user)
-                        .targetDate(request.targetDate())
-                        .quizType(request.quizType())
-                        .build()
-        );
-        UUID quizJobId = asyncJobManager.enqueue(JobType.RECALL_QUIZ_GENERATION, generation.getGenerationId());
+        RecallQuizGeneration generation = findOrCreateGeneration(user, request);
+        UUID quizJobId = findActiveQuizJobId(generation)
+                .orElseGet(() -> asyncJobManager.enqueue(
+                        JobType.RECALL_QUIZ_GENERATION,
+                        generation.getGenerationId()
+                ));
 
         return new RecallQuizGenerationJobResponse(
                 generation.getGenerationId(),
@@ -85,6 +87,44 @@ public class RecallQuizGenerationService {
                 generation.getTargetDate(),
                 generation.getQuizType()
         );
+    }
+
+    /** 기존 생성 작업 재사용 또는 신규 생성 */
+    private RecallQuizGeneration findOrCreateGeneration(User user, RecallQuizGenerateRequest request) {
+        Optional<RecallQuizGeneration> existingGeneration = recallQuizGenerationRepository
+                .findFirstByUser_UserIdAndTargetDateAndQuizTypeOrderByCreatedAtDesc(
+                        user.getUserId(),
+                        request.targetDate(),
+                        request.quizType()
+                );
+        if (existingGeneration.isPresent()) {
+            return existingGeneration.get();
+        }
+
+        return recallQuizGenerationRepository.save(
+                RecallQuizGeneration.builder()
+                        .user(user)
+                        .targetDate(request.targetDate())
+                        .quizType(request.quizType())
+                        .build()
+        );
+    }
+
+    /** 진행 중인 생성 작업 ID 조회 */
+    private Optional<UUID> findActiveQuizJobId(RecallQuizGeneration generation) {
+        return asyncJobRepository.findByTargetIdAndJobType(
+                        generation.getGenerationId(),
+                        JobType.RECALL_QUIZ_GENERATION
+                )
+                .stream()
+                .filter(this::isActiveJob)
+                .map(AsyncJob::getJobId)
+                .findFirst();
+    }
+
+    /** 활성 생성 작업 여부 */
+    private boolean isActiveJob(AsyncJob job) {
+        return job.getStatus() == JobStatus.PENDING || job.getStatus() == JobStatus.PROCESSING;
     }
 
     /**

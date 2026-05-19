@@ -3,15 +3,23 @@ package com.san.api.domain.recall.service;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
 import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizGenerationJobResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizResponse;
 import com.san.api.domain.recall.entity.RecallQuiz;
+import com.san.api.domain.recall.entity.RecallQuizGeneration;
 import com.san.api.domain.recall.entity.RecallQuizType;
+import com.san.api.domain.recall.repository.RecallQuizGenerationRepository;
 import com.san.api.domain.recall.repository.RecallQuizRepository;
 import com.san.api.domain.recall.service.RecallQuizSourceService.RecallQuizSourceResult;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.til.entity.DailySummary;
+import com.san.api.domain.user.entity.User;
+import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.async.entity.JobType;
+import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.RecallErrorCode;
 import com.san.api.global.external.ai.client.AiQuizClient;
 import com.san.api.global.external.ai.dto.request.AiQuizContentRequest;
@@ -42,9 +50,40 @@ public class RecallQuizGenerationService {
 
     private final RecallQuizSourceService recallQuizSourceService;
     private final RecallQuizRepository recallQuizRepository;
+    private final RecallQuizGenerationRepository recallQuizGenerationRepository;
     private final RecallQuizPersistenceService recallQuizPersistenceService;
+    private final UserRepository userRepository;
+    private final AsyncJobManager asyncJobManager;
     private final AiQuizClient aiQuizClient;
     private final S3PresignedUrlService s3PresignedUrlService;
+
+    /**
+     * 리콜 퀴즈 생성 작업 등록
+     *
+     * @param userId 사용자 ID
+     * @param request 리콜 퀴즈 생성 요청
+     * @return 등록된 리콜 퀴즈 생성 작업 응답
+     */
+    public RecallQuizGenerationJobResponse requestGeneration(UUID userId, RecallQuizGenerateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
+
+        RecallQuizGeneration generation = recallQuizGenerationRepository.save(
+                RecallQuizGeneration.builder()
+                        .user(user)
+                        .targetDate(request.targetDate())
+                        .quizType(request.quizType())
+                        .build()
+        );
+        UUID quizJobId = asyncJobManager.enqueue(JobType.RECALL_QUIZ_GENERATION, generation.getGenerationId());
+
+        return new RecallQuizGenerationJobResponse(
+                generation.getGenerationId(),
+                quizJobId,
+                generation.getTargetDate(),
+                generation.getQuizType()
+        );
+    }
 
     /**
      * 날짜 기반 리콜 퀴즈 생성

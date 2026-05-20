@@ -106,7 +106,7 @@ public class GithubStarRecommendationCollectService {
 
     private Scrap saveScrap(Scrap scrap, UUID userId, String contentHash) {
         try {
-            return scrapRepository.save(scrap);
+            return scrapRepository.saveAndFlush(scrap);
         } catch (DataIntegrityViolationException e) {
             return scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(
                             userId,
@@ -132,10 +132,7 @@ public class GithubStarRecommendationCollectService {
             AiAnalyzeResponse analysis
     ) {
         Category category = findOrCreateCategory(scrap.getUser(), analysis.category());
-        KnowledgeCard card = saveCard(scrap, category, recommendation, analysis);
-
-        saveTags(card, analysis.tags());
-        return card;
+        return saveCard(scrap, category, recommendation, analysis);
     }
 
     private KnowledgeCard saveCard(
@@ -145,13 +142,16 @@ public class GithubStarRecommendationCollectService {
             AiAnalyzeResponse analysis
     ) {
         try {
-            return knowledgeCardRepository.saveAndFlush(KnowledgeCard.builder()
+            KnowledgeCard card = knowledgeCardRepository.saveAndFlush(KnowledgeCard.builder()
                     .scrap(scrap)
                     .category(category)
                     .title(firstNotBlank(analysis.title(), recommendation.getTitle()))
                     .summary(firstNotBlank(analysis.summary(), recommendation.getSummary()))
                     .embedding(analysis.embedding())
                     .build());
+
+            saveTags(card, analysis.tags());
+            return card;
         } catch (DataIntegrityViolationException e) {
             return knowledgeCardRepository.findByScrapIdWithCategory(scrap.getScrapId())
                     .orElseThrow(() -> e);
@@ -182,11 +182,20 @@ public class GithubStarRecommendationCollectService {
 
     private CardTag findOrCreateTag(KnowledgeCard card, String tagName) {
         Tag tag = tagRepository.findByTagName(tagName)
-                .orElseGet(() -> tagRepository.save(Tag.builder()
-                        .tagName(tagName)
-                        .build()));
+                .orElseGet(() -> saveTag(tagName));
 
         return new CardTag(card, tag);
+    }
+
+    private Tag saveTag(String tagName) {
+        try {
+            return tagRepository.saveAndFlush(Tag.builder()
+                    .tagName(tagName)
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            return tagRepository.findByTagName(tagName)
+                    .orElseThrow(() -> e);
+        }
     }
 
     private String firstNotBlank(String first, String fallback) {

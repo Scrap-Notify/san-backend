@@ -6,6 +6,7 @@ import com.san.api.domain.github.entity.GithubStarRecommendation;
 import com.san.api.domain.github.repository.GithubStarRecommendationRepository;
 import com.san.api.domain.knowledge.entity.Category;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
+import com.san.api.domain.knowledge.entity.Tag;
 import com.san.api.domain.knowledge.repository.CardTagRepository;
 import com.san.api.domain.knowledge.repository.CategoryRepository;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
@@ -90,12 +91,13 @@ class GithubStarRecommendationCollectServiceTest {
                 .thenReturn(Optional.of(recommendation));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(any(), any(), any()))
                 .thenReturn(Optional.empty());
-        when(scrapRepository.save(any(Scrap.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(scrapRepository.saveAndFlush(any(Scrap.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(knowledgeCardRepository.findByScrapIdWithCategory(any())).thenReturn(Optional.empty());
         when(categoryRepository.findByUser_UserIdAndCategoryName(userId, "Backend")).thenReturn(Optional.of(category));
         when(knowledgeCardRepository.saveAndFlush(any(KnowledgeCard.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(tagRepository.findByTagName("Spring")).thenReturn(Optional.empty());
+        when(tagRepository.saveAndFlush(any(Tag.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         GithubStarRecommendationCollectResponse response = service.collect(userId, recommendationId);
 
@@ -165,7 +167,7 @@ class GithubStarRecommendationCollectServiceTest {
                 .thenReturn(Optional.of(recommendation));
         when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(any(), any(), any()))
                 .thenReturn(Optional.empty(), Optional.of(existingScrap));
-        when(scrapRepository.save(any(Scrap.class))).thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(scrapRepository.saveAndFlush(any(Scrap.class))).thenThrow(new DataIntegrityViolationException("duplicate"));
         when(knowledgeCardRepository.findByScrapIdWithCategory(existingScrap.getScrapId())).thenReturn(Optional.empty());
         when(categoryRepository.findByUser_UserIdAndCategoryName(userId, "Backend")).thenReturn(Optional.of(category));
         when(knowledgeCardRepository.saveAndFlush(any(KnowledgeCard.class)))
@@ -224,6 +226,54 @@ class GithubStarRecommendationCollectServiceTest {
 
         assertThat(response.cardId()).isEqualTo(existingCard.getCardId());
         assertThat(response.collected()).isTrue();
+    }
+
+    @Test
+    void collect_reusesExistingTagWhenSaveConflicts() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID recommendationId = UUID.randomUUID();
+        User user = buildUser(userId);
+        GithubStarRecommendation recommendation = buildRecommendation(user, recommendationId);
+        AiAnalyzeResponse analysis = new AiAnalyzeResponse(
+                "Analyzed title",
+                "Analyzed summary",
+                List.of("Spring"),
+                "Backend",
+                new float[]{0.1f}
+        );
+        ReflectionTestUtils.setField(recommendation, "analysisResult", objectMapper.writeValueAsString(analysis));
+        Scrap scrap = Scrap.builder()
+                .user(user)
+                .sourceType(SourceType.LINK)
+                .sourceUrl("https://example.com")
+                .rawContent("https://example.com")
+                .contentHash("hash")
+                .build();
+        Category category = Category.builder()
+                .user(user)
+                .categoryName("Backend")
+                .build();
+        Tag existingTag = Tag.builder()
+                .tagName("Spring")
+                .build();
+
+        when(githubStarRecommendationRepository.findByIdAndUserIdForUpdate(recommendationId, userId))
+                .thenReturn(Optional.of(recommendation));
+        when(scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(any(), any(), any()))
+                .thenReturn(Optional.of(scrap));
+        when(knowledgeCardRepository.findByScrapIdWithCategory(scrap.getScrapId())).thenReturn(Optional.empty());
+        when(categoryRepository.findByUser_UserIdAndCategoryName(userId, "Backend")).thenReturn(Optional.of(category));
+        when(knowledgeCardRepository.saveAndFlush(any(KnowledgeCard.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(tagRepository.findByTagName("Spring"))
+                .thenReturn(Optional.empty(), Optional.of(existingTag));
+        when(tagRepository.saveAndFlush(any(Tag.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        GithubStarRecommendationCollectResponse response = service.collect(userId, recommendationId);
+
+        assertThat(response.collected()).isTrue();
+        verify(cardTagRepository).save(any());
     }
 
     private User buildUser(UUID userId) {

@@ -203,8 +203,9 @@ class AuthServiceTest {
 
         verify(redisTemplate).delete(AuthRedisKeyPrefix.LOGIN_FAIL + "dahyeon");
         verify(authAuditService).recordFailure(
-                org.mockito.ArgumentMatchers.eq(user.getUserId()),
+                org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.eq(AuditEventType.LOGIN_LOCK_TRIGGERED),
+                org.mockito.ArgumentMatchers.eq(user.getUserId()),
                 org.mockito.ArgumentMatchers.eq(com.san.api.global.exception.errorcode.AuthErrorCode.ACCOUNT_LOCKED),
                 org.mockito.ArgumentMatchers.argThat(metadata ->
                         Long.valueOf(5L).equals(metadata.get("failCount"))

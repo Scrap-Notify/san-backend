@@ -13,7 +13,8 @@ public enum AuditTargetType {
     GITHUB_ACCOUNT("GitHub 계정"),
     GITHUB_REPOSITORY("GitHub 저장소"),
     DAILY_SUMMARY("TIL 요약"),
-    TIL_GITHUB_COMMIT("TIL GitHub 커밋 요청");
+    TIL_GITHUB_COMMIT("TIL GitHub 커밋 요청"),
+    OUTBOX_EVENT("Outbox 이벤트");
 
     private final String description;
 

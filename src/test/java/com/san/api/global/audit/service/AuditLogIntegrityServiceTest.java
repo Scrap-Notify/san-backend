@@ -37,7 +37,6 @@ import static org.mockito.Mockito.when;
 class AuditLogIntegrityServiceTest {
 
     private static final UUID ACTOR_USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
-    private static final UUID OTHER_USER_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
     @Mock
     private AuditLogEventRepository auditLogEventRepository;
@@ -51,7 +50,7 @@ class AuditLogIntegrityServiceTest {
         AuditLogIntegrityService service = new AuditLogIntegrityService(auditLogEventRepository, hasher);
         when(auditLogEventRepository.findById(event.getAuditLogEventId())).thenReturn(Optional.of(event));
 
-        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId(), ACTOR_USER_ID);
+        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId());
 
         assertThat(response.status()).isEqualTo(AuditIntegrityStatus.VALID);
         assertThat(response.statusDescription()).isEqualTo(AuditIntegrityStatus.VALID.getDescription());
@@ -65,21 +64,22 @@ class AuditLogIntegrityServiceTest {
         AuditLogIntegrityService service = new AuditLogIntegrityService(auditLogEventRepository, hasher);
         when(auditLogEventRepository.findById(event.getAuditLogEventId())).thenReturn(Optional.of(event));
 
-        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId(), ACTOR_USER_ID);
+        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId());
 
         assertThat(response.status()).isEqualTo(AuditIntegrityStatus.INVALID);
         assertThat(response.valid()).isFalse();
     }
 
     @Test
-    void verifyRejectsEventOwnedByAnotherActor() {
+    void verifyAllowsAdminToCheckEventOwnedByAnotherActor() {
         AuditLogEvent event = event();
         event.updateIntegrityHash(hasher.hash(event));
         AuditLogIntegrityService service = new AuditLogIntegrityService(auditLogEventRepository, hasher);
         when(auditLogEventRepository.findById(event.getAuditLogEventId())).thenReturn(Optional.of(event));
 
-        assertThatThrownBy(() -> service.verify(event.getAuditLogEventId(), OTHER_USER_ID))
-                .isInstanceOf(BusinessException.class);
+        AuditLogIntegrityResponse response = service.verify(event.getAuditLogEventId());
+
+        assertThat(response.status()).isEqualTo(AuditIntegrityStatus.VALID);
     }
 
     @Test
@@ -97,8 +97,7 @@ class AuditLogIntegrityServiceTest {
                 LocalDateTime.of(2026, 5, 18, 0, 0),
                 LocalDateTime.of(2026, 5, 18, 23, 59),
                 0,
-                1_000,
-                ACTOR_USER_ID
+                1_000
         );
 
         assertThat(response.page()).isZero();
@@ -126,8 +125,7 @@ class AuditLogIntegrityServiceTest {
                 LocalDateTime.of(2026, 5, 19, 0, 0),
                 LocalDateTime.of(2026, 5, 18, 0, 0),
                 0,
-                100,
-                ACTOR_USER_ID
+                100
         )).isInstanceOf(BusinessException.class);
     }
 

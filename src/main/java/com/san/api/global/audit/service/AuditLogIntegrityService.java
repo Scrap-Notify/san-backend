@@ -37,12 +37,9 @@ public class AuditLogIntegrityService {
      * @return 단건 무결성 검증 결과
      */
     @Transactional(readOnly = true)
-    public AuditLogIntegrityResponse verify(UUID auditLogEventId, UUID actorUserId) {
+    public AuditLogIntegrityResponse verify(UUID auditLogEventId) {
         AuditLogEvent event = auditLogEventRepository.findById(auditLogEventId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
-        if (!actorUserId.equals(event.getActorUserId())) {
-            throw new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND);
-        }
         return response(event, Instant.now());
     }
 
@@ -62,8 +59,7 @@ public class AuditLogIntegrityService {
             LocalDateTime from,
             LocalDateTime to,
             int page,
-            int size,
-            UUID actorUserId
+            int size
     ) {
         if (from.isAfter(to)) {
             throw new BusinessException(CommonErrorCode.INVALID_INPUT_VALUE);
@@ -71,7 +67,7 @@ public class AuditLogIntegrityService {
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.min(Math.max(size, 1), MAX_VERIFY_SIZE);
         Page<AuditLogEvent> events = auditLogEventRepository.findAll(
-                        occurredBetween(from, to).and(actorUserIdEquals(actorUserId)),
+                        occurredBetween(from, to),
                         PageRequest.of(normalizedPage, normalizedSize, Sort.by(Sort.Direction.ASC, "occurredAt"))
                 );
         Instant verifiedAt = Instant.now();
@@ -134,7 +130,4 @@ public class AuditLogIntegrityService {
         );
     }
 
-    private Specification<AuditLogEvent> actorUserIdEquals(UUID actorUserId) {
-        return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("actorUserId"), actorUserId);
-    }
 }

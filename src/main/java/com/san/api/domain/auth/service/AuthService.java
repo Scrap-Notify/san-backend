@@ -133,8 +133,9 @@ public class AuthService {
 
         if (user.isWithdrawn()) {
             authAuditService.recordFailure(
-                    user.getUserId(),
+                    null,
                     AuditEventType.LOGIN_FAILURE,
+                    user.getUserId(),
                     AuthErrorCode.ACCOUNT_WITHDRAWN,
                     loginMetadata(request, user)
             );
@@ -145,8 +146,9 @@ public class AuthService {
         user.unlockIfExpired();
         if (user.isLocked()) {
             authAuditService.recordFailure(
-                    user.getUserId(),
+                    null,
                     AuditEventType.LOGIN_FAILURE,
+                    user.getUserId(),
                     AuthErrorCode.ACCOUNT_LOCKED,
                     loginMetadata(request, user)
             );
@@ -156,15 +158,17 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             LoginFailureResult failureResult = handleLoginFailure(user);
             authAuditService.recordFailure(
-                    user.getUserId(),
+                    null,
                     AuditEventType.LOGIN_FAILURE,
+                    user.getUserId(),
                     AuthErrorCode.INVALID_CREDENTIALS,
                     loginMetadata(request, user, failureResult.failCount())
             );
             if (failureResult.lockedUntil() != null) {
                 authAuditService.recordFailure(
-                        user.getUserId(),
+                        null,
                         AuditEventType.LOGIN_LOCK_TRIGGERED,
+                        user.getUserId(),
                         AuthErrorCode.ACCOUNT_LOCKED,
                         loginLockMetadata(request, user, failureResult)
                 );

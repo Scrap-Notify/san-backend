@@ -22,7 +22,7 @@ import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 
-/** AI GitHub Star recommendation Client. */
+/** AI GitHub Star 추천 Client */
 @Slf4j
 @Component
 public class AiGithubStarRecommendationClient {
@@ -40,12 +40,7 @@ public class AiGithubStarRecommendationClient {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Requests recommended URL inputs from the AI server.
-     *
-     * @param request GitHub Star recommendation request
-     * @return AI analyze-compatible URL input list
-     */
+    /** AI 서버에 GitHub Star 추천 URL 목록을 요청 */
     @Retryable(
             retryFor = {RestClientException.class},
             noRetryFor = {BusinessException.class, HttpClientErrorException.class},

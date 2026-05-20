@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
-/** GitHub Star recommendation service. */
+/** GitHub Star 추천 Service */
 @Service
 @RequiredArgsConstructor
 public class GithubStarRecommendationService {
@@ -30,12 +30,7 @@ public class GithubStarRecommendationService {
     @Value("${ai.recommendation.github-stars.limit:5}")
     private int recommendationLimit;
 
-    /**
-     * Requests GitHub Star based recommendation inputs for the linked GitHub account.
-     *
-     * @param userId current user ID
-     * @return AI analyze-compatible recommended URL inputs
-     */
+    /** 연동된 GitHub 계정 기준으로 추천 URL 목록 요청 */
     @Transactional(readOnly = true)
     public List<AiAnalyzeRequest> recommendAnalyzeInputs(UUID userId) {
         validateRecommendationLimit();

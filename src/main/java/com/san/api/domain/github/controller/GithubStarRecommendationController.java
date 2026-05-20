@@ -1,7 +1,9 @@
 package com.san.api.domain.github.controller;
 
+import com.san.api.domain.github.dto.response.GithubStarRecommendationCollectResponse;
 import com.san.api.domain.github.dto.response.GithubStarRecommendationJobResponse;
 import com.san.api.domain.github.dto.response.GithubStarRecommendationListResponse;
+import com.san.api.domain.github.service.GithubStarRecommendationCollectService;
 import com.san.api.domain.github.service.GithubStarRecommendationJobService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -13,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +30,7 @@ import java.util.UUID;
 public class GithubStarRecommendationController {
 
     private final GithubStarRecommendationJobService githubStarRecommendationJobService;
+    private final GithubStarRecommendationCollectService githubStarRecommendationCollectService;
 
     /**
      * GitHub Star 추천 작업 요청
@@ -60,6 +64,27 @@ public class GithubStarRecommendationController {
     public ApiResponse<GithubStarRecommendationListResponse> getRecommendations(Authentication authentication) {
         UUID userId = currentUserId(authentication);
         GithubStarRecommendationListResponse response = githubStarRecommendationJobService.getRecommendations(userId);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * GitHub Star 추천 후보 수집
+     *
+     * @param authentication 인증 사용자 정보
+     * @param recommendationId 추천 후보 ID
+     * @return 수집된 원본과 지식카드 ID 응답
+     */
+    @Operation(summary = "GitHub Star 추천 후보 수집", description = "추천 후보의 저장된 분석 결과를 사용해 원본과 지식카드를 생성")
+    @PostMapping("/{recommendationId}/collect")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<GithubStarRecommendationCollectResponse> collectRecommendation(
+            Authentication authentication,
+            @PathVariable UUID recommendationId) {
+
+        UUID userId = currentUserId(authentication);
+        GithubStarRecommendationCollectResponse response =
+                githubStarRecommendationCollectService.collect(userId, recommendationId);
 
         return ApiResponse.success(response);
     }

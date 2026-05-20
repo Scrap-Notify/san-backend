@@ -1,5 +1,6 @@
 package com.san.api.domain.github.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.github.dto.response.GithubStarRecommendationJobResponse;
 import com.san.api.domain.github.dto.response.GithubStarRecommendationListResponse;
 import com.san.api.domain.github.entity.GithubStarRecommendation;
@@ -27,6 +28,7 @@ public class GithubStarRecommendationJobService {
     private final GithubStarRecommendationRepository githubStarRecommendationRepository;
     private final AsyncJobManager asyncJobManager;
     private final AsyncJobRepository asyncJobRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * GitHub Star 추천 작업 요청
@@ -38,7 +40,7 @@ public class GithubStarRecommendationJobService {
     public GithubStarRecommendationJobResponse requestRecommendation(UUID userId) {
         List<GithubStarRecommendation> recommendations = findUserRecommendations(userId);
         if (!recommendations.isEmpty()) {
-            return GithubStarRecommendationJobResponse.alreadyRecommended(recommendations);
+            return GithubStarRecommendationJobResponse.alreadyRecommended(recommendations, objectMapper);
         }
 
         Optional<UUID> activeJobId = findActiveRecommendationJobId(userId);
@@ -58,7 +60,7 @@ public class GithubStarRecommendationJobService {
      */
     @Transactional(readOnly = true)
     public GithubStarRecommendationListResponse getRecommendations(UUID userId) {
-        return GithubStarRecommendationListResponse.from(findUserRecommendations(userId));
+        return GithubStarRecommendationListResponse.from(findUserRecommendations(userId), objectMapper);
     }
 
     private List<GithubStarRecommendation> findUserRecommendations(UUID userId) {

@@ -17,9 +17,11 @@ import com.san.api.domain.til.dto.response.TilSourceContentResponse;
 import com.san.api.domain.til.dto.response.TilSourcesResponse;
 import com.san.api.domain.til.entity.DailySummary;
 import com.san.api.domain.til.repository.DailySummaryRepository;
+import com.san.api.global.async.entity.JobStatus;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.TilErrorCode;
 import com.san.api.global.external.ai.client.AiEmbeddingClient;
 import com.san.api.global.external.s3.service.S3PresignedUrlService;
@@ -54,15 +56,29 @@ public class TilService {
      * @param request TIL 생성 작업 등록 요청
      * @return 등록된 TIL 생성 작업 응답
      */
+    @Transactional
     public TilGenerationJobResponse requestGeneration(UUID userId, TilGenerateRequest request) {
+        dailySummaryRepository.acquireGenerationLock(userId);
+        validateNoActiveGenerationJob(userId);
+
         DailySummary summary = dailySummaryService.createSummary(userId, request.targetDate());
-        UUID jobId = asyncJobManager.enqueue(JobType.TIL_GENERATION, summary.getSummaryId());
+        UUID jobId = asyncJobManager.enqueueInCurrentTransaction(JobType.TIL_GENERATION, summary.getSummaryId());
 
         return new TilGenerationJobResponse(
                 summary.getSummaryId(),
                 jobId,
                 summary.getTargetDate()
         );
+    }
+
+    private void validateNoActiveGenerationJob(UUID userId) {
+        if (dailySummaryRepository.existsActiveJobForUser(
+                userId,
+                JobType.TIL_GENERATION,
+                List.of(JobStatus.PENDING, JobStatus.PROCESSING)
+        )) {
+            throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "TIL generation job is already in progress.");
+        }
     }
 
     /**

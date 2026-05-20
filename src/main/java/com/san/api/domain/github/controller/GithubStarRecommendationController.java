@@ -10,11 +10,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -39,12 +39,14 @@ public class GithubStarRecommendationController {
             description = "최초 요청이면 GitHub Star 추천 작업을 등록하고, 이미 추천 후보가 있으면 기존 추천 후보를 반환"
     )
     @PostMapping
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    public ApiResponse<GithubStarRecommendationJobResponse> requestRecommendation(Authentication authentication) {
+    public ResponseEntity<ApiResponse<GithubStarRecommendationJobResponse>> requestRecommendation(
+            Authentication authentication) {
+
         UUID userId = currentUserId(authentication);
         GithubStarRecommendationJobResponse response = githubStarRecommendationJobService.requestRecommendation(userId);
 
-        return ApiResponse.success(response);
+        HttpStatus status = response.alreadyRecommended() ? HttpStatus.OK : HttpStatus.ACCEPTED;
+        return ResponseEntity.status(status).body(ApiResponse.success(response));
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.san.api.domain.github.controller;
 
+import com.san.api.domain.github.dto.response.GithubStarRecommendationCollectResponse;
 import com.san.api.domain.github.dto.response.GithubStarRecommendationJobResponse;
+import com.san.api.domain.github.service.GithubStarRecommendationCollectService;
 import com.san.api.domain.github.service.GithubStarRecommendationJobService;
 import com.san.api.global.security.filter.JwtAuthenticationFilter;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,9 @@ class GithubStarRecommendationControllerTest {
 
     @MockitoBean
     private GithubStarRecommendationJobService githubStarRecommendationJobService;
+
+    @MockitoBean
+    private GithubStarRecommendationCollectService githubStarRecommendationCollectService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -65,5 +70,30 @@ class GithubStarRecommendationControllerTest {
                 .andExpect(jsonPath("$.ok").value(true))
                 .andExpect(jsonPath("$.data.jobId").doesNotExist())
                 .andExpect(jsonPath("$.data.alreadyRecommended").value(true));
+    }
+
+    @Test
+    void collectRecommendation_returnsCollectedRecommendation() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID recommendationId = UUID.randomUUID();
+        UUID scrapId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        GithubStarRecommendationCollectResponse response = new GithubStarRecommendationCollectResponse(
+                recommendationId,
+                scrapId,
+                cardId,
+                true
+        );
+
+        when(githubStarRecommendationCollectService.collect(userId, recommendationId)).thenReturn(response);
+
+        mockMvc.perform(post("/github/star-recommendations/{recommendationId}/collect", recommendationId)
+                        .principal(new TestingAuthenticationToken(userId.toString(), null)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.ok").value(true))
+                .andExpect(jsonPath("$.data.recommendationId").value(recommendationId.toString()))
+                .andExpect(jsonPath("$.data.scrapId").value(scrapId.toString()))
+                .andExpect(jsonPath("$.data.cardId").value(cardId.toString()))
+                .andExpect(jsonPath("$.data.collected").value(true));
     }
 }

@@ -1,5 +1,6 @@
 package com.san.api.domain.github.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.github.dto.response.GithubStarRecommendationJobResponse;
 import com.san.api.domain.github.dto.response.GithubStarRecommendationListResponse;
 import com.san.api.domain.github.entity.GithubStarRecommendation;
@@ -41,7 +42,8 @@ class GithubStarRecommendationJobServiceTest {
         service = new GithubStarRecommendationJobService(
                 githubStarRecommendationRepository,
                 asyncJobManager,
-                asyncJobRepository
+                asyncJobRepository,
+                new ObjectMapper()
         );
     }
 
@@ -115,7 +117,8 @@ class GithubStarRecommendationJobServiceTest {
         assertThat(response.jobId()).isNull();
         assertThat(response.alreadyRecommended()).isTrue();
         assertThat(response.recommendations()).hasSize(1);
-        assertThat(response.recommendations().get(0).url()).isEqualTo("https://example.com");
+        assertThat(response.recommendations().get(0).recommendationUrl()).isEqualTo("https://example.com");
+        assertThat(response.recommendations().get(0).tagList()).containsExactly("Spring");
         verify(asyncJobManager, never()).enqueue(JobType.GITHUB_STAR_RECOMMENDATION, userId);
     }
 
@@ -144,7 +147,7 @@ class GithubStarRecommendationJobServiceTest {
                 "https://example.com",
                 "title",
                 "summary",
-                "{\"title\":\"title\"}"
+                "{\"title\":\"title\",\"summary\":\"summary\",\"tags\":[\"Spring\"],\"category\":\"Backend\",\"embedding\":[0.1]}"
         );
     }
 

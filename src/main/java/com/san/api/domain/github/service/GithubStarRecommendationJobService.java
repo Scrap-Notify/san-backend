@@ -1,6 +1,7 @@
 package com.san.api.domain.github.service;
 
 import com.san.api.domain.github.dto.response.GithubStarRecommendationJobResponse;
+import com.san.api.domain.github.dto.response.GithubStarRecommendationListResponse;
 import com.san.api.domain.github.entity.GithubStarRecommendation;
 import com.san.api.domain.github.repository.GithubStarRecommendationRepository;
 import com.san.api.global.async.entity.JobType;
@@ -35,6 +36,17 @@ public class GithubStarRecommendationJobService {
 
         UUID jobId = asyncJobManager.enqueue(JobType.GITHUB_STAR_RECOMMENDATION, userId);
         return GithubStarRecommendationJobResponse.created(jobId);
+    }
+
+    /**
+     * 사용자 GitHub Star 추천 후보 목록 조회
+     *
+     * @param userId 사용자 ID
+     * @return GitHub Star 추천 후보 목록 응답
+     */
+    @Transactional(readOnly = true)
+    public GithubStarRecommendationListResponse getRecommendations(UUID userId) {
+        return GithubStarRecommendationListResponse.from(findUserRecommendations(userId));
     }
 
     private List<GithubStarRecommendation> findUserRecommendations(UUID userId) {

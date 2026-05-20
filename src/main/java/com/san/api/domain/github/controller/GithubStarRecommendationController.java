@@ -1,6 +1,7 @@
 package com.san.api.domain.github.controller;
 
 import com.san.api.domain.github.dto.response.GithubStarRecommendationJobResponse;
+import com.san.api.domain.github.dto.response.GithubStarRecommendationListResponse;
 import com.san.api.domain.github.service.GithubStarRecommendationJobService;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -41,6 +43,21 @@ public class GithubStarRecommendationController {
     public ApiResponse<GithubStarRecommendationJobResponse> requestRecommendation(Authentication authentication) {
         UUID userId = currentUserId(authentication);
         GithubStarRecommendationJobResponse response = githubStarRecommendationJobService.requestRecommendation(userId);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 로그인 사용자 기준 GitHub Star 추천 후보 목록 조회
+     *
+     * @param authentication 인증 사용자 정보
+     * @return GitHub Star 추천 후보 목록 응답
+     */
+    @Operation(summary = "GitHub Star 추천 후보 목록 조회", description = "로그인 사용자의 GitHub Star 추천 후보 목록을 최신순으로 조회")
+    @GetMapping
+    public ApiResponse<GithubStarRecommendationListResponse> getRecommendations(Authentication authentication) {
+        UUID userId = currentUserId(authentication);
+        GithubStarRecommendationListResponse response = githubStarRecommendationJobService.getRecommendations(userId);
 
         return ApiResponse.success(response);
     }

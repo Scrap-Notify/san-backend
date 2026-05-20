@@ -48,6 +48,8 @@ oauth:
 ai:
   server:
     base-url: ${AI_SERVER_URL:http://localhost:8001}
+    connect-timeout-millis: ${AI_SERVER_CONNECT_TIMEOUT_MILLIS:5000}
+    read-timeout-millis: ${AI_SERVER_READ_TIMEOUT_MILLIS:300000}
   recommendation:
     github-stars:
       limit: ${AI_GITHUB_STARS_RECOMMENDATION_LIMIT:5}

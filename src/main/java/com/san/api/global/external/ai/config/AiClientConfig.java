@@ -10,15 +10,16 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class AiClientConfig {
 
-    private static final int CONNECT_TIMEOUT_MILLIS = 5000;
-    private static final int READ_TIMEOUT_MILLIS = 60000;
-
     /** AI 서버 호출에 공통으로 사용할 RestClient를 생성한다. */
     @Bean
-    public RestClient aiRestClient(@Value("${ai.server.base-url}") String aiServerUrl) {
+    public RestClient aiRestClient(
+            @Value("${ai.server.base-url}") String aiServerUrl,
+            @Value("${ai.server.connect-timeout-millis}") int connectTimeoutMillis,
+            @Value("${ai.server.read-timeout-millis}") int readTimeoutMillis
+    ) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
-        requestFactory.setReadTimeout(READ_TIMEOUT_MILLIS);
+        requestFactory.setConnectTimeout(connectTimeoutMillis);
+        requestFactory.setReadTimeout(readTimeoutMillis);
 
         return RestClient.builder()
                 .baseUrl(aiServerUrl)

@@ -75,7 +75,7 @@ public class RecallQuizGenerationService {
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
         RecallQuizGeneration generation = findOrCreateGeneration(user, request);
-        UUID quizJobId = findActiveQuizJobId(generation)
+        UUID quizJobId = findReusableQuizJobId(generation)
                 .orElseGet(() -> enqueueRecallQuizGenerationJob(generation.getGenerationId()));
 
         return new RecallQuizGenerationJobResponse(
@@ -117,9 +117,9 @@ public class RecallQuizGenerationService {
                 );
     }
 
-    /** 진행 중인 생성 작업 ID 조회 */
-    private Optional<UUID> findActiveQuizJobId(RecallQuizGeneration generation) {
-        return findActiveQuizJobId(generation.getGenerationId());
+    /** 재사용 가능한 생성 작업 ID 조회 */
+    private Optional<UUID> findReusableQuizJobId(RecallQuizGeneration generation) {
+        return findReusableQuizJobId(generation.getGenerationId());
     }
 
     /** 리콜 퀴즈 생성 작업 등록 */
@@ -130,26 +130,28 @@ public class RecallQuizGenerationService {
             if (e.getErrorCode() != CommonErrorCode.DUPLICATE_RESOURCE) {
                 throw e;
             }
-            return findActiveQuizJobId(generationId)
+            return findReusableQuizJobId(generationId)
                     .orElseThrow(() -> e);
         }
     }
 
-    /** 진행 중인 생성 작업 ID 조회 */
-    private Optional<UUID> findActiveQuizJobId(UUID generationId) {
+    /** 재사용 가능한 생성 작업 ID 조회 */
+    private Optional<UUID> findReusableQuizJobId(UUID generationId) {
         return asyncJobRepository.findByTargetIdAndJobType(
                         generationId,
                         JobType.RECALL_QUIZ_GENERATION
                 )
                 .stream()
-                .filter(this::isActiveJob)
+                .filter(this::isReusableJob)
                 .map(AsyncJob::getJobId)
                 .findFirst();
     }
 
-    /** 활성 생성 작업 여부 */
-    private boolean isActiveJob(AsyncJob job) {
-        return job.getStatus() == JobStatus.PENDING || job.getStatus() == JobStatus.PROCESSING;
+    /** 재사용 가능한 생성 작업 여부 */
+    private boolean isReusableJob(AsyncJob job) {
+        return job.getStatus() == JobStatus.PENDING
+                || job.getStatus() == JobStatus.PROCESSING
+                || job.getStatus() == JobStatus.COMPLETED;
     }
 
     /**

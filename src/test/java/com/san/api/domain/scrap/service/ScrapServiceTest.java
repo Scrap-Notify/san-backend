@@ -6,6 +6,9 @@ import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.dto.request.ScrapCreateRequest;
 import com.san.api.domain.scrap.dto.response.ScrapResponse;
 import com.san.api.domain.scrap.entity.Scrap;
+import com.san.api.domain.scrap.entity.ScrapCardCreationStatus;
+import com.san.api.domain.scrap.entity.ScrapOriginStatus;
+import com.san.api.domain.scrap.entity.ScrapRefineStatus;
 import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.scrap.repository.ScrapRepository;
 import com.san.api.domain.user.entity.AuthProvider;
@@ -105,6 +108,9 @@ class ScrapServiceTest {
         assertThat(saved.getContentHash()).isEqualTo(contentHash);
         assertThat(response.analysisJobId()).isEqualTo(jobId);
         assertThat(response.refineJobId()).isEqualTo(refineJobId);
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.CREATED);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_IN_PROGRESS);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS);
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, saved.getScrapId());
     }
 
@@ -140,6 +146,9 @@ class ScrapServiceTest {
         assertThat(response.imageObjectKey()).isEqualTo(imageObjectKey);
         assertThat(response.analysisJobId()).isEqualTo(analysisJobId);
         assertThat(response.refineJobId()).isEqualTo(refineJobId);
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.CREATED);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_IN_PROGRESS);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS);
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, captor.getValue().getScrapId());
     }
 
@@ -174,6 +183,9 @@ class ScrapServiceTest {
         assertThat(response.scrapId()).isEqualTo(existingScrap.getScrapId());
         assertThat(response.analysisJobId()).isEqualTo(jobId);
         assertThat(response.refineJobId()).isEqualTo(refineJobId);
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.EXISTING);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_IN_PROGRESS);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS);
     }
 
     @Test
@@ -204,6 +216,9 @@ class ScrapServiceTest {
         verify(asyncJobManager, never()).enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId());
         assertThat(response.analysisJobId()).isEqualTo(jobId);
         assertThat(response.refineJobId()).isNull();
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.EXISTING);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_COMPLETED);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS);
     }
 
     @Test
@@ -236,6 +251,9 @@ class ScrapServiceTest {
         verify(asyncJobManager, never()).enqueue(JobType.CARD_ANALYSIS, existingScrap.getScrapId());
         assertThat(response.analysisJobId()).isEqualTo(jobId);
         assertThat(response.refineJobId()).isEqualTo(refineJobId);
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.EXISTING);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_IN_PROGRESS);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS);
     }
 
     @Test
@@ -268,6 +286,9 @@ class ScrapServiceTest {
         assertThat(response.analysisJobId()).isNull();
         assertThat(response.refineJobId()).isEqualTo(refineJobId);
         assertThat(response.cardId()).isEqualTo(cardId);
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.EXISTING);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_IN_PROGRESS);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.CARD_READY);
     }
 
     @Test
@@ -300,6 +321,9 @@ class ScrapServiceTest {
         assertThat(response.scrapId()).isEqualTo(existingScrap.getScrapId());
         assertThat(response.analysisJobId()).isEqualTo(jobId);
         assertThat(response.refineJobId()).isEqualTo(refineJobId);
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.EXISTING);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_IN_PROGRESS);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS);
         verify(asyncJobManager).enqueue(JobType.SCRAP_REFINE, existingScrap.getScrapId());
     }
 
@@ -334,6 +358,9 @@ class ScrapServiceTest {
 
         assertThat(response.analysisJobId()).isEqualTo(jobId);
         assertThat(response.refineJobId()).isEqualTo(refineJobId);
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.CREATED);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_IN_PROGRESS);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS);
     }
 
     @Test
@@ -371,6 +398,9 @@ class ScrapServiceTest {
         assertThat(response.scrapId()).isEqualTo(savedScrap.getScrapId());
         assertThat(response.analysisJobId()).isEqualTo(cardAnalysisJobId);
         assertThat(response.refineJobId()).isEqualTo(refineJobId);
+        assertThat(response.originStatus()).isEqualTo(ScrapOriginStatus.CREATED);
+        assertThat(response.refineStatus()).isEqualTo(ScrapRefineStatus.REFINE_IN_PROGRESS);
+        assertThat(response.cardCreationStatus()).isEqualTo(ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS);
     }
 
     private User buildUser(UUID userId) {

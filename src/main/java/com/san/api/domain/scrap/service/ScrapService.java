@@ -5,6 +5,9 @@ import com.san.api.domain.scrap.dto.response.ScrapResponse;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
 import com.san.api.domain.scrap.entity.Scrap;
+import com.san.api.domain.scrap.entity.ScrapCardCreationStatus;
+import com.san.api.domain.scrap.entity.ScrapOriginStatus;
+import com.san.api.domain.scrap.entity.ScrapRefineStatus;
 import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.scrap.repository.ScrapRepository;
 import com.san.api.domain.user.entity.User;
@@ -62,7 +65,7 @@ public class ScrapService {
         if (existingScrap.isPresent()) {
             Scrap scrap = existingScrap.get();
             UUID refineJobId = enqueueScrapRefineJobIfNeeded(scrap);
-            return createResponseWithJob(scrap, refineJobId);
+            return createResponseWithJob(scrap, refineJobId, true);
         }
 
         Scrap scrap = Scrap.builder()
@@ -74,32 +77,57 @@ public class ScrapService {
                 .imageObjectKey(imageObjectKey)
                 .build();
 
-        Scrap savedScrap = saveScrap(scrap, userId, sourceType, contentHash);
+        SaveScrapResult saveResult = saveScrap(scrap, userId, sourceType, contentHash);
+        Scrap savedScrap = saveResult.scrap();
         UUID refineJobId = enqueueScrapRefineJob(savedScrap.getScrapId());
 
-        return createResponseWithJob(savedScrap, refineJobId);
+        return createResponseWithJob(savedScrap, refineJobId, saveResult.existing());
     }
 
     /** 스크랩 저장 중 유니크 충돌이 발생하면 기존 스크랩을 재조회 */
-    private Scrap saveScrap(Scrap scrap, UUID userId, SourceType sourceType, String contentHash) {
+    private SaveScrapResult saveScrap(Scrap scrap, UUID userId, SourceType sourceType, String contentHash) {
         try {
-            return scrapRepository.save(scrap);
+            return new SaveScrapResult(scrapRepository.save(scrap), false);
         } catch (DataIntegrityViolationException e) {
-            return findExistingScrap(userId, sourceType, contentHash);
+            return new SaveScrapResult(findExistingScrap(userId, sourceType, contentHash), true);
         }
     }
 
     /** 스크랩에 연결된 활성 분석 작업을 조회하거나 새로 등록 */
-    private ScrapResponse createResponseWithJob(Scrap scrap, UUID refineJobId) {
+    private ScrapResponse createResponseWithJob(Scrap scrap, UUID refineJobId, boolean existingScrap) {
         Optional<KnowledgeCard> card = knowledgeCardRepository.findByScrapIdWithCategory(scrap.getScrapId());
         if (card.isPresent()) {
-            return ScrapResponse.from(scrap, null, refineJobId, card.get().getCardId());
+            return ScrapResponse.from(
+                    scrap,
+                    null,
+                    refineJobId,
+                    card.get().getCardId(),
+                    resolveOriginStatus(existingScrap),
+                    resolveRefineStatus(refineJobId),
+                    ScrapCardCreationStatus.CARD_READY
+            );
         }
 
         UUID analysisJobId = findActiveCardAnalysisJobId(scrap.getScrapId())
                 .orElseGet(() -> enqueueCardAnalysisJob(scrap.getScrapId()));
 
-        return ScrapResponse.from(scrap, analysisJobId, refineJobId, null);
+        return ScrapResponse.from(
+                scrap,
+                analysisJobId,
+                refineJobId,
+                null,
+                resolveOriginStatus(existingScrap),
+                resolveRefineStatus(refineJobId),
+                ScrapCardCreationStatus.ANALYSIS_IN_PROGRESS
+        );
+    }
+
+    private ScrapOriginStatus resolveOriginStatus(boolean existingScrap) {
+        return existingScrap ? ScrapOriginStatus.EXISTING : ScrapOriginStatus.CREATED;
+    }
+
+    private ScrapRefineStatus resolveRefineStatus(UUID refineJobId) {
+        return refineJobId == null ? ScrapRefineStatus.REFINE_COMPLETED : ScrapRefineStatus.REFINE_IN_PROGRESS;
     }
 
     private SourceType detectSourceType(String normalizedRawContent, String imageObjectKey) {
@@ -202,5 +230,8 @@ public class ScrapService {
      */
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private record SaveScrapResult(Scrap scrap, boolean existing) {
     }
 }

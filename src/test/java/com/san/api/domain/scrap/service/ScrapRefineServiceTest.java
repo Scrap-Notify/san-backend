@@ -49,14 +49,14 @@ class ScrapRefineServiceTest {
 
         when(scrapRepository.findById(scrapId)).thenReturn(Optional.of(scrap));
         when(aiScrapRefineClient.refine(org.mockito.ArgumentMatchers.any(AiScrapRefineRequest.class)))
-                .thenReturn(new AiScrapRefineResponse(null, "refined content", null));
+                .thenReturn(new AiScrapRefineResponse("refined content"));
 
         scrapRefineService.refine(scrapId);
 
         ArgumentCaptor<AiScrapRefineRequest> captor = ArgumentCaptor.forClass(AiScrapRefineRequest.class);
         verify(aiScrapRefineClient).refine(captor.capture());
-        assertThat(captor.getValue().cardContent().inputType()).isEqualTo("text");
-        assertThat(captor.getValue().cardContent().content()).isEqualTo("raw content");
+        assertThat(captor.getValue().inputType()).isEqualTo("text");
+        assertThat(captor.getValue().content()).isEqualTo("raw content");
         assertThat(scrap.getRefinedContent()).isEqualTo("refined content");
     }
 
@@ -67,14 +67,14 @@ class ScrapRefineServiceTest {
 
         when(scrapRepository.findById(scrapId)).thenReturn(Optional.of(scrap));
         when(aiScrapRefineClient.refine(org.mockito.ArgumentMatchers.any(AiScrapRefineRequest.class)))
-                .thenReturn(new AiScrapRefineResponse(null, "refined content", null));
+                .thenReturn(new AiScrapRefineResponse("refined content"));
 
         scrapRefineService.refine(scrapId);
 
         ArgumentCaptor<AiScrapRefineRequest> captor = ArgumentCaptor.forClass(AiScrapRefineRequest.class);
         verify(aiScrapRefineClient).refine(captor.capture());
-        assertThat(captor.getValue().cardContent().inputType()).isEqualTo("url");
-        assertThat(captor.getValue().cardContent().content()).isEqualTo("https://example.com/article");
+        assertThat(captor.getValue().inputType()).isEqualTo("url");
+        assertThat(captor.getValue().content()).isEqualTo("https://example.com/article");
         assertThat(scrap.getRefinedContent()).isEqualTo("refined content");
     }
 
@@ -87,14 +87,14 @@ class ScrapRefineServiceTest {
         when(s3PresignedUrlService.createDownloadPresignedUrl("images/test.png"))
                 .thenReturn("https://cdn.example.com/images/test.png");
         when(aiScrapRefineClient.refine(org.mockito.ArgumentMatchers.any(AiScrapRefineRequest.class)))
-                .thenReturn(new AiScrapRefineResponse(null, "refined content", null));
+                .thenReturn(new AiScrapRefineResponse("refined content"));
 
         scrapRefineService.refine(scrapId);
 
         ArgumentCaptor<AiScrapRefineRequest> captor = ArgumentCaptor.forClass(AiScrapRefineRequest.class);
         verify(aiScrapRefineClient).refine(captor.capture());
-        assertThat(captor.getValue().cardContent().inputType()).isEqualTo("image");
-        assertThat(captor.getValue().cardContent().content()).isEqualTo("https://cdn.example.com/images/test.png");
+        assertThat(captor.getValue().inputType()).isEqualTo("image");
+        assertThat(captor.getValue().content()).isEqualTo("https://cdn.example.com/images/test.png");
         assertThat(scrap.getRefinedContent()).isEqualTo("refined content");
     }
 

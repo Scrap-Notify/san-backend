@@ -9,6 +9,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AiScrapRefineRequestTest {
 
     @Test
+    void toTilRequest_convertsToSingleContentTilGenerationRequest() {
+        AiScrapRefineRequest request = new AiScrapRefineRequest("TEXT", "raw content");
+
+        AiTilRequest tilRequest = request.toTilRequest();
+
+        assertThat(tilRequest.generateTil()).isTrue();
+        assertThat(tilRequest.contents()).hasSize(1);
+        assertThat(tilRequest.contents().get(0).inputType()).isEqualTo("TEXT");
+        assertThat(tilRequest.contents().get(0).content()).isEqualTo("raw content");
+    }
+
+    @Test
     void serialize_createsCardRefineRequestBody() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         AiScrapRefineRequest request = new AiScrapRefineRequest("url", "https://example.com");
@@ -17,7 +29,7 @@ class AiScrapRefineRequestTest {
 
         assertThat(jsonNode.get("content").get("input_type").asText()).isEqualTo("url");
         assertThat(jsonNode.get("content").get("content").asText()).isEqualTo("https://example.com");
-        assertThat(request.cardContent().inputType()).isEqualTo("url");
-        assertThat(request.cardContent().content()).isEqualTo("https://example.com");
+        assertThat(request.inputType()).isEqualTo("url");
+        assertThat(request.content()).isEqualTo("https://example.com");
     }
 }

@@ -12,6 +12,14 @@ public record AiScrapRefineResponse(
         float[] embedding
 ) {
 
+    public AiScrapRefineResponse(String refinedContent) {
+        this(null, refinedContent, null);
+    }
+
+    public static AiScrapRefineResponse from(AiTilResponse response) {
+        return new AiScrapRefineResponse(response.tilMarkdown());
+    }
+
     public String refinedContent() {
         return cardMarkdown;
     }

@@ -48,6 +48,9 @@ oauth:
 ai:
   server:
     base-url: ${AI_SERVER_URL:http://localhost:8001}
+  recommendation:
+    github-stars:
+      limit: ${AI_GITHUB_STARS_RECOMMENDATION_LIMIT:5}
 
 aws:
   s3:

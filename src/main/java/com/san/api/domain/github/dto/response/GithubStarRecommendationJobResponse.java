@@ -1,5 +1,6 @@
 package com.san.api.domain.github.dto.response;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.san.api.domain.github.entity.GithubStarRecommendation;
 
 import java.util.List;
@@ -17,13 +18,14 @@ public record GithubStarRecommendationJobResponse(
     }
 
     public static GithubStarRecommendationJobResponse alreadyRecommended(
-            List<GithubStarRecommendation> recommendations
+            List<GithubStarRecommendation> recommendations,
+            ObjectMapper objectMapper
     ) {
         return new GithubStarRecommendationJobResponse(
                 null,
                 true,
                 recommendations.stream()
-                        .map(GithubStarRecommendationResponse::from)
+                        .map(recommendation -> GithubStarRecommendationResponse.from(recommendation, objectMapper))
                         .toList()
         );
     }

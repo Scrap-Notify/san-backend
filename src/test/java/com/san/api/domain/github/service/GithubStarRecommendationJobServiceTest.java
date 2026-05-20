@@ -6,10 +6,16 @@ import com.san.api.domain.github.entity.GithubStarRecommendation;
 import com.san.api.domain.github.repository.GithubStarRecommendationRepository;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
+import com.san.api.global.async.entity.AsyncJob;
+import com.san.api.global.async.entity.JobStatus;
 import com.san.api.global.async.entity.JobType;
+import com.san.api.global.async.repository.AsyncJobRepository;
 import com.san.api.global.async.service.AsyncJobManager;
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,13 +30,19 @@ class GithubStarRecommendationJobServiceTest {
 
     private GithubStarRecommendationRepository githubStarRecommendationRepository;
     private AsyncJobManager asyncJobManager;
+    private AsyncJobRepository asyncJobRepository;
     private GithubStarRecommendationJobService service;
 
     @BeforeEach
     void setUp() {
         githubStarRecommendationRepository = mock(GithubStarRecommendationRepository.class);
         asyncJobManager = mock(AsyncJobManager.class);
-        service = new GithubStarRecommendationJobService(githubStarRecommendationRepository, asyncJobManager);
+        asyncJobRepository = mock(AsyncJobRepository.class);
+        service = new GithubStarRecommendationJobService(
+                githubStarRecommendationRepository,
+                asyncJobManager,
+                asyncJobRepository
+        );
     }
 
     @Test
@@ -40,6 +52,8 @@ class GithubStarRecommendationJobServiceTest {
 
         when(githubStarRecommendationRepository.findAllByUser_UserIdOrderByCreatedAtDesc(userId))
                 .thenReturn(List.of());
+        when(asyncJobRepository.findByTargetIdAndJobType(userId, JobType.GITHUB_STAR_RECOMMENDATION))
+                .thenReturn(List.of());
         when(asyncJobManager.enqueue(JobType.GITHUB_STAR_RECOMMENDATION, userId)).thenReturn(jobId);
 
         GithubStarRecommendationJobResponse response = service.requestRecommendation(userId);
@@ -47,6 +61,44 @@ class GithubStarRecommendationJobServiceTest {
         assertThat(response.jobId()).isEqualTo(jobId);
         assertThat(response.alreadyRecommended()).isFalse();
         assertThat(response.recommendations()).isEmpty();
+        verify(asyncJobManager).enqueue(JobType.GITHUB_STAR_RECOMMENDATION, userId);
+    }
+
+    @Test
+    void requestRecommendation_returnsActiveJobWithoutEnqueue() {
+        UUID userId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        AsyncJob activeJob = buildJob(jobId, JobStatus.PROCESSING, userId);
+
+        when(githubStarRecommendationRepository.findAllByUser_UserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of());
+        when(asyncJobRepository.findByTargetIdAndJobType(userId, JobType.GITHUB_STAR_RECOMMENDATION))
+                .thenReturn(List.of(activeJob));
+
+        GithubStarRecommendationJobResponse response = service.requestRecommendation(userId);
+
+        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.alreadyRecommended()).isFalse();
+        verify(asyncJobManager, never()).enqueue(JobType.GITHUB_STAR_RECOMMENDATION, userId);
+    }
+
+    @Test
+    void requestRecommendation_returnsActiveJobWhenEnqueueDuplicated() {
+        UUID userId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        AsyncJob activeJob = buildJob(jobId, JobStatus.PENDING, userId);
+
+        when(githubStarRecommendationRepository.findAllByUser_UserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of());
+        when(asyncJobRepository.findByTargetIdAndJobType(userId, JobType.GITHUB_STAR_RECOMMENDATION))
+                .thenReturn(List.of(), List.of(activeJob));
+        when(asyncJobManager.enqueue(JobType.GITHUB_STAR_RECOMMENDATION, userId))
+                .thenThrow(new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE));
+
+        GithubStarRecommendationJobResponse response = service.requestRecommendation(userId);
+
+        assertThat(response.jobId()).isEqualTo(jobId);
+        assertThat(response.alreadyRecommended()).isFalse();
         verify(asyncJobManager).enqueue(JobType.GITHUB_STAR_RECOMMENDATION, userId);
     }
 
@@ -94,5 +146,15 @@ class GithubStarRecommendationJobServiceTest {
                 "summary",
                 "{\"title\":\"title\"}"
         );
+    }
+
+    private AsyncJob buildJob(UUID jobId, JobStatus status, UUID targetId) {
+        AsyncJob job = AsyncJob.builder()
+                .jobType(JobType.GITHUB_STAR_RECOMMENDATION)
+                .targetId(targetId)
+                .build();
+        ReflectionTestUtils.setField(job, "jobId", jobId);
+        job.updateStatus(status);
+        return job;
     }
 }

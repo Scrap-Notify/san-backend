@@ -3,15 +3,27 @@ package com.san.api.domain.recall.service;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
 import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizGenerationJobResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizListResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizResponse;
 import com.san.api.domain.recall.entity.RecallQuiz;
+import com.san.api.domain.recall.entity.RecallQuizGeneration;
 import com.san.api.domain.recall.entity.RecallQuizType;
+import com.san.api.domain.recall.repository.RecallQuizGenerationRepository;
 import com.san.api.domain.recall.repository.RecallQuizRepository;
 import com.san.api.domain.recall.service.RecallQuizSourceService.RecallQuizSourceResult;
 import com.san.api.domain.scrap.entity.Scrap;
 import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.til.entity.DailySummary;
+import com.san.api.domain.user.entity.User;
+import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.async.entity.AsyncJob;
+import com.san.api.global.async.entity.JobStatus;
+import com.san.api.global.async.entity.JobType;
+import com.san.api.global.async.repository.AsyncJobRepository;
+import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.exception.errorcode.RecallErrorCode;
 import com.san.api.global.external.ai.client.AiQuizClient;
 import com.san.api.global.external.ai.dto.request.AiQuizContentRequest;
@@ -26,7 +38,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -39,12 +53,121 @@ public class RecallQuizGenerationService {
     private static final String OX_AI_QUIZ_TYPE = "ox";
     private static final String O_ANSWER = "O";
     private static final String X_ANSWER = "X";
-
     private final RecallQuizSourceService recallQuizSourceService;
     private final RecallQuizRepository recallQuizRepository;
+    private final RecallQuizGenerationRepository recallQuizGenerationRepository;
     private final RecallQuizPersistenceService recallQuizPersistenceService;
+    private final UserRepository userRepository;
+    private final AsyncJobRepository asyncJobRepository;
+    private final AsyncJobManager asyncJobManager;
     private final AiQuizClient aiQuizClient;
     private final S3PresignedUrlService s3PresignedUrlService;
+
+    /**
+     * 리콜 퀴즈 생성 작업 등록
+     *
+     * @param userId 사용자 ID
+     * @param request 리콜 퀴즈 생성 요청
+     * @return 등록된 리콜 퀴즈 생성 작업 응답
+     */
+    @Transactional
+    public RecallQuizGenerationJobResponse requestGeneration(UUID userId, RecallQuizGenerateRequest request) {
+        User user = userRepository.findByUserIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
+
+        RecallQuizGeneration generation = findOrCreateGeneration(user, request);
+        UUID generationId = generation.getGenerationId();
+        UUID quizJobId = findReusableQuizJobId(generation)
+                .orElseGet(() -> enqueueRecallQuizGenerationJob(generationId));
+
+        return new RecallQuizGenerationJobResponse(
+                generation.getGenerationId(),
+                quizJobId,
+                generation.getTargetDate(),
+                generation.getQuizType()
+        );
+    }
+
+    /** 기존 생성 작업 재사용 또는 신규 생성 */
+    private RecallQuizGeneration findOrCreateGeneration(User user, RecallQuizGenerateRequest request) {
+        Optional<RecallQuizGeneration> existingGeneration = findExistingGeneration(user, request);
+        if (existingGeneration.isPresent()) {
+            return existingGeneration.get();
+        }
+
+        return recallQuizGenerationRepository.save(
+                RecallQuizGeneration.builder()
+                        .user(user)
+                        .targetDate(request.targetDate())
+                        .quizType(request.quizType())
+                        .build()
+        );
+    }
+
+    /** 기존 생성 작업 조회 */
+    private Optional<RecallQuizGeneration> findExistingGeneration(User user, RecallQuizGenerateRequest request) {
+        return recallQuizGenerationRepository
+                .findFirstByUser_UserIdAndTargetDateAndQuizTypeOrderByCreatedAtDesc(
+                        user.getUserId(),
+                        request.targetDate(),
+                        request.quizType()
+                );
+    }
+
+    /** 재사용 가능한 생성 작업 ID 조회 */
+    private Optional<UUID> findReusableQuizJobId(RecallQuizGeneration generation) {
+        return findReusableQuizJobId(generation.getGenerationId());
+    }
+
+    /** 리콜 퀴즈 생성 작업 등록 */
+    private UUID enqueueRecallQuizGenerationJob(UUID generationId) {
+        return asyncJobManager.enqueueInCurrentTransaction(JobType.RECALL_QUIZ_GENERATION, generationId);
+    }
+
+    /** 재사용 가능한 생성 작업 ID 조회 */
+    private Optional<UUID> findReusableQuizJobId(UUID generationId) {
+        return asyncJobRepository.findByTargetIdAndJobType(
+                        generationId,
+                        JobType.RECALL_QUIZ_GENERATION
+                )
+                .stream()
+                .filter(this::isReusableJob)
+                .map(AsyncJob::getJobId)
+                .findFirst();
+    }
+
+    /** 재사용 가능한 생성 작업 여부 */
+    private boolean isReusableJob(AsyncJob job) {
+        return job.getStatus() == JobStatus.PENDING
+                || job.getStatus() == JobStatus.PROCESSING
+                || job.getStatus() == JobStatus.COMPLETED;
+    }
+
+    /**
+     * 날짜와 유형 기준 리콜 퀴즈 조회
+     *
+     * @param userId 사용자 ID
+     * @param targetDate 조회 대상 날짜
+     * @param quizType 리콜 퀴즈 유형
+     * @return 리콜 퀴즈 목록 응답
+     */
+    @Transactional(readOnly = true)
+    public RecallQuizListResponse getQuizzes(UUID userId, LocalDate targetDate, RecallQuizType quizType) {
+        List<RecallQuiz> quizzes = recallQuizRepository
+                .findAllByUser_UserIdAndDailySummary_TargetDateAndQuizTypeOrderByCreatedAtAsc(
+                        userId,
+                        targetDate,
+                        quizType
+                );
+
+        return new RecallQuizListResponse(
+                targetDate,
+                quizType,
+                quizzes.stream()
+                        .map(RecallQuizResponse::from)
+                        .toList()
+        );
+    }
 
     /**
      * 날짜 기반 리콜 퀴즈 생성

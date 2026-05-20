@@ -31,14 +31,16 @@ public class AsyncJobManager {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UUID enqueue(JobType jobType, UUID targetId) {
         try {
-            AsyncJob job = asyncJobRepository.saveAndFlush(
-                    AsyncJob.builder()
-                            .jobType(jobType)
-                            .targetId(targetId)
-                            .build()
-            );
-            eventPublisher.publishEvent(new JobCreatedEvent(job.getJobId(), jobType, targetId));
-            return job.getJobId();
+            return saveAndPublish(jobType, targetId);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "이미 동일한 작업이 진행 중입니다.");
+        }
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public UUID enqueueInCurrentTransaction(JobType jobType, UUID targetId) {
+        try {
+            return saveAndPublish(jobType, targetId);
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "이미 동일한 작업이 진행 중입니다.");
         }
@@ -67,5 +69,16 @@ public class AsyncJobManager {
     private AsyncJob findJob(UUID jobId) {
         return asyncJobRepository.findById(jobId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND, "작업을 찾을 수 없습니다."));
+    }
+
+    private UUID saveAndPublish(JobType jobType, UUID targetId) {
+        AsyncJob job = asyncJobRepository.saveAndFlush(
+                AsyncJob.builder()
+                        .jobType(jobType)
+                        .targetId(targetId)
+                        .build()
+        );
+        eventPublisher.publishEvent(new JobCreatedEvent(job.getJobId(), jobType, targetId));
+        return job.getJobId();
     }
 }

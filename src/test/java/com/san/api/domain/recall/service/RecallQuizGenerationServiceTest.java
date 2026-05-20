@@ -4,8 +4,12 @@ import com.san.api.domain.knowledge.entity.Category;
 import com.san.api.domain.knowledge.entity.KnowledgeCard;
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
 import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizGenerationJobResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizListResponse;
 import com.san.api.domain.recall.entity.RecallQuiz;
+import com.san.api.domain.recall.entity.RecallQuizGeneration;
 import com.san.api.domain.recall.entity.RecallQuizType;
+import com.san.api.domain.recall.repository.RecallQuizGenerationRepository;
 import com.san.api.domain.recall.repository.RecallQuizRepository;
 import com.san.api.domain.recall.service.RecallQuizSourceService.RecallQuizSourceResult;
 import com.san.api.domain.scrap.entity.Scrap;
@@ -13,6 +17,12 @@ import com.san.api.domain.scrap.entity.SourceType;
 import com.san.api.domain.til.entity.DailySummary;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
+import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.async.entity.AsyncJob;
+import com.san.api.global.async.entity.JobStatus;
+import com.san.api.global.async.entity.JobType;
+import com.san.api.global.async.repository.AsyncJobRepository;
+import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.RecallErrorCode;
 import com.san.api.global.external.ai.client.AiQuizClient;
@@ -34,6 +44,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -41,6 +52,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -53,7 +66,15 @@ class RecallQuizGenerationServiceTest {
     @Mock
     private RecallQuizRepository recallQuizRepository;
     @Mock
+    private RecallQuizGenerationRepository recallQuizGenerationRepository;
+    @Mock
     private RecallQuizPersistenceService recallQuizPersistenceService;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private AsyncJobRepository asyncJobRepository;
+    @Mock
+    private AsyncJobManager asyncJobManager;
     @Mock
     private AiQuizClient aiQuizClient;
     @Mock
@@ -73,6 +94,86 @@ class RecallQuizGenerationServiceTest {
         user = buildUser(userId);
         targetDate = LocalDate.of(2026, 5, 19);
         summary = buildSummary();
+    }
+
+    @Test
+    void requestGenerationCreatesGenerationAndJob() {
+        UUID quizJobId = UUID.randomUUID();
+
+        when(userRepository.findByUserIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(recallQuizGenerationRepository.findFirstByUser_UserIdAndTargetDateAndQuizTypeOrderByCreatedAtDesc(
+                userId,
+                targetDate,
+                RecallQuizType.OX
+        )).thenReturn(Optional.empty());
+        when(recallQuizGenerationRepository.save(any(RecallQuizGeneration.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(asyncJobRepository.findByTargetIdAndJobType(any(UUID.class), eq(JobType.RECALL_QUIZ_GENERATION)))
+                .thenReturn(List.of());
+        when(asyncJobManager.enqueueInCurrentTransaction(eq(JobType.RECALL_QUIZ_GENERATION), any(UUID.class)))
+                .thenReturn(quizJobId);
+
+        RecallQuizGenerationJobResponse response = recallQuizGenerationService.requestGeneration(
+                userId,
+                new RecallQuizGenerateRequest(targetDate, RecallQuizType.OX)
+        );
+
+        assertThat(response.quizJobId()).isEqualTo(quizJobId);
+        assertThat(response.targetDate()).isEqualTo(targetDate);
+        assertThat(response.quizType()).isEqualTo(RecallQuizType.OX);
+        verify(asyncJobManager).enqueueInCurrentTransaction(eq(JobType.RECALL_QUIZ_GENERATION), eq(response.generationId()));
+    }
+
+    @Test
+    void requestGenerationReusesProcessingJob() {
+        RecallQuizGeneration generation = buildGeneration(RecallQuizType.OX);
+        UUID quizJobId = UUID.randomUUID();
+        AsyncJob job = buildJob(quizJobId, JobStatus.PROCESSING, generation.getGenerationId());
+
+        when(userRepository.findByUserIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(recallQuizGenerationRepository.findFirstByUser_UserIdAndTargetDateAndQuizTypeOrderByCreatedAtDesc(
+                userId,
+                targetDate,
+                RecallQuizType.OX
+        )).thenReturn(Optional.of(generation));
+        when(asyncJobRepository.findByTargetIdAndJobType(generation.getGenerationId(), JobType.RECALL_QUIZ_GENERATION))
+                .thenReturn(List.of(job));
+
+        RecallQuizGenerationJobResponse response = recallQuizGenerationService.requestGeneration(
+                userId,
+                new RecallQuizGenerateRequest(targetDate, RecallQuizType.OX)
+        );
+
+        assertThat(response.generationId()).isEqualTo(generation.getGenerationId());
+        assertThat(response.quizJobId()).isEqualTo(quizJobId);
+        assertThat(response.targetDate()).isEqualTo(targetDate);
+        assertThat(response.quizType()).isEqualTo(RecallQuizType.OX);
+        verify(asyncJobManager, never()).enqueueInCurrentTransaction(any(), any());
+    }
+
+    @Test
+    void requestGenerationReusesCompletedJob() {
+        RecallQuizGeneration generation = buildGeneration(RecallQuizType.OX);
+        UUID completedJobId = UUID.randomUUID();
+        AsyncJob completedJob = buildJob(completedJobId, JobStatus.COMPLETED, generation.getGenerationId());
+
+        when(userRepository.findByUserIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(recallQuizGenerationRepository.findFirstByUser_UserIdAndTargetDateAndQuizTypeOrderByCreatedAtDesc(
+                userId,
+                targetDate,
+                RecallQuizType.OX
+        )).thenReturn(Optional.of(generation));
+        when(asyncJobRepository.findByTargetIdAndJobType(generation.getGenerationId(), JobType.RECALL_QUIZ_GENERATION))
+                .thenReturn(List.of(completedJob));
+
+        RecallQuizGenerationJobResponse response = recallQuizGenerationService.requestGeneration(
+                userId,
+                new RecallQuizGenerateRequest(targetDate, RecallQuizType.OX)
+        );
+
+        assertThat(response.generationId()).isEqualTo(generation.getGenerationId());
+        assertThat(response.quizJobId()).isEqualTo(completedJobId);
+        verify(asyncJobManager, never()).enqueueInCurrentTransaction(any(), any());
     }
 
     @Test
@@ -104,6 +205,37 @@ class RecallQuizGenerationServiceTest {
         assertThat(response.quizzes()).hasSize(1);
         assertThat(response.quizzes().getFirst().question()).isEqualTo("기존 질문");
         verifyNoInteractions(aiQuizClient);
+    }
+
+    @Test
+    void getQuizzesReturnsQuizzesByDateAndType() {
+        RecallQuiz quiz = RecallQuiz.builder()
+                .dailySummary(summary)
+                .scrap(buildScrap(SourceType.TEXT, null, "raw content", null))
+                .quizType(RecallQuizType.OX)
+                .question("React.memo should not be used for every component.")
+                .answer("X")
+                .explanation("Use it only when memoization is actually helpful.")
+                .build();
+
+        when(recallQuizRepository.findAllByUser_UserIdAndDailySummary_TargetDateAndQuizTypeOrderByCreatedAtAsc(
+                userId,
+                targetDate,
+                RecallQuizType.OX
+        )).thenReturn(List.of(quiz));
+
+        RecallQuizListResponse response = recallQuizGenerationService.getQuizzes(
+                userId,
+                targetDate,
+                RecallQuizType.OX
+        );
+
+        assertThat(response.targetDate()).isEqualTo(targetDate);
+        assertThat(response.quizType()).isEqualTo(RecallQuizType.OX);
+        assertThat(response.quizzes()).hasSize(1);
+        assertThat(response.quizzes().getFirst().question())
+                .isEqualTo("React.memo should not be used for every component.");
+        assertThat(response.quizzes().getFirst().solved()).isFalse();
     }
 
     @Test
@@ -259,6 +391,24 @@ class RecallQuizGenerationServiceTest {
                 .title("TIL title")
                 .content("TIL content")
                 .build();
+    }
+
+    private RecallQuizGeneration buildGeneration(RecallQuizType quizType) {
+        return RecallQuizGeneration.builder()
+                .user(user)
+                .targetDate(targetDate)
+                .quizType(quizType)
+                .build();
+    }
+
+    private AsyncJob buildJob(UUID jobId, JobStatus status, UUID targetId) {
+        AsyncJob job = AsyncJob.builder()
+                .jobType(JobType.RECALL_QUIZ_GENERATION)
+                .targetId(targetId)
+                .build();
+        ReflectionTestUtils.setField(job, "jobId", jobId);
+        job.updateStatus(status);
+        return job;
     }
 
     private KnowledgeCard buildCard(SourceType sourceType, String sourceUrl, String rawContent, String imageObjectKey) {

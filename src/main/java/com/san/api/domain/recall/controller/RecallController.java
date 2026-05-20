@@ -2,8 +2,10 @@ package com.san.api.domain.recall.controller;
 
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
 import com.san.api.domain.recall.dto.request.RecallQuizSubmitRequest;
-import com.san.api.domain.recall.dto.response.RecallQuizGenerateResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizGenerationJobResponse;
+import com.san.api.domain.recall.dto.response.RecallQuizListResponse;
 import com.san.api.domain.recall.dto.response.RecallQuizSubmitResponse;
+import com.san.api.domain.recall.entity.RecallQuizType;
 import com.san.api.domain.recall.service.RecallQuizGenerationService;
 import com.san.api.domain.recall.service.RecallQuizSubmissionService;
 import com.san.api.global.exception.BusinessException;
@@ -14,12 +16,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /** 리콜 API Controller */
@@ -33,20 +38,41 @@ public class RecallController {
     private final RecallQuizSubmissionService recallQuizSubmissionService;
 
     /**
-     * 날짜 기반 리콜 퀴즈 생성
+     * 날짜 기반 리콜 퀴즈 생성 작업 등록
      *
      * @param authentication 인증 정보
      * @param request 리콜 퀴즈 생성 요청
-     * @return 리콜 퀴즈 생성 응답
+     * @return 등록된 리콜 퀴즈 생성 작업 응답
      */
-    @Operation(summary = "날짜 기반 리콜 퀴즈 생성", description = "대상 날짜의 TIL 원본을 기반으로 리콜 퀴즈를 생성")
+    @Operation(summary = "날짜 기반 리콜 퀴즈 생성 작업 등록", description = "대상 날짜의 TIL 원본 기반 리콜 퀴즈 생성을 비동기 작업으로 등록")
     @PostMapping("/quizzes")
-    public ApiResponse<RecallQuizGenerateResponse> generate(
+    public ApiResponse<RecallQuizGenerationJobResponse> generate(
             Authentication authentication,
             @Valid @RequestBody RecallQuizGenerateRequest request) {
 
         UUID userId = currentUserId(authentication);
-        RecallQuizGenerateResponse response = recallQuizGenerationService.generate(userId, request);
+        RecallQuizGenerationJobResponse response = recallQuizGenerationService.requestGeneration(userId, request);
+
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 날짜와 유형 기준 리콜 퀴즈 조회
+     *
+     * @param authentication 인증 정보
+     * @param targetDate 조회 대상 날짜
+     * @param quizType 리콜 퀴즈 유형
+     * @return 리콜 퀴즈 목록 응답
+     */
+    @Operation(summary = "날짜와 유형 기준 리콜 퀴즈 조회", description = "대상 날짜와 퀴즈 유형에 해당하는 리콜 퀴즈 목록 조회")
+    @GetMapping("/quizzes")
+    public ApiResponse<RecallQuizListResponse> getQuizzes(
+            Authentication authentication,
+            @RequestParam LocalDate targetDate,
+            @RequestParam RecallQuizType quizType) {
+
+        UUID userId = currentUserId(authentication);
+        RecallQuizListResponse response = recallQuizGenerationService.getQuizzes(userId, targetDate, quizType);
 
         return ApiResponse.success(response);
     }

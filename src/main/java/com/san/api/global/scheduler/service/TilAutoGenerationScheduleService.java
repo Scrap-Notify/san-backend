@@ -1,10 +1,8 @@
 package com.san.api.global.scheduler.service;
 
 import com.san.api.domain.knowledge.repository.KnowledgeCardRepository;
-import com.san.api.domain.til.entity.DailySummary;
-import com.san.api.domain.til.service.DailySummaryService;
-import com.san.api.global.async.entity.JobType;
-import com.san.api.global.async.service.AsyncJobManager;
+import com.san.api.domain.til.dto.request.TilGenerateRequest;
+import com.san.api.domain.til.service.TilService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,8 +19,7 @@ import java.util.UUID;
 public class TilAutoGenerationScheduleService {
 
     private final KnowledgeCardRepository knowledgeCardRepository;
-    private final DailySummaryService dailySummaryService;
-    private final AsyncJobManager asyncJobManager;
+    private final TilService tilService;
 
     /**
      * 전날 지식카드가 생성된 사용자 전원에게 TIL을 자동 생성합니다.
@@ -41,8 +38,7 @@ public class TilAutoGenerationScheduleService {
         int enqueued = 0;
         for (UUID userId : userIds) {
             try {
-                DailySummary summary = dailySummaryService.createSummary(userId, yesterday);
-                asyncJobManager.enqueue(JobType.TIL_GENERATION, summary.getSummaryId());
+                tilService.requestGeneration(userId, new TilGenerateRequest(yesterday));
                 enqueued++;
             } catch (Exception e) {
                 log.warn("[TilAutoGeneration] failed userId={}: {}", userId, e.getMessage());

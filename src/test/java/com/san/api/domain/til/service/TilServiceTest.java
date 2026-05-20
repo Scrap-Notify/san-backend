@@ -17,6 +17,7 @@ import com.san.api.domain.til.entity.DailySummary;
 import com.san.api.domain.til.repository.DailySummaryRepository;
 import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
+import com.san.api.global.async.entity.JobStatus;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
@@ -85,29 +86,34 @@ class TilServiceTest {
         UUID jobId = UUID.randomUUID();
 
         when(dailySummaryService.createSummary(userId, targetDate)).thenReturn(summary);
-        when(asyncJobManager.enqueue(JobType.TIL_GENERATION, summary.getSummaryId())).thenReturn(jobId);
+        when(asyncJobManager.enqueueInCurrentTransaction(JobType.TIL_GENERATION, summary.getSummaryId())).thenReturn(jobId);
 
         TilGenerationJobResponse response = tilService.requestGeneration(userId, new TilGenerateRequest(targetDate));
 
         assertThat(response.summaryId()).isEqualTo(summary.getSummaryId());
         assertThat(response.jobId()).isEqualTo(jobId);
         assertThat(response.targetDate()).isEqualTo(targetDate);
+        verify(dailySummaryRepository).acquireGenerationLock(userId);
         verify(dailySummaryService).createSummary(userId, targetDate);
-        verify(asyncJobManager).enqueue(JobType.TIL_GENERATION, summary.getSummaryId());
+        verify(asyncJobManager).enqueueInCurrentTransaction(JobType.TIL_GENERATION, summary.getSummaryId());
     }
 
     @Test
     void requestGeneration_duplicateActiveJob_throwsException() {
         LocalDate targetDate = LocalDate.of(2026, 5, 6);
-        DailySummary summary = buildSummary(UUID.randomUUID(), user, targetDate, null, null);
 
-        when(dailySummaryService.createSummary(userId, targetDate)).thenReturn(summary);
-        when(asyncJobManager.enqueue(JobType.TIL_GENERATION, summary.getSummaryId()))
-                .thenThrow(new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE));
+        when(dailySummaryRepository.existsActiveJobForUser(
+                userId,
+                JobType.TIL_GENERATION,
+                List.of(JobStatus.PENDING, JobStatus.PROCESSING)
+        )).thenReturn(true);
 
         assertThatThrownBy(() -> tilService.requestGeneration(userId, new TilGenerateRequest(targetDate)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", CommonErrorCode.DUPLICATE_RESOURCE);
+        verify(dailySummaryRepository).acquireGenerationLock(userId);
+        verifyNoInteractions(dailySummaryService);
+        verify(asyncJobManager, never()).enqueueInCurrentTransaction(any(), any());
     }
 
     @Test

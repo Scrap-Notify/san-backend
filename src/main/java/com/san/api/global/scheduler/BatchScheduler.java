@@ -1,9 +1,11 @@
 package com.san.api.global.scheduler;
 
 import com.san.api.global.outbox.service.OutboxEventRelayService;
+import com.san.api.global.scheduler.service.FailedJobRecoveryService;
 import com.san.api.global.scheduler.service.GhostJobRecoveryService;
 import com.san.api.global.scheduler.service.OrphanScrapRecoveryService;
 import com.san.api.global.scheduler.service.OrphanScrapRefineRecoveryService;
+import com.san.api.global.scheduler.service.RecallQuizAutoGenerationScheduleService;
 import com.san.api.global.scheduler.service.TilAutoGenerationScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,7 +19,9 @@ public class BatchScheduler {
     private final GhostJobRecoveryService ghostJobRecoveryService;
     private final OrphanScrapRecoveryService orphanScrapRecoveryService;
     private final OrphanScrapRefineRecoveryService orphanScrapRefineRecoveryService;
+    private final FailedJobRecoveryService failedJobRecoveryService;
     private final TilAutoGenerationScheduleService tilAutoGenerationScheduleService;
+    private final RecallQuizAutoGenerationScheduleService recallQuizAutoGenerationScheduleService;
     private final OutboxEventRelayService outboxEventRelayService;
 
     /**
@@ -28,6 +32,7 @@ public class BatchScheduler {
         ghostJobRecoveryService.recover();
         orphanScrapRecoveryService.recover();
         orphanScrapRefineRecoveryService.recover();
+        failedJobRecoveryService.recover();
     }
 
     /** 처리 가능한 Outbox 이벤트를 30초마다 외부 시스템으로 전달합니다. */
@@ -40,5 +45,6 @@ public class BatchScheduler {
     @Scheduled(cron = "0 0 3 * * *")
     public void runTilAutoGeneration() {
         tilAutoGenerationScheduleService.generate();
+        recallQuizAutoGenerationScheduleService.generate();
     }
 }

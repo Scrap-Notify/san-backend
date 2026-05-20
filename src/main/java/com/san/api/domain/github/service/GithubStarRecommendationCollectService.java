@@ -23,6 +23,7 @@ import com.san.api.global.exception.errorcode.AiErrorCode;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import com.san.api.global.external.ai.dto.response.AiAnalyzeResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +54,7 @@ public class GithubStarRecommendationCollectService {
     @Transactional
     public GithubStarRecommendationCollectResponse collect(UUID userId, UUID recommendationId) {
         GithubStarRecommendation recommendation = githubStarRecommendationRepository
-                .findByGithubStarRecommendationIdAndUser_UserId(recommendationId, userId)
+                .findByIdAndUserIdForUpdate(recommendationId, userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
         validateNotCollected(recommendation);
@@ -94,13 +95,26 @@ public class GithubStarRecommendationCollectService {
                         SourceType.LINK,
                         contentHash
                 )
-                .orElseGet(() -> scrapRepository.save(Scrap.builder()
+                .orElseGet(() -> saveScrap(Scrap.builder()
                         .user(user)
                         .sourceType(SourceType.LINK)
                         .sourceUrl(normalizedUrl)
                         .rawContent(normalizedUrl)
                         .contentHash(contentHash)
-                        .build()));
+                        .build(), user.getUserId(), contentHash));
+    }
+
+    private Scrap saveScrap(Scrap scrap, UUID userId, String contentHash) {
+        try {
+            return scrapRepository.save(scrap);
+        } catch (DataIntegrityViolationException e) {
+            return scrapRepository.findByUser_UserIdAndSourceTypeAndContentHash(
+                            userId,
+                            SourceType.LINK,
+                            contentHash
+                    )
+                    .orElseThrow(() -> e);
+        }
     }
 
     private KnowledgeCard findOrCreateCard(
@@ -118,16 +132,30 @@ public class GithubStarRecommendationCollectService {
             AiAnalyzeResponse analysis
     ) {
         Category category = findOrCreateCategory(scrap.getUser(), analysis.category());
-        KnowledgeCard card = knowledgeCardRepository.saveAndFlush(KnowledgeCard.builder()
-                .scrap(scrap)
-                .category(category)
-                .title(firstNotBlank(analysis.title(), recommendation.getTitle()))
-                .summary(firstNotBlank(analysis.summary(), recommendation.getSummary()))
-                .embedding(analysis.embedding())
-                .build());
+        KnowledgeCard card = saveCard(scrap, category, recommendation, analysis);
 
         saveTags(card, analysis.tags());
         return card;
+    }
+
+    private KnowledgeCard saveCard(
+            Scrap scrap,
+            Category category,
+            GithubStarRecommendation recommendation,
+            AiAnalyzeResponse analysis
+    ) {
+        try {
+            return knowledgeCardRepository.saveAndFlush(KnowledgeCard.builder()
+                    .scrap(scrap)
+                    .category(category)
+                    .title(firstNotBlank(analysis.title(), recommendation.getTitle()))
+                    .summary(firstNotBlank(analysis.summary(), recommendation.getSummary()))
+                    .embedding(analysis.embedding())
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            return knowledgeCardRepository.findByScrapIdWithCategory(scrap.getScrapId())
+                    .orElseThrow(() -> e);
+        }
     }
 
     private Category findOrCreateCategory(User user, String categoryName) {

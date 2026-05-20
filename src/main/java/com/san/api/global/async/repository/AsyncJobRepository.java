@@ -17,4 +17,6 @@ public interface AsyncJobRepository extends JpaRepository<AsyncJob, UUID> {
     List<AsyncJob> findByStatus(JobStatus status);
 
     List<AsyncJob> findByStatusAndCreatedAtBefore(JobStatus status, LocalDateTime threshold);
+
+    long countByTargetIdAndJobTypeAndStatus(UUID targetId, JobType jobType, JobStatus status);
 }

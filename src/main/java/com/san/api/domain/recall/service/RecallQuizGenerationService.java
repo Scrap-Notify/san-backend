@@ -70,13 +70,15 @@ public class RecallQuizGenerationService {
      * @param request 리콜 퀴즈 생성 요청
      * @return 등록된 리콜 퀴즈 생성 작업 응답
      */
+    @Transactional
     public RecallQuizGenerationJobResponse requestGeneration(UUID userId, RecallQuizGenerateRequest request) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
 
         RecallQuizGeneration generation = findOrCreateGeneration(user, request);
+        UUID generationId = generation.getGenerationId();
         UUID quizJobId = findReusableQuizJobId(generation)
-                .orElseGet(() -> enqueueRecallQuizGenerationJob(generation.getGenerationId()));
+                .orElseGet(() -> enqueueRecallQuizGenerationJob(generationId));
 
         return new RecallQuizGenerationJobResponse(
                 generation.getGenerationId(),
@@ -93,18 +95,13 @@ public class RecallQuizGenerationService {
             return existingGeneration.get();
         }
 
-        try {
-            return recallQuizGenerationRepository.save(
-                    RecallQuizGeneration.builder()
-                            .user(user)
-                            .targetDate(request.targetDate())
-                            .quizType(request.quizType())
-                            .build()
-            );
-        } catch (DataIntegrityViolationException e) {
-            return findExistingGeneration(user, request)
-                    .orElseThrow(() -> e);
-        }
+        return recallQuizGenerationRepository.save(
+                RecallQuizGeneration.builder()
+                        .user(user)
+                        .targetDate(request.targetDate())
+                        .quizType(request.quizType())
+                        .build()
+        );
     }
 
     /** 기존 생성 작업 조회 */
@@ -124,15 +121,7 @@ public class RecallQuizGenerationService {
 
     /** 리콜 퀴즈 생성 작업 등록 */
     private UUID enqueueRecallQuizGenerationJob(UUID generationId) {
-        try {
-            return asyncJobManager.enqueue(JobType.RECALL_QUIZ_GENERATION, generationId);
-        } catch (BusinessException e) {
-            if (e.getErrorCode() != CommonErrorCode.DUPLICATE_RESOURCE) {
-                throw e;
-            }
-            return findReusableQuizJobId(generationId)
-                    .orElseThrow(() -> e);
-        }
+        return asyncJobManager.enqueueInCurrentTransaction(JobType.RECALL_QUIZ_GENERATION, generationId);
     }
 
     /** 재사용 가능한 생성 작업 ID 조회 */

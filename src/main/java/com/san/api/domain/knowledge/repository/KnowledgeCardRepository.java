@@ -124,8 +124,8 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
                   SELECT 1 FROM categories c
                   WHERE c.category_id = kc.category_id AND c.category_name = :category
               ))
-              AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
-              AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
+              AND (CAST(:fromDate AS date) IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
+              AND (CAST(:toDate AS date) IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
               AND kc.embedding <=> CAST(:queryVector AS vector) < :threshold
             ORDER BY kc.embedding <=> CAST(:queryVector AS vector)
             LIMIT :limit OFFSET :offset
@@ -212,8 +212,8 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
                   SELECT 1 FROM categories c
                   WHERE c.category_id = kc.category_id AND c.category_name = :category
               ))
-              AND (:fromDate IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
-              AND (:toDate IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
+              AND (CAST(:fromDate AS date) IS NULL OR CAST(kc.created_at AS date) >= CAST(:fromDate AS date))
+              AND (CAST(:toDate AS date) IS NULL OR CAST(kc.created_at AS date) <= CAST(:toDate AS date))
             ORDER BY kc.created_at DESC
             LIMIT :limit
             """, nativeQuery = true)

@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Removes the legacy global unique constraint on github_accounts.github_user_id.
- * Multiple service users may link the same GitHub account, while user_id remains unique.
+ * github_accounts.github_user_id에 남아 있는 기존 전역 unique 제약을 제거합니다.
+ * 여러 서비스 사용자가 같은 GitHub 계정을 연동할 수 있고, user_id는 계속 고유해야 합니다.
  */
 @Slf4j
 @Component

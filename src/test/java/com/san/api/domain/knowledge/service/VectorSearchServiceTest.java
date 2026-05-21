@@ -104,27 +104,33 @@ class VectorSearchServiceTest {
 
         when(knowledgeCardRepository.findById(cardId)).thenReturn(Optional.of(baseCard));
         when(knowledgeCardRepository.searchSimilarCardsByVectorExcludingWithThreshold(
-                anyString(), eq(userId), eq(List.of(cardId)), eq(0.3d), eq(5)))
+                anyString(), eq(userId), eq(List.of(cardId)), eq(0.5d), eq(5)))
                 .thenReturn(List.of(related1, related2));
 
         List<KnowledgeCard> result = vectorSearchService.findRelatedByCard(cardId, userId, 5);
 
         assertThat(result).containsExactly(related1, related2);
+        verify(knowledgeCardRepository, never()).searchNearestCardsByVectorExcluding(
+                anyString(), any(), anyList(), anyInt());
     }
 
     @Test
     void findRelatedByCard_threshold_미만_결과없음_빈리스트반환() {
         UUID cardId = UUID.randomUUID();
         KnowledgeCard baseCard = buildCard(cardId, user, new float[]{0.1f, 0.2f});
+        KnowledgeCard nearest = buildCard(UUID.randomUUID(), user, new float[]{0.3f, 0.4f});
 
         when(knowledgeCardRepository.findById(cardId)).thenReturn(Optional.of(baseCard));
         when(knowledgeCardRepository.searchSimilarCardsByVectorExcludingWithThreshold(
-                anyString(), eq(userId), eq(List.of(cardId)), eq(0.3d), eq(5)))
+                anyString(), eq(userId), eq(List.of(cardId)), eq(0.5d), eq(5)))
                 .thenReturn(List.of());
+        when(knowledgeCardRepository.searchNearestCardsByVectorExcluding(
+                anyString(), eq(userId), eq(List.of(cardId)), eq(5)))
+                .thenReturn(List.of(nearest));
 
         List<KnowledgeCard> result = vectorSearchService.findRelatedByCard(cardId, userId, 5);
 
-        assertThat(result).isEmpty();
+        assertThat(result).containsExactly(nearest);
     }
 
     // ───────────────────────────────────────────────
@@ -189,12 +195,36 @@ class VectorSearchServiceTest {
         when(scrapRepository.findCardIdsByUserAndDate(eq(userId), any(LocalDate.class)))
                 .thenReturn(List.of(sourceCardId));
         when(knowledgeCardRepository.searchByVectorExcludingWithThreshold(
-                anyString(), eq(userId), eq(List.of(sourceCardId)), eq(0.3d)))
+                anyString(), eq(userId), eq(List.of(sourceCardId)), eq(0.5d)))
                 .thenReturn(List.of(related));
 
         List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId);
 
         assertThat(result).containsExactly(related);
+        verify(knowledgeCardRepository, never()).searchNearestCardsByVectorExcluding(
+                anyString(), any(), anyList(), anyInt());
+    }
+
+    @Test
+    void findRelatedByTil_threshold_결과없음_nearestFallback반환() {
+        UUID summaryId = UUID.randomUUID();
+        UUID sourceCardId = UUID.randomUUID();
+        DailySummary summary = buildSummary(summaryId, user, new float[]{0.1f, 0.2f});
+        KnowledgeCard nearest = buildCard(UUID.randomUUID(), user, new float[]{0.3f, 0.4f});
+
+        when(dailySummaryRepository.findById(summaryId)).thenReturn(Optional.of(summary));
+        when(scrapRepository.findCardIdsByUserAndDate(eq(userId), any(LocalDate.class)))
+                .thenReturn(List.of(sourceCardId));
+        when(knowledgeCardRepository.searchByVectorExcludingWithThreshold(
+                anyString(), eq(userId), eq(List.of(sourceCardId)), eq(0.5d)))
+                .thenReturn(List.of());
+        when(knowledgeCardRepository.searchNearestCardsByVectorExcluding(
+                anyString(), eq(userId), eq(List.of(sourceCardId))))
+                .thenReturn(List.of(nearest));
+
+        List<KnowledgeCard> result = vectorSearchService.findRelatedByTil(summaryId, userId);
+
+        assertThat(result).containsExactly(nearest);
     }
 
     // ───────────────────────────────────────────────

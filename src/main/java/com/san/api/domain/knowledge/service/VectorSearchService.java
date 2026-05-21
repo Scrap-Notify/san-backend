@@ -25,9 +25,9 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class VectorSearchService {
 
-    // pgvector <=> 코사인 거리 기준. 0.3 미만 = 유사도 0.7 초과
-    private static final double RECALL_THRESHOLD = 0.3;
-    private static final double SIMILAR_CARD_DISTANCE_THRESHOLD = 0.3;
+    // pgvector <=> 코사인 거리 기준. 0.5 미만 = 유사도 0.5 초과
+    private static final double RECALL_THRESHOLD = 0.5;
+    private static final double SIMILAR_CARD_DISTANCE_THRESHOLD = 0.5;
 
     private final KnowledgeCardRepository knowledgeCardRepository;
     private final ScrapRepository scrapRepository;
@@ -55,8 +55,14 @@ public class VectorSearchService {
         }
 
         String queryVector = toVectorString(baseCard.getEmbedding());
-        return knowledgeCardRepository.searchSimilarCardsByVectorExcludingWithThreshold(
+        List<KnowledgeCard> similarCards = knowledgeCardRepository.searchSimilarCardsByVectorExcludingWithThreshold(
                 queryVector, userId, List.of(cardId), SIMILAR_CARD_DISTANCE_THRESHOLD, limit);
+        if (!similarCards.isEmpty()) {
+            return similarCards;
+        }
+
+        return knowledgeCardRepository.searchNearestCardsByVectorExcluding(
+                queryVector, userId, List.of(cardId), limit);
     }
 
     /**
@@ -87,8 +93,14 @@ public class VectorSearchService {
             return List.of();
         }
 
-        return knowledgeCardRepository.searchByVectorExcludingWithThreshold(
+        List<KnowledgeCard> relatedCards = knowledgeCardRepository.searchByVectorExcludingWithThreshold(
                 queryVector, userId, excludeIds, RECALL_THRESHOLD);
+        if (!relatedCards.isEmpty()) {
+            return relatedCards;
+        }
+
+        return knowledgeCardRepository.searchNearestCardsByVectorExcluding(
+                queryVector, userId, excludeIds);
     }
 
     private String toVectorString(float[] vector) {

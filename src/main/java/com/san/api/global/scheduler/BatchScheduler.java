@@ -27,7 +27,7 @@ public class BatchScheduler {
     /**
      * 유령 잡, 고아 스크랩, 고아 SCRAP_REFINE 복구 배치. 2시간마다 실행.
      */
-    @Scheduled(cron = "0 0 */2 * * *")
+    // @Scheduled(cron = "0 0 */2 * * *")
     public void runRecovery() {
         ghostJobRecoveryService.recover();
         orphanScrapRecoveryService.recover();
@@ -36,13 +36,13 @@ public class BatchScheduler {
     }
 
     /** 처리 가능한 Outbox 이벤트를 30초마다 외부 시스템으로 전달합니다. */
-    @Scheduled(fixedDelayString = "${outbox.relay.fixed-delay-ms:60000}")
+    // @Scheduled(fixedDelayString = "${outbox.relay.fixed-delay-ms:60000}")
     public void relayOutboxEvents() {
         outboxEventRelayService.relayDueEvents();
     }
 
     /** TIL 자동 생성 배치를 매일 03:00에 실행합니다. */
-    @Scheduled(cron = "0 0 3 * * *")
+    // @Scheduled(cron = "0 0 3 * * *")
     public void runTilAutoGeneration() {
         tilAutoGenerationScheduleService.generate();
         recallQuizAutoGenerationScheduleService.generate();

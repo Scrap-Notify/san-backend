@@ -192,6 +192,50 @@ public interface KnowledgeCardRepository extends JpaRepository<KnowledgeCard, UU
     );
 
     /**
+     * 카드 기준 유사 카드 조회용 벡터 검색 fallback.
+     * threshold 결과가 없을 때 가장 가까운 카드를 limit 만큼 반환한다.
+     */
+    @Query(value = """
+            SELECT kc.card_id, kc.scrap_id, kc.category_id, kc.title, kc.summary,
+                   kc.embedding, kc.created_at, kc.updated_at, kc.is_deleted
+            FROM knowledge_cards kc
+            JOIN scraps s ON kc.scrap_id = s.scrap_id
+            WHERE s.user_id = :userId
+              AND kc.is_deleted = false
+              AND kc.embedding IS NOT NULL
+              AND kc.card_id NOT IN (:excludeIds)
+            ORDER BY kc.embedding <=> CAST(:queryVector AS vector)
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<KnowledgeCard> searchNearestCardsByVectorExcluding(
+            @Param("queryVector") String queryVector,
+            @Param("userId") UUID userId,
+            @Param("excludeIds") List<UUID> excludeIds,
+            @Param("limit") int limit
+    );
+
+    /**
+     * TIL 리콜 카드 조회용 벡터 검색 fallback.
+     * threshold 결과가 없을 때 제외 카드를 뺀 전체 카드를 가까운 순서로 반환한다.
+     */
+    @Query(value = """
+            SELECT kc.card_id, kc.scrap_id, kc.category_id, kc.title, kc.summary,
+                   kc.embedding, kc.created_at, kc.updated_at, kc.is_deleted
+            FROM knowledge_cards kc
+            JOIN scraps s ON kc.scrap_id = s.scrap_id
+            WHERE s.user_id = :userId
+              AND kc.is_deleted = false
+              AND kc.embedding IS NOT NULL
+              AND kc.card_id NOT IN (:excludeIds)
+            ORDER BY kc.embedding <=> CAST(:queryVector AS vector)
+            """, nativeQuery = true)
+    List<KnowledgeCard> searchNearestCardsByVectorExcluding(
+            @Param("queryVector") String queryVector,
+            @Param("userId") UUID userId,
+            @Param("excludeIds") List<UUID> excludeIds
+    );
+
+    /**
      * 키워드 기반 지식 카드 검색 (title·summary ILIKE).
      * tag, category, fromDate, toDate는 null 전달 시 필터 미적용.
      * Hybrid 검색에서 벡터 결과와 병합하기 위해 limit만 적용하고 offset은 서비스에서 처리한다.

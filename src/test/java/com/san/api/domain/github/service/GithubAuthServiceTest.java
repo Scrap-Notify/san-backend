@@ -11,6 +11,8 @@ import com.san.api.domain.user.entity.AuthProvider;
 import com.san.api.domain.user.entity.User;
 import com.san.api.domain.user.entity.UserRole;
 import com.san.api.domain.user.repository.UserRepository;
+import com.san.api.global.exception.BusinessException;
+import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.external.github.client.GithubApiClient;
 import com.san.api.global.external.github.dto.response.GithubAccessTokenResponse;
 import com.san.api.global.external.github.dto.response.GithubUserProfileResponse;
@@ -23,10 +25,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /** GitHub OAuth 로그인 callback과 연결 계정 로그인 처리를 검증하는 테스트. */
 @ExtendWith(MockitoExtension.class)
@@ -89,5 +91,31 @@ class GithubAuthServiceTest {
 
         assertThat(result).isEqualTo(tokenResponse);
         verify(githubLinkService).saveGithubAccount(user, profile, "github-token");
+    }
+
+    @Test
+    void handleCallbackPreservesCurrentUserAlreadyLinkedErrorCode() {
+        UUID userId = UUID.randomUUID();
+        when(githubLinkService.consumeLinkUserId("state")).thenReturn(Optional.of(userId));
+        doThrow(new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_ALREADY_LINKED_TO_CURRENT_USER))
+                .when(githubLinkService)
+                .linkGithubAccount(userId, "code");
+
+        String redirectUrl = githubAuthService.handleCallback("code", "state");
+
+        assertThat(redirectUrl).isEqualTo("http://localhost/failure?error=A206");
+    }
+
+    @Test
+    void handleCallbackPreservesOtherUserAlreadyLinkedErrorCode() {
+        UUID userId = UUID.randomUUID();
+        when(githubLinkService.consumeLinkUserId("state")).thenReturn(Optional.of(userId));
+        doThrow(new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_ALREADY_LINKED))
+                .when(githubLinkService)
+                .linkGithubAccount(userId, "code");
+
+        String redirectUrl = githubAuthService.handleCallback("code", "state");
+
+        assertThat(redirectUrl).isEqualTo("http://localhost/failure?error=A204");
     }
 }

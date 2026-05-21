@@ -88,6 +88,9 @@ public class GithubLinkService {
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
+            if (githubAccountRepository.findByUser_UserId(userId).isPresent()) {
+                throw new BusinessException(AuthErrorCode.GITHUB_ACCOUNT_ALREADY_LINKED_TO_CURRENT_USER);
+            }
 
             GithubAccessTokenResponse tokenResponse = githubApiClient.requestAccessToken(code);
             GithubUserProfileResponse profile = githubApiClient.findUserProfile(tokenResponse.accessToken());

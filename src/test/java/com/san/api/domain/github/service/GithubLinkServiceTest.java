@@ -164,6 +164,7 @@ class GithubLinkServiceTest {
         GithubUserProfileResponse profile = new GithubUserProfileResponse(1L, "octocat");
         GithubAccount githubAccount = new GithubAccount(user, "1", "octocat", "encrypted-token");
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.empty());
         when(githubApiClient.requestAccessToken("code"))
                 .thenReturn(new GithubAccessTokenResponse("github-token", "bearer", "repo"));
         when(githubApiClient.findUserProfile("github-token")).thenReturn(profile);
@@ -180,6 +181,25 @@ class GithubLinkServiceTest {
                 eq(githubAccount.getGithubAccountId()),
                 any()
         );
+    }
+
+    @Test
+    void linkGithubAccountRejectsAlreadyLinkedCurrentUserBeforeSaving() {
+        User user = User.builder()
+                .username("localuser")
+                .passwordHash("password")
+                .provider(AuthProvider.LOCAL)
+                .build();
+        UUID userId = user.getUserId();
+        GithubAccount githubAccount = new GithubAccount(user, "1", "octocat", "encrypted-token");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(githubAccountRepository.findByUser_UserId(userId)).thenReturn(Optional.of(githubAccount));
+
+        assertThatThrownBy(() -> githubLinkService.linkGithubAccount(userId, "code"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(AuthErrorCode.GITHUB_ACCOUNT_ALREADY_LINKED_TO_CURRENT_USER);
+        verify(githubApiClient, never()).requestAccessToken(anyString());
     }
 
     @Test

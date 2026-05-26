@@ -20,6 +20,38 @@ public class SchemaIndexInitializer implements ApplicationRunner {
                     WHERE status IN ('PENDING', 'PROCESSING')
                 """);
         jdbcTemplate.execute("""
+                ALTER TABLE async_jobs
+                    ADD COLUMN IF NOT EXISTS actor_user_id uuid
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE async_jobs
+                    ADD COLUMN IF NOT EXISTS trace_id varchar(100)
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE async_jobs
+                    ADD COLUMN IF NOT EXISTS ip_address varchar(45)
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE async_jobs
+                    ADD COLUMN IF NOT EXISTS user_agent text
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE async_jobs
+                    ADD COLUMN IF NOT EXISTS requested_by_type varchar(30)
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE async_jobs
+                    ADD COLUMN IF NOT EXISTS request_metadata jsonb
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE async_jobs
+                    ADD COLUMN IF NOT EXISTS started_at timestamp
+                """);
+        jdbcTemplate.execute("""
+                ALTER TABLE async_jobs
+                    ADD COLUMN IF NOT EXISTS completed_at timestamp
+                """);
+        jdbcTemplate.execute("""
                 CREATE UNIQUE INDEX IF NOT EXISTS uk_scraps_active_user_source_hash
                     ON scraps (user_id, source_type, content_hash)
                     WHERE is_deleted = false

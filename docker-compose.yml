@@ -21,6 +21,7 @@ services:
       - POSTGRES_DB=san
       - POSTGRES_USER=san
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - GRAFANA_DB_PASSWORD=${GRAFANA_DB_PASSWORD:-grafana_reader_password}
     ports:
       - "5432:5432"
     volumes:
@@ -76,7 +77,7 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_DEFAULT_THEME=light
-      - DB_PASSWORD=${DB_PASSWORD}
+      - GRAFANA_DB_PASSWORD=${GRAFANA_DB_PASSWORD:-grafana_reader_password}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning

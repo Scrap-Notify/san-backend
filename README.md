@@ -8,6 +8,7 @@ Spring Boot 기반의 REST API를 제공합니다.
 - **Framework:** Spring Boot 3.5, Spring Security, Spring Data JPA/Redis
 - **Language:** Java 21
 - **Database:** PostgreSQL (pgvector), Valkey (Redis 호환)
+- **Observability:** Grafana
 - **Build:** Gradle
 - **API 문서:** Springdoc OpenAPI (Swagger)
 
@@ -31,7 +32,7 @@ chmod +x gradlew
 # 환경 변수 설정
 cp .env.example .env
 
-# 컨테이너 빌드 및 실행 (PostgreSQL + Valkey + Backend)
+# 컨테이너 빌드 및 실행 (PostgreSQL + Valkey + Backend + Grafana)
 docker compose up --build
 
 # 헬스체크
@@ -45,6 +46,32 @@ Docker Compose는 다음 서비스를 포함합니다:
 | `db` | `pgvector/pgvector:pg15` | 5432 | PostgreSQL + pgvector |
 | `redis` | `valkey/valkey:8-alpine` | 6379 | Valkey (Redis 호환) |
 | `backend` | 로컬 빌드 | 8080 | Spring Boot API 서버 |
+| `grafana` | `grafana/grafana:11.6.1` | 3000 | 감사 로그 운영 대시보드 |
+
+### Grafana 감사 로그 대시보드
+
+Grafana는 `grafana_reader` 읽기 전용 DB 계정으로 PostgreSQL에 연결합니다. 신규 Docker DB 볼륨에서는 `docker/db/init/02-grafana-reader.sh`가 계정과 권한을 자동으로 준비합니다.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+공유 환경이나 배포 환경에서는 `.env`의 `GRAFANA_ADMIN_PASSWORD`, `GRAFANA_DB_PASSWORD`를 반드시 바꿔서 사용합니다.
+
+1. 브라우저에서 `http://localhost:3000` 접속
+2. 로그인: `admin` / `.env`의 `GRAFANA_ADMIN_PASSWORD`
+3. 왼쪽 메뉴 `Dashboards` 선택
+4. `SAN` 폴더 선택
+5. `SAN 감사 로그 운영 지표` 대시보드 열기
+
+대시보드 상단 오른쪽에서 조회 범위를 `Last 6 hours`, `Last 24 hours`처럼 바꿀 수 있고, 새로고침 주기는 기본 `30s`입니다. 주요 패널은 감사 이벤트 성공/실패 추이, 전체 실패율, 비동기 실패율, 도메인별 이벤트 수, 실패 사유 TOP 5, 최근 실패 감사 로그입니다.
+
+이미 `db_data` 볼륨을 만든 뒤 이 브랜치를 적용했다면 DB 초기화 스크립트가 자동 재실행되지 않습니다. 그때는 컨테이너를 띄운 상태에서 아래 명령으로 읽기 전용 계정과 권한을 한 번 적용합니다.
+
+```bash
+docker compose exec db bash /docker-entrypoint-initdb.d/02-grafana-reader.sh
+```
 
 ## CI/CD 파이프라인
 
@@ -131,6 +158,8 @@ curl http://localhost:8080/actuator/health
 | 변수 | 설명 | 기본값 |
 |------|------|--------|
 | `DB_PASSWORD` | PostgreSQL 비밀번호 | - |
+| `GRAFANA_ADMIN_PASSWORD` | Grafana 관리자 로그인 비밀번호 | `admin` (Docker Compose) |
+| `GRAFANA_DB_PASSWORD` | Grafana 읽기 전용 DB 계정 비밀번호 | `grafana_reader_password` (Docker Compose) |
 | `JWT_SECRET` | JWT 서명 키 | - |
 | `REDIS_HOST` | Redis 호스트 | `localhost` |
 | `REDIS_PORT` | Redis 포트 | `6379` |

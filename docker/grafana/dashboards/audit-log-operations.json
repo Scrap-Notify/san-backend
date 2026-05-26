@@ -66,7 +66,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  date_trunc('minute', occurred_at) AS time,\n  COUNT(*) FILTER (WHERE outcome = 'SUCCESS') AS success_count,\n  COUNT(*) FILTER (WHERE outcome = 'FAILURE') AS failure_count\nFROM audit_log_events\nWHERE $__timeFilter(occurred_at)\nGROUP BY 1\nORDER BY 1",
+          "rawSql": "SELECT\n  (date_trunc('minute', occurred_at) AT TIME ZONE 'Asia/Seoul') AS time,\n  COUNT(*) FILTER (WHERE outcome = 'SUCCESS') AS success_count,\n  COUNT(*) FILTER (WHERE outcome = 'FAILURE') AS failure_count\nFROM audit_log_events\nWHERE occurred_at BETWEEN ($__timeFrom()::timestamptz AT TIME ZONE 'Asia/Seoul') AND ($__timeTo()::timestamptz AT TIME ZONE 'Asia/Seoul')\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -117,7 +117,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  ROUND(COUNT(*) FILTER (WHERE outcome = 'FAILURE') * 100.0 / NULLIF(COUNT(*), 0), 2) AS failure_rate\nFROM audit_log_events\nWHERE $__timeFilter(occurred_at)",
+          "rawSql": "SELECT\n  COALESCE(ROUND(COUNT(*) FILTER (WHERE outcome = 'FAILURE') * 100.0 / NULLIF(COUNT(*), 0), 2), 0) AS failure_rate\nFROM audit_log_events\nWHERE occurred_at BETWEEN ($__timeFrom()::timestamptz AT TIME ZONE 'Asia/Seoul') AND ($__timeTo()::timestamptz AT TIME ZONE 'Asia/Seoul')",
           "refId": "A"
         }
       ],
@@ -168,7 +168,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) AS total_count\nFROM audit_log_events\nWHERE $__timeFilter(occurred_at)",
+          "rawSql": "SELECT COUNT(*) AS total_count\nFROM audit_log_events\nWHERE occurred_at BETWEEN ($__timeFrom()::timestamptz AT TIME ZONE 'Asia/Seoul') AND ($__timeTo()::timestamptz AT TIME ZONE 'Asia/Seoul')",
           "refId": "A"
         }
       ],
@@ -219,7 +219,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  ROUND(\n    COUNT(*) FILTER (WHERE event_type = 'ASYNC_JOB_FAILED') * 100.0\n    / NULLIF(COUNT(*) FILTER (WHERE event_type IN ('ASYNC_JOB_SUCCEEDED', 'ASYNC_JOB_FAILED')), 0),\n    2\n  ) AS async_failure_rate\nFROM audit_log_events\nWHERE event_domain = 'ASYNC_JOB'\n  AND $__timeFilter(occurred_at)",
+          "rawSql": "SELECT\n  COALESCE(ROUND(\n    COUNT(*) FILTER (WHERE event_type = 'ASYNC_JOB_FAILED') * 100.0\n    / NULLIF(COUNT(*) FILTER (WHERE event_type IN ('ASYNC_JOB_SUCCEEDED', 'ASYNC_JOB_FAILED')), 0),\n    2\n  ), 0) AS async_failure_rate\nFROM audit_log_events\nWHERE event_domain = 'ASYNC_JOB'\n  AND occurred_at BETWEEN ($__timeFrom()::timestamptz AT TIME ZONE 'Asia/Seoul') AND ($__timeTo()::timestamptz AT TIME ZONE 'Asia/Seoul')",
           "refId": "A"
         }
       ],
@@ -270,7 +270,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT event_domain, COUNT(*) AS count\nFROM audit_log_events\nWHERE $__timeFilter(occurred_at)\nGROUP BY event_domain\nORDER BY count DESC",
+          "rawSql": "SELECT event_domain, COUNT(*) AS count\nFROM audit_log_events\nWHERE occurred_at BETWEEN ($__timeFrom()::timestamptz AT TIME ZONE 'Asia/Seoul') AND ($__timeTo()::timestamptz AT TIME ZONE 'Asia/Seoul')\nGROUP BY event_domain\nORDER BY count DESC",
           "refId": "A"
         }
       ],
@@ -324,7 +324,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT failure_reason_code, COUNT(*) AS count\nFROM audit_log_events\nWHERE outcome = 'FAILURE'\n  AND failure_reason_code IS NOT NULL\n  AND failure_reason_code <> ''\n  AND $__timeFilter(occurred_at)\nGROUP BY failure_reason_code\nORDER BY count DESC\nLIMIT 5",
+          "rawSql": "SELECT failure_reason_code, COUNT(*) AS count\nFROM audit_log_events\nWHERE outcome = 'FAILURE'\n  AND failure_reason_code IS NOT NULL\n  AND failure_reason_code <> ''\n  AND occurred_at BETWEEN ($__timeFrom()::timestamptz AT TIME ZONE 'Asia/Seoul') AND ($__timeTo()::timestamptz AT TIME ZONE 'Asia/Seoul')\nGROUP BY failure_reason_code\nORDER BY count DESC\nLIMIT 5",
           "refId": "A"
         }
       ],
@@ -378,7 +378,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  occurred_at,\n  event_domain,\n  event_type,\n  failure_reason_code,\n  trace_id,\n  target_type,\n  target_id\nFROM audit_log_events\nWHERE outcome = 'FAILURE'\n  AND $__timeFilter(occurred_at)\nORDER BY occurred_at DESC\nLIMIT 10",
+          "rawSql": "SELECT\n  occurred_at AS occurred_at_kst,\n  event_domain,\n  event_type,\n  failure_reason_code,\n  trace_id,\n  target_type,\n  target_id\nFROM audit_log_events\nWHERE outcome = 'FAILURE'\n  AND occurred_at BETWEEN ($__timeFrom()::timestamptz AT TIME ZONE 'Asia/Seoul') AND ($__timeTo()::timestamptz AT TIME ZONE 'Asia/Seoul')\nORDER BY occurred_at DESC\nLIMIT 10",
           "refId": "A"
         }
       ],
@@ -430,7 +430,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  date_trunc('minute', occurred_at) AS time,\n  COUNT(*) FILTER (WHERE event_type = 'ASYNC_JOB_PROCESSING') AS processing_count,\n  COUNT(*) FILTER (WHERE event_type = 'ASYNC_JOB_SUCCEEDED') AS succeeded_count,\n  COUNT(*) FILTER (WHERE event_type = 'ASYNC_JOB_FAILED') AS failed_count\nFROM audit_log_events\nWHERE event_domain = 'ASYNC_JOB'\n  AND $__timeFilter(occurred_at)\nGROUP BY 1\nORDER BY 1",
+          "rawSql": "SELECT\n  (date_trunc('minute', occurred_at) AT TIME ZONE 'Asia/Seoul') AS time,\n  COUNT(*) FILTER (WHERE event_type = 'ASYNC_JOB_PROCESSING') AS processing_count,\n  COUNT(*) FILTER (WHERE event_type = 'ASYNC_JOB_SUCCEEDED') AS succeeded_count,\n  COUNT(*) FILTER (WHERE event_type = 'ASYNC_JOB_FAILED') AS failed_count\nFROM audit_log_events\nWHERE event_domain = 'ASYNC_JOB'\n  AND occurred_at BETWEEN ($__timeFrom()::timestamptz AT TIME ZONE 'Asia/Seoul') AND ($__timeTo()::timestamptz AT TIME ZONE 'Asia/Seoul')\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -453,7 +453,7 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "browser",
+  "timezone": "Asia/Seoul",
   "title": "SAN 감사 로그 운영 지표",
   "uid": "san-audit-operations",
   "version": 1,

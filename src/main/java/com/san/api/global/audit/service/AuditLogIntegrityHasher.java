@@ -64,7 +64,7 @@ public class AuditLogIntegrityHasher {
             String json = canonicalObjectMapper.writeValueAsString(metadata);
             return value(json);
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Audit log metadata serialization failed.", e);
+            throw new IllegalStateException("감사 로그 메타데이터 직렬화에 실패했습니다.", e);
         }
     }
 

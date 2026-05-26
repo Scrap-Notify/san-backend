@@ -64,6 +64,26 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  grafana:
+    image: grafana/grafana:11.6.1
+    container_name: san-grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_DEFAULT_THEME=light
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+    restart: unless-stopped
+
 volumes:
   db_data:
   redis_data:
+  grafana_data:

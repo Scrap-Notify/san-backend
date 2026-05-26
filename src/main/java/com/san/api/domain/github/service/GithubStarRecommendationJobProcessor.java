@@ -1,9 +1,9 @@
 package com.san.api.domain.github.service;
 
+import com.san.api.global.async.audit.AuditedAsyncJobRunner;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
 import com.san.api.global.async.processor.AsyncJobProcessor;
-import com.san.api.global.async.service.AsyncJobManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -12,38 +12,39 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.UUID;
 
-/** GitHub Star 추천 비동기 작업 Processor */
+/** GitHub Star 추천 비동기 작업 처리기 */
 @Component
 @RequiredArgsConstructor
 public class GithubStarRecommendationJobProcessor implements AsyncJobProcessor {
 
-    private final AsyncJobManager asyncJobManager;
+    private final AuditedAsyncJobRunner auditedAsyncJobRunner;
     private final GithubStarRecommendationAnalysisService githubStarRecommendationAnalysisService;
 
-    /** GitHub Star 추천 작업 생성 이벤트 수신 */
-    @Async("aiJobExecutor")
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handle(JobCreatedEvent event) {
-        if (event.getJobType() != JobType.GITHUB_STAR_RECOMMENDATION) {
-            return;
-        }
-
-        process(event.getJobId(), event.getTargetId());
+    @Override
+    public JobType supports() {
+        return JobType.GITHUB_STAR_RECOMMENDATION;
     }
 
     /**
-     * GitHub Star 추천 URL 분석 작업 처리
+     * GITHUB_STAR_RECOMMENDATION 작업 생성 이벤트를 수신합니다.
      *
-     * targetId는 추천을 요청한 사용자 ID로 사용한다.
+     * @param event 비동기 작업 생성 이벤트
+     */
+    @Async("aiJobExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handle(JobCreatedEvent event) {
+        handleIfSupported(event);
+    }
+
+    /**
+     * GitHub Star 추천 URL 분석 작업을 감사 실행기로 위임해 처리합니다.
+     *
+     * @param jobId 비동기 작업 ID
+     * @param targetId 추천을 요청한 사용자 ID
      */
     @Override
     public void process(UUID jobId, UUID targetId) {
-        asyncJobManager.markProcessing(jobId);
-        try {
-            githubStarRecommendationAnalysisService.analyzeAndSave(targetId, jobId);
-            asyncJobManager.markCompleted(jobId);
-        } catch (Exception e) {
-            asyncJobManager.markFailed(jobId, resolveErrorMessage(e, "GitHub Star 추천 URL 분석 작업 처리 중 오류가 발생했습니다."));
-        }
+        auditedAsyncJobRunner.run(jobId, targetId, JobType.GITHUB_STAR_RECOMMENDATION,
+                () -> githubStarRecommendationAnalysisService.analyzeAndSave(targetId, jobId));
     }
 }

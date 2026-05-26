@@ -1,9 +1,9 @@
 package com.san.api.domain.scrap.service;
 
+import com.san.api.global.async.audit.AuditedAsyncJobRunner;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
 import com.san.api.global.async.processor.AsyncJobProcessor;
-import com.san.api.global.async.service.AsyncJobManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -12,43 +12,39 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.UUID;
 
-/** 수집 원본 정제 비동기 작업 Processor */
+/** 수집 원본 정제 비동기 작업 처리기 */
 @Component
 @RequiredArgsConstructor
 public class ScrapRefineJobProcessor implements AsyncJobProcessor {
 
-    private final AsyncJobManager asyncJobManager;
+    private final AuditedAsyncJobRunner auditedAsyncJobRunner;
     private final ScrapRefineService scrapRefineService;
 
+    @Override
+    public JobType supports() {
+        return JobType.SCRAP_REFINE;
+    }
+
     /**
-     * SCRAP_REFINE 작업 생성 이벤트 처리
+     * SCRAP_REFINE 작업 생성 이벤트를 수신합니다.
      *
      * @param event 비동기 작업 생성 이벤트
      */
     @Async("aiJobExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(JobCreatedEvent event) {
-        if (event.getJobType() != JobType.SCRAP_REFINE) {
-            return;
-        }
-
-        process(event.getJobId(), event.getTargetId());
+        handleIfSupported(event);
     }
 
     /**
-     * 수집 원본 정제 작업 처리
+     * 수집 원본 정제 작업을 감사 실행기로 위임해 처리합니다.
      *
-     * @param jobId    비동기 작업 ID
+     * @param jobId 비동기 작업 ID
      * @param targetId 정제 대상 Scrap ID
      */
     @Override
     public void process(UUID jobId, UUID targetId) {
-        asyncJobManager.markProcessing(jobId);
-        try {
-            scrapRefineService.refine(targetId);
-            asyncJobManager.markCompleted(jobId);
-        } catch (Exception e) {
-            asyncJobManager.markFailed(jobId, resolveErrorMessage(e, "수집 원본 정제 작업 처리 중 오류가 발생했습니다."));
-        }
+        auditedAsyncJobRunner.run(jobId, targetId, JobType.SCRAP_REFINE,
+                () -> scrapRefineService.refine(targetId));
     }
 }

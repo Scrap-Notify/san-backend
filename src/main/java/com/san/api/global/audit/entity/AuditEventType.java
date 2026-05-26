@@ -4,10 +4,10 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 감사 로그에 기록할 세부 이벤트 타입.
+ * 감사 로그에 기록할 업무 이벤트 유형입니다.
  *
- * 사용자 주요 행위와 외부 연동 처리 결과를 코드화해 저장한다.
- * 실패 이벤트는 failureReasonCode, metadata, traceId와 함께 원인 분석에 활용한다.
+ * <p>사용자 주요 행위와 외부 연동 처리 결과를 코드화해 저장합니다.
+ * 실패 이벤트는 failureReasonCode, metadata, traceId와 함께 원인 분석에 활용합니다.</p>
  */
 @Getter
 @RequiredArgsConstructor
@@ -53,6 +53,12 @@ public enum AuditEventType {
     NOTIFICATION_STATUS_CHANGED("알림 상태 변경"),
 
     OUTBOX_EVENT_RETRY_REQUESTED("Outbox 이벤트 수동 재처리 요청"),
+
+    ASYNC_JOB_PROCESSING("비동기 작업 처리 중"),
+    ASYNC_JOB_SUCCEEDED("비동기 작업 성공"),
+    ASYNC_JOB_FAILED("비동기 작업 실패"),
+    ASYNC_JOB_RETRY_REQUESTED("비동기 작업 재시도 요청"),
+    ASYNC_JOB_DUPLICATE_BLOCKED("비동기 작업 중복 차단"),
 
     EXTERNAL_API_REQUESTED("외부 API 요청"),
     EXTERNAL_API_SUCCEEDED("외부 API 요청 성공"),

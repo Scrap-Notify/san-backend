@@ -4,9 +4,9 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 감사 로그 이벤트가 발생한 업무 도메인.
+ * 감사 로그 이벤트가 발생한 업무 도메인입니다.
  *
- * 도메인 단위 필터링과 통계 집계를 위해 사용
+ * <p>도메인 단위 필터링과 통계 집계에 사용합니다.</p>
  */
 @Getter
 @RequiredArgsConstructor
@@ -17,6 +17,7 @@ public enum AuditEventDomain {
     TIL("TIL"),
     NOTIFICATION("알림"),
     OUTBOX("Outbox"),
+    ASYNC_JOB("비동기 작업"),
     EXTERNAL_API("외부 API");
 
     private final String description;

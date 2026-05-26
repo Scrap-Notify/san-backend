@@ -1,5 +1,6 @@
 package com.san.api.global.async.entity;
 
+import com.san.api.global.audit.context.AuditContextSnapshot;
 import com.san.api.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -7,6 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -34,11 +36,25 @@ public class AsyncJob extends BaseEntity {
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
+    @Embedded
+    private AuditContextSnapshot auditContext;
+
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     @Builder
-    public AsyncJob(JobType jobType, UUID targetId) {
+    public AsyncJob(
+            JobType jobType,
+            UUID targetId,
+            AuditContextSnapshot auditContext
+    ) {
         this.jobType = jobType;
         this.targetId = targetId;
         this.status = JobStatus.PENDING;
+        this.auditContext = auditContext == null ? AuditContextSnapshot.empty() : auditContext;
     }
 
     /**
@@ -48,6 +64,12 @@ public class AsyncJob extends BaseEntity {
      */
     public void updateStatus(JobStatus status) {
         this.status = status;
+        if (status == JobStatus.PROCESSING && this.startedAt == null) {
+            this.startedAt = LocalDateTime.now();
+        }
+        if (status == JobStatus.COMPLETED) {
+            this.completedAt = LocalDateTime.now();
+        }
     }
 
     /**
@@ -58,5 +80,7 @@ public class AsyncJob extends BaseEntity {
     public void fail(String errorMessage) {
         this.status = JobStatus.FAILED;
         this.errorMessage = errorMessage;
+        this.completedAt = LocalDateTime.now();
     }
+
 }

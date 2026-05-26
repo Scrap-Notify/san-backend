@@ -5,15 +5,22 @@ import com.san.api.global.async.entity.JobStatus;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
 import com.san.api.global.async.repository.AsyncJobRepository;
+import com.san.api.global.audit.context.AuditContextSnapshot;
+import com.san.api.global.audit.context.AuditRequestContext;
+import com.san.api.global.audit.context.AuditRequestContextHolder;
+import com.san.api.global.audit.context.AuditRequesterType;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -30,8 +37,24 @@ public class AsyncJobManager {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UUID enqueue(JobType jobType, UUID targetId) {
+        return enqueue(jobType, targetId, resolveCurrentUserId());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public UUID enqueue(JobType jobType, UUID targetId, UUID actorUserId) {
+        return enqueue(jobType, targetId, actorUserId, requestedByType(actorUserId), null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public UUID enqueue(
+            JobType jobType,
+            UUID targetId,
+            UUID actorUserId,
+            AuditRequesterType requestedByType,
+            Map<String, Object> requestMetadata
+    ) {
         try {
-            return saveAndPublish(jobType, targetId);
+            return saveAndPublish(jobType, targetId, actorUserId, requestedByType, requestMetadata);
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "이미 동일한 작업이 진행 중입니다.");
         }
@@ -39,8 +62,24 @@ public class AsyncJobManager {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public UUID enqueueInCurrentTransaction(JobType jobType, UUID targetId) {
+        return enqueueInCurrentTransaction(jobType, targetId, resolveCurrentUserId());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public UUID enqueueInCurrentTransaction(JobType jobType, UUID targetId, UUID actorUserId) {
+        return enqueueInCurrentTransaction(jobType, targetId, actorUserId, requestedByType(actorUserId), null);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public UUID enqueueInCurrentTransaction(
+            JobType jobType,
+            UUID targetId,
+            UUID actorUserId,
+            AuditRequesterType requestedByType,
+            Map<String, Object> requestMetadata
+    ) {
         try {
-            return saveAndPublish(jobType, targetId);
+            return saveAndPublish(jobType, targetId, actorUserId, requestedByType, requestMetadata);
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(CommonErrorCode.DUPLICATE_RESOURCE, "이미 동일한 작업이 진행 중입니다.");
         }
@@ -71,14 +110,51 @@ public class AsyncJobManager {
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND, "작업을 찾을 수 없습니다."));
     }
 
-    private UUID saveAndPublish(JobType jobType, UUID targetId) {
+    private UUID saveAndPublish(
+            JobType jobType,
+            UUID targetId,
+            UUID actorUserId,
+            AuditRequesterType requestedByType,
+            Map<String, Object> requestMetadata
+    ) {
+        AuditRequestContext context = AuditRequestContextHolder.get().orElse(null);
+        AuditContextSnapshot auditContext = AuditContextSnapshot.from(
+                actorUserId,
+                requestedByType,
+                context,
+                requestMetadata
+        );
         AsyncJob job = asyncJobRepository.saveAndFlush(
                 AsyncJob.builder()
                         .jobType(jobType)
                         .targetId(targetId)
+                        .auditContext(auditContext)
                         .build()
         );
         eventPublisher.publishEvent(new JobCreatedEvent(job.getJobId(), jobType, targetId));
         return job.getJobId();
+    }
+
+    private UUID resolveCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UUID userId) {
+            return userId;
+        }
+        if (principal instanceof String userId && !userId.isBlank()) {
+            try {
+                return UUID.fromString(userId);
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private AuditRequesterType requestedByType(UUID actorUserId) {
+        return actorUserId == null ? AuditRequesterType.SYSTEM : AuditRequesterType.USER;
     }
 }

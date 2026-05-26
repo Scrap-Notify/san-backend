@@ -4,6 +4,8 @@ import com.san.api.global.async.entity.AsyncJob;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.audit.context.AuditContextSnapshot;
+import com.san.api.global.audit.context.AuditRequestContext;
+import com.san.api.global.audit.context.AuditRequestContextHolder;
 import com.san.api.global.audit.context.AuditRequesterType;
 import com.san.api.global.audit.dto.AuditRecordCommand;
 import com.san.api.global.audit.service.AuditRecorder;
@@ -58,10 +60,11 @@ public class AuditedAsyncJobRunner {
         AsyncJobAuditSpec spec = auditSpecRegistry.get(jobType);
 
         asyncJobManager.markProcessing(jobId);
-        recordProcessing(asyncJobManager.getJob(jobId), targetId, spec);
+        AsyncJob processingJob = asyncJobManager.getJob(jobId);
+        recordProcessing(processingJob, targetId, spec);
 
         try {
-            task.run();
+            runWithAuditContext(processingJob, task);
             asyncJobManager.markCompleted(jobId);
             recordSucceeded(asyncJobManager.getJob(jobId), targetId, spec);
         } catch (Exception e) {
@@ -69,6 +72,29 @@ public class AuditedAsyncJobRunner {
             asyncJobManager.markFailed(jobId, failureMessage);
             recordFailed(asyncJobManager.getJob(jobId), targetId, spec, e, failureMessage);
         }
+    }
+
+    private void runWithAuditContext(AsyncJob job, AsyncJobTask task) throws Exception {
+        AuditRequestContext previousContext = AuditRequestContextHolder.get().orElse(null);
+        applyAuditContext(auditContext(job));
+        try {
+            task.run();
+        } finally {
+            restoreAuditContext(previousContext);
+        }
+    }
+
+    private void applyAuditContext(AuditContextSnapshot auditContext) {
+        auditContext.toRequestContext()
+                .ifPresentOrElse(AuditRequestContextHolder::set, AuditRequestContextHolder::clear);
+    }
+
+    private void restoreAuditContext(AuditRequestContext previousContext) {
+        if (previousContext == null) {
+            AuditRequestContextHolder.clear();
+            return;
+        }
+        AuditRequestContextHolder.set(previousContext);
     }
 
     private void recordProcessing(AsyncJob job, UUID targetId, AsyncJobAuditSpec spec) {

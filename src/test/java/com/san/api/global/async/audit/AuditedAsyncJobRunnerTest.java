@@ -5,6 +5,8 @@ import com.san.api.global.async.entity.JobStatus;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.audit.context.AuditContextSnapshot;
+import com.san.api.global.audit.context.AuditRequestContext;
+import com.san.api.global.audit.context.AuditRequestContextHolder;
 import com.san.api.global.audit.context.AuditRequesterType;
 import com.san.api.global.audit.dto.AuditRecordCommand;
 import com.san.api.global.audit.entity.AuditEventType;
@@ -12,6 +14,7 @@ import com.san.api.global.audit.service.AuditRecorder;
 import com.san.api.global.audit.support.AuditFailureResolver;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -19,6 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.contains;
@@ -39,6 +43,11 @@ class AuditedAsyncJobRunnerTest {
             auditRecorder,
             new AuditFailureResolver()
     );
+
+    @AfterEach
+    void tearDown() {
+        AuditRequestContextHolder.clear();
+    }
 
     @Test
     void 작업이_성공하면_처리중과_성공_감사_로그를_기록한다() {
@@ -114,6 +123,45 @@ class AuditedAsyncJobRunnerTest {
                 .containsEntry("exceptionType", "IllegalStateException")
                 .containsEntry("clientErrorCode", "C003")
                 .containsEntry("httpStatus", 401);
+    }
+
+    @Test
+    void 작업_실행_중에는_저장된_감사_요청_컨텍스트를_복원한다() {
+        UUID jobId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        AsyncJob processingJob = job(jobId, targetId, JobType.SCRAP_REFINE, JobStatus.PROCESSING);
+        AsyncJob completedJob = job(jobId, targetId, JobType.SCRAP_REFINE, JobStatus.COMPLETED);
+        AtomicReference<AuditRequestContext> contextRef = new AtomicReference<>();
+        when(asyncJobManager.getJob(jobId)).thenReturn(processingJob, completedJob);
+
+        runner.run(jobId, targetId, JobType.SCRAP_REFINE, () ->
+                contextRef.set(AuditRequestContextHolder.get().orElseThrow())
+        );
+
+        assertThat(contextRef.get().traceId()).isEqualTo("trace-1");
+        assertThat(contextRef.get().ipAddress()).isEqualTo("203.0.113.10");
+        assertThat(contextRef.get().userAgent()).isEqualTo("JUnit");
+        assertThat(AuditRequestContextHolder.get()).isEmpty();
+    }
+
+    @Test
+    void 작업이_실패해도_기존_감사_요청_컨텍스트를_복원한다() {
+        UUID jobId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        AsyncJob processingJob = job(jobId, targetId, JobType.CARD_ANALYSIS, JobStatus.PROCESSING);
+        AsyncJob failedJob = job(jobId, targetId, JobType.CARD_ANALYSIS, JobStatus.FAILED);
+        AuditRequestContext previousContext = new AuditRequestContext("previous-trace", "198.51.100.20", "Previous");
+        AtomicReference<AuditRequestContext> contextRef = new AtomicReference<>();
+        AuditRequestContextHolder.set(previousContext);
+        when(asyncJobManager.getJob(jobId)).thenReturn(processingJob, failedJob);
+
+        runner.run(jobId, targetId, JobType.CARD_ANALYSIS, () -> {
+            contextRef.set(AuditRequestContextHolder.get().orElseThrow());
+            throw new IllegalStateException("실패");
+        });
+
+        assertThat(contextRef.get().traceId()).isEqualTo("trace-1");
+        assertThat(AuditRequestContextHolder.get()).contains(previousContext);
     }
 
     private AsyncJob job(UUID jobId, UUID targetId, JobType jobType, JobStatus status) {

@@ -6,12 +6,13 @@ import com.san.api.domain.github.repository.GithubAccountRepository;
 import com.san.api.domain.til.entity.DailySummary;
 import com.san.api.domain.til.entity.TilGithubCommit;
 import com.san.api.domain.til.repository.TilGithubCommitRepository;
+import com.san.api.global.async.audit.AuditedAsyncJobRunner;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
 import com.san.api.global.async.processor.AsyncJobProcessor;
-import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.audit.entity.AuditEventType;
 import com.san.api.global.audit.entity.AuditTargetType;
+import com.san.api.global.audit.support.AuditFailureResolver;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.AuthErrorCode;
 import com.san.api.global.exception.errorcode.TilErrorCode;
@@ -40,14 +41,21 @@ import java.util.UUID;
 public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
 
     private static final String UNKNOWN_FAILURE_REASON_CODE = "TIL.UNKNOWN_FAILURE";
+    private static final String FAILURE_MESSAGE_FALLBACK = "TIL GitHub 커밋 작업 처리 중 오류가 발생했습니다.";
 
-    private final AsyncJobManager asyncJobManager;
+    private final AuditedAsyncJobRunner auditedAsyncJobRunner;
     private final TilGithubCommitRepository tilGithubCommitRepository;
     private final GithubAccountRepository githubAccountRepository;
     private final GithubApiClient githubApiClient;
     private final AesGcmStringEncryptor encryptor;
     private final PlatformTransactionManager transactionManager;
     private final TilAuditService tilAuditService;
+    private final AuditFailureResolver auditFailureResolver;
+
+    @Override
+    public JobType supports() {
+        return JobType.TIL_GITHUB_COMMIT;
+    }
 
     /**
      * TIL_GITHUB_COMMIT 작업 생성 이벤트를 수신합니다.
@@ -57,27 +65,32 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
     @Async("githubJobExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(JobCreatedEvent event) {
-        if (event.getJobType() != JobType.TIL_GITHUB_COMMIT) {
-            return;
-        }
-
-        process(event.getJobId(), event.getTargetId());
+        handleIfSupported(event);
     }
 
     /**
-     * TIL GitHub 커밋 작업을 처리합니다.
+     * TIL GitHub 커밋 작업을 감사 실행기로 위임해 처리합니다.
      *
      * @param jobId 비동기 작업 ID
      * @param targetId 커밋 요청 ID
      */
     @Override
     public void process(UUID jobId, UUID targetId) {
-        asyncJobManager.markProcessing(jobId);
+        auditedAsyncJobRunner.run(
+                jobId,
+                targetId,
+                JobType.TIL_GITHUB_COMMIT,
+                () -> processCommit(jobId, targetId),
+                FAILURE_MESSAGE_FALLBACK
+        );
+    }
+
+    private void processCommit(UUID jobId, UUID commitId) throws Exception {
         CommitPayload payload = null;
 
         try {
-            markCommitProcessing(targetId);
-            payload = loadPayload(targetId);
+            markCommitProcessing(commitId);
+            payload = loadPayload(commitId);
             GithubCreateContentResponse response = githubApiClient.createContent(
                     payload.accessToken(),
                     payload.owner(),
@@ -87,14 +100,13 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
                     payload.commitMessage(),
                     encodeContent(payload.content())
             );
-            markCommitCompleted(targetId, response.commit().sha(), response.commit().htmlUrl(), LocalDateTime.now());
-            asyncJobManager.markCompleted(jobId);
-            recordCommitSucceeded(jobId, targetId, payload, response);
+            markCommitCompleted(commitId, response.commit().sha(), response.commit().htmlUrl(), LocalDateTime.now());
+            recordCommitSucceeded(jobId, commitId, payload, response);
         } catch (Exception e) {
-            String errorMessage = resolveErrorMessage(e, "TIL GitHub 커밋 작업 처리 중 오류가 발생했습니다.");
-            markCommitFailedIfExists(targetId, errorMessage);
-            asyncJobManager.markFailed(jobId, errorMessage);
-            recordCommitFailed(jobId, targetId, payload, e, errorMessage);
+            String errorMessage = auditFailureResolver.failureMessage(e, FAILURE_MESSAGE_FALLBACK);
+            markCommitFailedIfExists(commitId, errorMessage);
+            recordCommitFailed(jobId, commitId, payload, e, errorMessage);
+            throw e;
         }
     }
 
@@ -180,7 +192,7 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
                 AuditEventType.TIL_COMMIT_FAILED,
                 AuditTargetType.TIL_GITHUB_COMMIT,
                 commitId,
-                UNKNOWN_FAILURE_REASON_CODE,
+                auditFailureResolver.failureReasonCode(exception, UNKNOWN_FAILURE_REASON_CODE),
                 errorMessage,
                 metadata
         );
@@ -232,6 +244,7 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
     private Map<String, Object> failureMetadata(UUID jobId, CommitPayload payload, Exception exception) {
         Map<String, Object> metadata = baseCommitMetadata(jobId, payload);
         metadata.put("exceptionType", exception.getClass().getSimpleName());
+        metadata.putAll(auditFailureResolver.failureMetadata(exception));
         return metadata;
     }
 
@@ -240,6 +253,7 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
         metadata.put("jobId", jobId);
         metadata.put("commitId", commitId);
         metadata.put("exceptionType", exception.getClass().getSimpleName());
+        metadata.putAll(auditFailureResolver.failureMetadata(exception));
         return metadata;
     }
 
@@ -281,12 +295,12 @@ public class TilGithubCommitJobProcessor implements AsyncJobProcessor {
 
         private static RepositoryName from(String fullName) {
             if (fullName == null || fullName.isBlank()) {
-                throw new IllegalArgumentException("GitHub repository full name is required.");
+                throw new IllegalArgumentException("GitHub 저장소 전체 이름은 필수입니다.");
             }
 
             String[] parts = fullName.split("/", 2);
             if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
-                throw new IllegalArgumentException("GitHub repository full name must be owner/repo.");
+                throw new IllegalArgumentException("GitHub 저장소 전체 이름은 owner/repo 형식이어야 합니다.");
             }
             return new RepositoryName(parts[0], parts[1]);
         }

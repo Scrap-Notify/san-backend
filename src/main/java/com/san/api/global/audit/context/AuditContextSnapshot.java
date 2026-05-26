@@ -13,6 +13,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -85,10 +86,21 @@ public class AuditContextSnapshot {
                 .build();
     }
 
+    public Optional<AuditRequestContext> toRequestContext() {
+        if (!hasText(traceId) && !hasText(ipAddress) && !hasText(userAgent)) {
+            return Optional.empty();
+        }
+        return Optional.of(new AuditRequestContext(traceId, ipAddress, userAgent));
+    }
+
     private Map<String, Object> copyMetadata(Map<String, Object> requestMetadata) {
         if (requestMetadata == null || requestMetadata.isEmpty()) {
             return null;
         }
         return new LinkedHashMap<>(requestMetadata);
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

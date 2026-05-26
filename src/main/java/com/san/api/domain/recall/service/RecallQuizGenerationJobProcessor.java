@@ -3,10 +3,10 @@ package com.san.api.domain.recall.service;
 import com.san.api.domain.recall.dto.request.RecallQuizGenerateRequest;
 import com.san.api.domain.recall.entity.RecallQuizGeneration;
 import com.san.api.domain.recall.repository.RecallQuizGenerationRepository;
+import com.san.api.global.async.audit.AuditedAsyncJobRunner;
 import com.san.api.global.async.entity.JobType;
 import com.san.api.global.async.event.JobCreatedEvent;
 import com.san.api.global.async.processor.AsyncJobProcessor;
-import com.san.api.global.async.service.AsyncJobManager;
 import com.san.api.global.exception.BusinessException;
 import com.san.api.global.exception.errorcode.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -17,40 +17,40 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.UUID;
 
-/** 리콜 퀴즈 생성 비동기 작업 Processor */
+/** 리콜 퀴즈 생성 비동기 작업 처리기 */
 @Component
 @RequiredArgsConstructor
 public class RecallQuizGenerationJobProcessor implements AsyncJobProcessor {
 
-    private final AsyncJobManager asyncJobManager;
+    private final AuditedAsyncJobRunner auditedAsyncJobRunner;
     private final RecallQuizGenerationRepository recallQuizGenerationRepository;
     private final RecallQuizGenerationService recallQuizGenerationService;
 
+    @Override
+    public JobType supports() {
+        return JobType.RECALL_QUIZ_GENERATION;
+    }
+
     /**
-     * RECALL_QUIZ_GENERATION 작업 생성 이벤트 처리
+     * RECALL_QUIZ_GENERATION 작업 생성 이벤트를 수신합니다.
      *
      * @param event 비동기 작업 생성 이벤트
      */
     @Async("aiJobExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(JobCreatedEvent event) {
-        if (event.getJobType() != JobType.RECALL_QUIZ_GENERATION) {
-            return;
-        }
-
-        process(event.getJobId(), event.getTargetId());
+        handleIfSupported(event);
     }
 
     /**
-     * 리콜 퀴즈 생성 작업 처리
+     * 리콜 퀴즈 생성 작업을 감사 실행기로 위임해 처리합니다.
      *
      * @param jobId 비동기 작업 ID
      * @param targetId 리콜 퀴즈 생성 ID
      */
     @Override
     public void process(UUID jobId, UUID targetId) {
-        asyncJobManager.markProcessing(jobId);
-        try {
+        auditedAsyncJobRunner.run(jobId, targetId, JobType.RECALL_QUIZ_GENERATION, () -> {
             RecallQuizGeneration generation = recallQuizGenerationRepository.findByGenerationIdWithUser(targetId)
                     .orElseThrow(() -> new BusinessException(CommonErrorCode.RESOURCE_NOT_FOUND));
             RecallQuizGenerateRequest request = new RecallQuizGenerateRequest(
@@ -59,9 +59,6 @@ public class RecallQuizGenerationJobProcessor implements AsyncJobProcessor {
             );
 
             recallQuizGenerationService.generate(generation.getUser().getUserId(), request);
-            asyncJobManager.markCompleted(jobId);
-        } catch (Exception e) {
-            asyncJobManager.markFailed(jobId, resolveErrorMessage(e, "리콜 퀴즈 생성 작업 처리 중 오류가 발생했습니다."));
-        }
+        });
     }
 }

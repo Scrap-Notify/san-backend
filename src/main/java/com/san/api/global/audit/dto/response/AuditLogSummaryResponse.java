@@ -3,6 +3,7 @@ package com.san.api.global.audit.dto.response;
 import com.san.api.global.audit.entity.AuditEventDomain;
 import com.san.api.global.audit.entity.AuditEventType;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -12,7 +13,7 @@ public record AuditLogSummaryResponse(
         long totalCount,
         long successCount,
         long failureCount,
-        double failureRate,
+        BigDecimal failureRate,
         List<DomainCountResponse> domainCounts,
         AsyncJobSummaryResponse asyncJob,
         List<FailureReasonCountResponse> topFailureReasons,
@@ -30,7 +31,7 @@ public record AuditLogSummaryResponse(
             long succeededCount,
             long failedCount,
             long completedCount,
-            double failureRate
+            BigDecimal failureRate
     ) {
     }
 

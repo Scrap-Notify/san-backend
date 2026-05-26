@@ -76,10 +76,11 @@ public interface AuditLogEventRepository extends JpaRepository<AuditLogEvent, UU
             Pageable pageable
     );
 
-    List<AuditLogEvent> findTop10ByOutcomeAndOccurredAtBetweenOrderByOccurredAtDesc(
+    List<AuditLogEvent> findByOutcomeAndOccurredAtBetweenOrderByOccurredAtDesc(
             AuditOutcome outcome,
             LocalDateTime from,
-            LocalDateTime to
+            LocalDateTime to,
+            Pageable pageable
     );
 
     interface OutcomeCountProjection {

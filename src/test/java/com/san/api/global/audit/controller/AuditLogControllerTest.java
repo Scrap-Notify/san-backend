@@ -11,6 +11,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -73,9 +74,9 @@ class AuditLogControllerTest {
                 10,
                 9,
                 1,
-                10.0,
+                new BigDecimal("10.00"),
                 List.of(),
-                new AuditLogSummaryResponse.AsyncJobSummaryResponse(3, 2, 1, 3, 33.33),
+                new AuditLogSummaryResponse.AsyncJobSummaryResponse(3, 2, 1, 3, new BigDecimal("33.33")),
                 List.of(),
                 List.of()
         );

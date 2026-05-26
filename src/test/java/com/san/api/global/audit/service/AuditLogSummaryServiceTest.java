@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -77,10 +78,11 @@ class AuditLogSummaryServiceTest {
                 org.mockito.ArgumentMatchers.eq(expectedTo),
                 any(Pageable.class)
         )).thenReturn(topFailureReasons);
-        when(auditLogEventRepository.findTop10ByOutcomeAndOccurredAtBetweenOrderByOccurredAtDesc(
-                AuditOutcome.FAILURE,
-                expectedFrom,
-                expectedTo
+        when(auditLogEventRepository.findByOutcomeAndOccurredAtBetweenOrderByOccurredAtDesc(
+                org.mockito.ArgumentMatchers.eq(AuditOutcome.FAILURE),
+                org.mockito.ArgumentMatchers.eq(expectedFrom),
+                org.mockito.ArgumentMatchers.eq(expectedTo),
+                any(Pageable.class)
         )).thenReturn(List.of(recentFailure));
 
         AuditLogSummaryResponse response = service.summarize(null, null);
@@ -90,7 +92,7 @@ class AuditLogSummaryServiceTest {
         assertThat(response.totalCount()).isEqualTo(100);
         assertThat(response.successCount()).isEqualTo(92);
         assertThat(response.failureCount()).isEqualTo(8);
-        assertThat(response.failureRate()).isEqualTo(8.0);
+        assertThat(response.failureRate()).isEqualByComparingTo(new BigDecimal("8.00"));
         assertThat(response.domainCounts())
                 .extracting(AuditLogSummaryResponse.DomainCountResponse::eventDomain)
                 .containsExactly(AuditEventDomain.AUTH, AuditEventDomain.ASYNC_JOB);
@@ -98,18 +100,27 @@ class AuditLogSummaryServiceTest {
         assertThat(response.asyncJob().succeededCount()).isEqualTo(18);
         assertThat(response.asyncJob().failedCount()).isEqualTo(2);
         assertThat(response.asyncJob().completedCount()).isEqualTo(20);
-        assertThat(response.asyncJob().failureRate()).isEqualTo(10.0);
+        assertThat(response.asyncJob().failureRate()).isEqualByComparingTo(new BigDecimal("10.00"));
         assertThat(response.topFailureReasons().get(0).failureReasonCode()).isEqualTo("A202");
         assertThat(response.recentFailures()).hasSize(1);
 
-        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        ArgumentCaptor<Pageable> topFailurePageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(auditLogEventRepository).findTopFailureReasonsBetween(
                 org.mockito.ArgumentMatchers.eq(AuditOutcome.FAILURE),
                 org.mockito.ArgumentMatchers.eq(expectedFrom),
                 org.mockito.ArgumentMatchers.eq(expectedTo),
-                pageableCaptor.capture()
+                topFailurePageableCaptor.capture()
         );
-        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(5);
+        assertThat(topFailurePageableCaptor.getValue().getPageSize()).isEqualTo(5);
+
+        ArgumentCaptor<Pageable> recentFailurePageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(auditLogEventRepository).findByOutcomeAndOccurredAtBetweenOrderByOccurredAtDesc(
+                org.mockito.ArgumentMatchers.eq(AuditOutcome.FAILURE),
+                org.mockito.ArgumentMatchers.eq(expectedFrom),
+                org.mockito.ArgumentMatchers.eq(expectedTo),
+                recentFailurePageableCaptor.capture()
+        );
+        assertThat(recentFailurePageableCaptor.getValue().getPageSize()).isEqualTo(10);
     }
 
     @Test

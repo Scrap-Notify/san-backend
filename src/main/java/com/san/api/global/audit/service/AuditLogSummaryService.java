@@ -27,6 +27,7 @@ public class AuditLogSummaryService {
 
     private static final int DEFAULT_LOOKBACK_HOURS = 6;
     private static final int TOP_FAILURE_REASON_LIMIT = 5;
+    private static final int RECENT_FAILURE_LIMIT = 10;
 
     private final AuditLogEventRepository auditLogEventRepository;
     private final Clock applicationClock;
@@ -119,23 +120,23 @@ public class AuditLogSummaryService {
     }
 
     private List<AuditLogResponse> recentFailures(TimeRange timeRange) {
-        return auditLogEventRepository.findTop10ByOutcomeAndOccurredAtBetweenOrderByOccurredAtDesc(
+        return auditLogEventRepository.findByOutcomeAndOccurredAtBetweenOrderByOccurredAtDesc(
                         AuditOutcome.FAILURE,
                         timeRange.from(),
-                        timeRange.to()
+                        timeRange.to(),
+                        PageRequest.of(0, RECENT_FAILURE_LIMIT)
                 ).stream()
                 .map(AuditLogResponse::from)
                 .toList();
     }
 
-    private double percentage(long numerator, long denominator) {
+    private BigDecimal percentage(long numerator, long denominator) {
         if (denominator == 0) {
-            return 0.0;
+            return BigDecimal.ZERO.setScale(2);
         }
         return BigDecimal.valueOf(numerator)
                 .multiply(BigDecimal.valueOf(100))
-                .divide(BigDecimal.valueOf(denominator), 2, RoundingMode.HALF_UP)
-                .doubleValue();
+                .divide(BigDecimal.valueOf(denominator), 2, RoundingMode.HALF_UP);
     }
 
     private record TimeRange(LocalDateTime from, LocalDateTime to) {

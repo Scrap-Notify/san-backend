@@ -27,11 +27,11 @@ public class TilSourceService {
     private final S3PresignedUrlService s3PresignedUrlService;
 
     /**
-     * TIL 생성에 사용할 지식카드 원본 목록 구성
+     * TIL 생성에 사용할 지식카드 정제 원본 목록 구성
      *
      * @param userId 사용자 ID
      * @param targetDate TIL 생성 대상 날짜
-     * @return TIL 생성용 지식 원본 목록
+     * @return TIL 생성용 지식 정제 원본 목록
      */
     @Transactional(readOnly = true)
     public TilGenerationSourceResponse getSource(UUID userId, LocalDate targetDate) {
@@ -57,6 +57,11 @@ public class TilSourceService {
      * @return AI TIL 생성 요청에 사용할 원본 DTO
      */
     private TilGenerationSourceContentResponse toSourceContent(Scrap scrap) {
+        String refinedContent = scrap.getRefinedContent();
+        if (!isBlank(refinedContent)) {
+            return new TilGenerationSourceContentResponse("text", refinedContent.trim());
+        }
+
         String content = resolveContent(scrap);
         if (isBlank(content)) {
             throw new BusinessException(TilErrorCode.INVALID_TIL_SOURCE_CONTENT);

@@ -104,6 +104,40 @@ class TilSourceServiceTest {
     }
 
     @Test
+    void getSource_blankRefinedContentAndImageObjectKey_fallsBackToPresignedUrl() {
+        UUID userId = UUID.randomUUID();
+        User user = buildUser(userId);
+        String imageObjectKey = "scrap/images/%s/image.png".formatted(userId);
+        String presignedUrl = "https://bucket.s3.us-east-1.amazonaws.com/scrap/images/image.png?signature=test";
+        Scrap scrap = Scrap.builder()
+                .user(user)
+                .sourceType(SourceType.IMAGE)
+                .rawContent("fallback")
+                .refinedContent(" ")
+                .imageObjectKey(imageObjectKey)
+                .build();
+        KnowledgeCard card = KnowledgeCard.builder()
+                .scrap(scrap)
+                .category(Category.builder().user(user).categoryName("Study").build())
+                .title("Title")
+                .summary("Summary")
+                .build();
+
+        when(knowledgeCardRepository.findTilSourceCards(
+                eq(userId),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        )).thenReturn(List.of(card));
+        when(s3PresignedUrlService.createDownloadPresignedUrl(imageObjectKey)).thenReturn(presignedUrl);
+
+        TilGenerationSourceResponse response = tilSourceService.getSource(userId, LocalDate.of(2026, 5, 12));
+
+        assertThat(response.contents()).hasSize(1);
+        assertThat(response.contents().get(0).inputType()).isEqualTo("image");
+        assertThat(response.contents().get(0).content()).isEqualTo(presignedUrl);
+    }
+
+    @Test
     void getSource_blankRefinedContentAndRawContent_throwsException() {
         UUID userId = UUID.randomUUID();
         User user = buildUser(userId);

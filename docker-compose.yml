@@ -69,7 +69,7 @@ services:
     image: grafana/grafana:11.6.1
     container_name: san-grafana
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy

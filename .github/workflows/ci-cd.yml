@@ -62,9 +62,31 @@ jobs:
 
             # .env 복사
             cp /var/www/san/.env.be .env
+            if ! grep -q '^GRAFANA_PORT=' .env; then
+              printf '\nGRAFANA_PORT=3001\n' >> .env
+            fi
 
-            # Docker 배포 (backend만 재빌드, DB/Redis는 depends_on으로 자동 시작)
-            docker compose up -d --build backend
+            # Docker 배포 (DB/Redis, backend, Grafana)
+            docker compose up -d db redis
+
+            echo "Waiting for database to start..."
+            DB_READY=0
+            for i in {1..12}; do
+              if docker compose exec -T db pg_isready -U san -d san; then
+                docker compose exec -T db bash /docker-entrypoint-initdb.d/02-grafana-reader.sh
+                DB_READY=1
+                break
+              fi
+              echo "Waiting for database... ($i/12)"
+              sleep 5
+            done
+            if [ "$DB_READY" != "1" ]; then
+              echo "Database health check failed:"
+              docker compose logs db
+              exit 1
+            fi
+
+            docker compose up -d --build backend grafana
 
             # 헬스체크 (최대 60초 대기)
             echo "Waiting for backend to start..."

@@ -1,12 +1,7 @@
 package com.san.api.global.scheduler;
 
 import com.san.api.global.outbox.service.OutboxEventRelayService;
-import com.san.api.global.scheduler.service.FailedJobRecoveryService;
-import com.san.api.global.scheduler.service.GhostJobRecoveryService;
-import com.san.api.global.scheduler.service.OrphanScrapRecoveryService;
-import com.san.api.global.scheduler.service.OrphanScrapRefineRecoveryService;
-import com.san.api.global.scheduler.service.RecallQuizAutoGenerationScheduleService;
-import com.san.api.global.scheduler.service.TilAutoGenerationScheduleService;
+import com.san.api.global.scheduler.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -36,7 +31,7 @@ public class BatchScheduler {
     }
 
     /** 처리 가능한 Outbox 이벤트를 30초마다 외부 시스템으로 전달합니다. */
-    // @Scheduled(fixedDelayString = "${outbox.relay.fixed-delay-ms:60000}")
+    @Scheduled(fixedDelayString = "${outbox.relay.fixed-delay-ms:60000}")
     public void relayOutboxEvents() {
         outboxEventRelayService.relayDueEvents();
     }
